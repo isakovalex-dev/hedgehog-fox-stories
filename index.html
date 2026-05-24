@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ежонок и Лисёнок</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Playfair+Display:wght@700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="progress-shell" aria-hidden="true">
+      <div class="reading-progress" id="readingProgress"></div>
+    </div>
+
+    <main id="app">
+      <section class="hero" id="top">
+        <div class="watercolor-sky" aria-hidden="true">
+          <span class="cloud cloud-one"></span>
+          <span class="cloud cloud-two"></span>
+          <span class="sun-wash"></span>
+          <span class="sea-line"></span>
+          <span class="hill hill-one"></span>
+          <span class="hill hill-two"></span>
+          <span class="grass grass-one"></span>
+          <span class="grass grass-two"></span>
+        </div>
+
+        <div class="hero-content">
+          <p class="eyebrow">Интерактивная книжка</p>
+          <h1>Ежонок и Лисёнок</h1>
+          <p class="subtitle">Добрые истории для детей и родителей</p>
+          <div class="hero-actions" aria-label="Главные действия">
+            <button class="button primary" id="chooseStoryButton">Выбрать историю</button>
+            <button class="button secondary" id="readFirstButton">Читать первую</button>
+          </div>
+        </div>
+
+        <div class="hero-friends">
+          <img
+            class="hero-illustration"
+            src="assets/hero-friends.png"
+            alt="Ежонок и Лисёнок сидят на скамейке у моря и смотрят на облака"
+          />
+        </div>
+      </section>
+
+      <section class="stories-section" id="stories">
+        <div class="section-heading">
+          <p class="eyebrow">Выбор истории</p>
+          <h2>Что почитаем сегодня?</h2>
+        </div>
+
+        <div class="filters" id="filters" aria-label="Фильтры историй">
+          <button class="filter-button active" data-filter="all">Все</button>
+          <button class="filter-button" data-filter="5-7">5–7 лет</button>
+          <button class="filter-button" data-filter="8-10">8–10 лет</button>
+          <button class="filter-button" data-filter="bedtime">Перед сном</button>
+          <button class="filter-button" data-filter="friendship">Про дружбу</button>
+          <button class="filter-button" data-filter="bravery">Про смелость</button>
+        </div>
+
+        <div class="story-list" id="storyList" aria-live="polite"></div>
+      </section>
+
+      <section class="reader hidden" id="reader" aria-live="polite">
+        <div class="reader-topbar">
+          <button class="back-link" id="backToStoriesTop">← К историям</button>
+          <span id="readerTitle">История</span>
+        </div>
+        <div class="slides" id="slides"></div>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
