@@ -128,6 +128,10 @@ function getSlideImageUrl(storyId, slideIndex) {
   return `assets/slides-web/${storyId}-${slideIndex + 1}.jpg`;
 }
 
+function getSlideFallbackImageUrl(storyId, slideIndex) {
+  return `assets/slides/${storyId}-${slideIndex + 1}.png`;
+}
+
 // Карточки собираются из массива stories, чтобы позже легко заменить демо-данные.
 function renderStories() {
   const visibleStories = stories.filter((story) => {
@@ -192,6 +196,7 @@ function openStory(storyId) {
   const storySlides = story.slides
     .map((text, index) => {
       const slideImage = getSlideImageUrl(story.id, index);
+      const slideFallbackImage = getSlideFallbackImageUrl(story.id, index);
       return `
         <article
           class="slide"
@@ -204,7 +209,7 @@ function openStory(storyId) {
               class="reader-illustration"
               src="${slideImage}"
               alt="Иллюстрация к истории ${story.title}, страница ${index + 1}"
-              loading="lazy"
+              onerror="this.onerror=null; this.src='${slideFallbackImage}';"
             />
             <p class="slide-text">${text}</p>
           </div>
