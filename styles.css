@@ -264,7 +264,8 @@ h2 {
 
 .button,
 .filter-button,
-.back-link {
+.back-link,
+.like-button {
   min-height: 3.25rem;
   border: 0;
   border-radius: 999px;
@@ -280,7 +281,8 @@ h2 {
 
 .button:hover,
 .filter-button:hover,
-.back-link:hover {
+.back-link:hover,
+.like-button:hover {
   transform: translateY(-2px);
 }
 
@@ -481,6 +483,40 @@ h2 {
   color: var(--muted);
 }
 
+.like-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-width: 8.8rem;
+  padding: 0.7rem 1rem;
+  color: var(--brown);
+  background: rgba(255, 253, 247, 0.82);
+  box-shadow: var(--soft-shadow);
+}
+
+.like-button.liked {
+  color: #fffdf7;
+  background: #c96d4a;
+}
+
+.like-icon {
+  font-size: 1.18rem;
+  line-height: 1;
+}
+
+.like-count {
+  min-width: 1.8rem;
+  padding: 0.08rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(239, 214, 166, 0.52);
+  font-size: 0.95rem;
+}
+
+.like-button.liked .like-count {
+  background: rgba(255, 253, 247, 0.24);
+}
+
 .reader {
   min-height: 100vh;
   background: var(--paper);
@@ -511,6 +547,17 @@ h2 {
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.reader-like {
+  flex: 0 0 auto;
+}
+
+.reader-like .like-button {
+  min-height: 2.75rem;
+  min-width: 8rem;
+  padding: 0.45rem 0.85rem;
+  box-shadow: none;
 }
 
 .back-link {
@@ -683,7 +730,8 @@ h2 {
     flex-direction: column;
   }
 
-  .button {
+  .button,
+  .card-actions .like-button {
     width: 100%;
   }
 
@@ -701,7 +749,15 @@ h2 {
   }
 
   .reader-topbar span {
-    max-width: 48%;
+    max-width: 34%;
+  }
+
+  .reader-like .like-text {
+    display: none;
+  }
+
+  .reader-like .like-button {
+    min-width: 4.4rem;
   }
 
   .slide {

@@ -6,6 +6,7 @@ const stories = [
     time: "5 минут",
     tags: ["5-7", "bedtime", "friendship"],
     imageUrl: "assets/stories/lost-cloud.png",
+    baseLikes: 12,
     colors: ["#cfeaf1", "#f8e9be", "#9fca84"],
     description:
       "Ежонок и Лисёнок встречают маленькое облако, которое никак не может найти дорогу к своему небу.",
@@ -24,6 +25,7 @@ const stories = [
     time: "6 минут",
     tags: ["5-7", "bedtime", "friendship"],
     imageUrl: "assets/stories/sea-bench.png",
+    baseLikes: 18,
     colors: ["#b9dfe9", "#efd6a6", "#d88b5b"],
     description:
       "На тихой скамейке у моря друзья учатся слушать волны и замечать маленькие радости.",
@@ -42,6 +44,7 @@ const stories = [
     time: "7 минут",
     tags: ["5-7", "bravery", "friendship"],
     imageUrl: "assets/stories/hedgehog-bravery.png",
+    baseLikes: 15,
     colors: ["#d9eac5", "#f4d39a", "#8fb779"],
     description:
       "Ежонок думает, что смелость где-то прячется, а Лисёнок помогает ему найти её внутри.",
@@ -60,6 +63,7 @@ const stories = [
     time: "8 минут",
     tags: ["8-10", "bravery", "friendship"],
     imageUrl: "assets/stories/warm-wind-map.png",
+    baseLikes: 9,
     colors: ["#f5c98d", "#cfeaf1", "#d76632"],
     description:
       "Лисёнок рисует карту ветра, чтобы помочь друзьям найти место, где всегда пахнет летом.",
@@ -78,6 +82,7 @@ const stories = [
     time: "7 минут",
     tags: ["8-10", "friendship"],
     imageUrl: "assets/stories/rustling-grass.png",
+    baseLikes: 11,
     colors: ["#b8d79a", "#fff2bd", "#7ebccc"],
     description:
       "В высокой траве кто-то шепчет по вечерам, и друзья решают узнать, что это за тайна.",
@@ -96,6 +101,7 @@ const stories = [
     time: "6 минут",
     tags: ["8-10", "bedtime", "friendship"],
     imageUrl: "assets/stories/star-for-friend.png",
+    baseLikes: 20,
     colors: ["#9dccd8", "#f4d39a", "#6f9a67"],
     description:
       "Друзья ищут подарок для самого маленького жителя леса и находят свет, который можно разделить.",
@@ -119,10 +125,70 @@ const readingProgress = document.querySelector("#readingProgress");
 const chooseStoryButton = document.querySelector("#chooseStoryButton");
 const readFirstButton = document.querySelector("#readFirstButton");
 const backToStoriesTop = document.querySelector("#backToStoriesTop");
+const readerLike = document.querySelector("#readerLike");
 const storiesSection = document.querySelector("#stories");
+const LIKED_STORIES_KEY = "hedgehogFoxLikedStories";
 
 let activeFilter = "all";
 let activeStory = null;
+
+function getLikedStories() {
+  try {
+    const likedStories = JSON.parse(localStorage.getItem(LIKED_STORIES_KEY));
+    return Array.isArray(likedStories) ? likedStories : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLikedStories(likedStories) {
+  localStorage.setItem(LIKED_STORIES_KEY, JSON.stringify(likedStories));
+}
+
+function isStoryLiked(storyId) {
+  return getLikedStories().includes(storyId);
+}
+
+function getStoryLikeCount(story) {
+  const baseLikes = Number.isFinite(story.baseLikes) ? story.baseLikes : 0;
+  return baseLikes + (isStoryLiked(story.id) ? 1 : 0);
+}
+
+function renderLikeButton(story) {
+  const liked = isStoryLiked(story.id);
+  return `
+    <button
+      class="like-button ${liked ? "liked" : ""}"
+      type="button"
+      data-like="${story.id}"
+      aria-pressed="${liked}"
+      aria-label="${liked ? "Убрать лайк" : "Поставить лайк"}: ${story.title}"
+    >
+      <span class="like-icon" aria-hidden="true">${liked ? "♥" : "♡"}</span>
+      <span class="like-text">Нравится</span>
+      <span class="like-count">${getStoryLikeCount(story)}</span>
+    </button>
+  `;
+}
+
+function toggleStoryLike(storyId) {
+  const likedStories = getLikedStories();
+  const likedIndex = likedStories.indexOf(storyId);
+
+  if (likedIndex >= 0) {
+    likedStories.splice(likedIndex, 1);
+  } else {
+    likedStories.push(storyId);
+  }
+
+  saveLikedStories(likedStories);
+  renderStories();
+  renderReaderLike();
+}
+
+function renderReaderLike() {
+  readerLike.innerHTML = activeStory ? renderLikeButton(activeStory) : "";
+}
 
 function getSlideImageUrl(storyId, slideIndex) {
   return `assets/slides-web/${storyId}-${slideIndex + 1}.jpg`;
@@ -164,6 +230,7 @@ function renderStories() {
             <p>${story.description}</p>
             <div class="card-actions">
               <button class="button primary" data-read="${story.id}">Читать</button>
+              ${renderLikeButton(story)}
             </div>
           </div>
         </article>
@@ -187,6 +254,7 @@ function openStory(storyId) {
 
   activeStory = story;
   readerTitle.textContent = story.title;
+  renderReaderLike();
   document.body.classList.add("reading");
   document.querySelector(".hero").classList.add("hidden");
   storiesSection.classList.add("hidden");
@@ -240,6 +308,7 @@ function openStory(storyId) {
 
 function closeReader() {
   activeStory = null;
+  renderReaderLike();
   document.body.classList.remove("reading");
   reader.classList.add("hidden");
   document.querySelector(".hero").classList.remove("hidden");
@@ -262,9 +331,21 @@ filters.addEventListener("click", (event) => {
 });
 
 storyList.addEventListener("click", (event) => {
+  const likeButton = event.target.closest("[data-like]");
+  if (likeButton) {
+    toggleStoryLike(likeButton.dataset.like);
+    return;
+  }
+
   const button = event.target.closest("[data-read]");
   if (!button) return;
   openStory(button.dataset.read);
+});
+
+readerLike.addEventListener("click", (event) => {
+  const likeButton = event.target.closest("[data-like]");
+  if (!likeButton) return;
+  toggleStoryLike(likeButton.dataset.like);
 });
 
 slides.addEventListener("click", (event) => {
