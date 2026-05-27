@@ -154,11 +154,12 @@ function getStoryLikeCount(story) {
   return baseLikes + (isStoryLiked(story.id) ? 1 : 0);
 }
 
-function renderLikeButton(story) {
+function renderLikeButton(story, variant = "") {
   const liked = isStoryLiked(story.id);
+  const variantClass = variant ? ` ${variant}` : "";
   return `
     <button
-      class="like-button ${liked ? "liked" : ""}"
+      class="like-button${variantClass} ${liked ? "liked" : ""}"
       type="button"
       data-like="${story.id}"
       aria-pressed="${liked}"
@@ -187,6 +188,7 @@ function toggleStoryLike(storyId) {
 }
 
 function renderReaderLike() {
+  if (!readerLike) return;
   readerLike.innerHTML = activeStory ? renderLikeButton(activeStory) : "";
 }
 
@@ -226,11 +228,11 @@ function renderStories() {
             <div class="story-meta">
               <span class="pill">${story.age} лет</span>
               <span class="pill">${story.time}</span>
+              ${renderLikeButton(story, "compact")}
             </div>
             <p>${story.description}</p>
             <div class="card-actions">
               <button class="button primary" data-read="${story.id}">Читать</button>
-              ${renderLikeButton(story)}
             </div>
           </div>
         </article>
@@ -294,6 +296,7 @@ function openStory(storyId) {
       <div class="slide-card">
         <span class="slide-kicker">Конец истории</span>
         <p class="slide-text">Спасибо, что читали вместе с Ежонком и Лисёнком.</p>
+        <div class="end-like">${renderLikeButton(story)}</div>
         <div class="end-actions">
           <button class="button secondary" id="backToStoriesEnd">Вернуться к историям</button>
           <button class="button primary" id="readAnother">Читать другую</button>
@@ -342,13 +345,21 @@ storyList.addEventListener("click", (event) => {
   openStory(button.dataset.read);
 });
 
-readerLike.addEventListener("click", (event) => {
-  const likeButton = event.target.closest("[data-like]");
-  if (!likeButton) return;
-  toggleStoryLike(likeButton.dataset.like);
-});
+if (readerLike) {
+  readerLike.addEventListener("click", (event) => {
+    const likeButton = event.target.closest("[data-like]");
+    if (!likeButton) return;
+    toggleStoryLike(likeButton.dataset.like);
+  });
+}
 
 slides.addEventListener("click", (event) => {
+  const likeButton = event.target.closest("[data-like]");
+  if (likeButton) {
+    toggleStoryLike(likeButton.dataset.like);
+    return;
+  }
+
   if (event.target.id === "backToStoriesEnd" || event.target.id === "readAnother") {
     closeReader();
   }
