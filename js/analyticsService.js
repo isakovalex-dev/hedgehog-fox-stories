@@ -10,7 +10,10 @@
     STORY_GENERATED_MOCK: "story_generated_mock",
     LIBRARY_OPENED: "library_opened",
     SUBSCRIPTION_SCREEN_OPENED: "subscription_screen_opened",
-    SUBSCRIPTION_BUTTON_CLICKED: "subscription_button_clicked"
+    SUBSCRIPTION_BUTTON_CLICKED: "subscription_button_clicked",
+    ABOUT_OPENED: "about_opened",
+    ABOUT_READ_STORIES_CLICKED: "about_read_stories_clicked",
+    ABOUT_CREATE_STORY_CLICKED: "about_create_story_clicked"
   };
 
   function getMetrikaCounterId() {

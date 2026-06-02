@@ -10,12 +10,22 @@
       href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Playfair+Display:wght@700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=5" />
+    <link rel="stylesheet" href="styles.css?v=6" />
   </head>
   <body>
     <div class="progress-shell" aria-hidden="true">
       <div class="reading-progress" id="readingProgress"></div>
     </div>
+
+    <nav class="site-nav" aria-label="Навигация сайта">
+      <a class="nav-brand" id="navTopButton" href="#top">Ежонок и Лисёнок</a>
+      <div class="nav-links">
+        <a class="nav-link" id="navStoriesButton" href="#stories">Истории</a>
+        <a class="nav-link" id="navGeneratorButton" href="#generator">Создать</a>
+        <a class="nav-link" id="navLibraryButton" href="#library">Моя библиотека</a>
+        <a class="nav-link" id="navAboutButton" href="#about">Об авторе</a>
+      </div>
+    </nav>
 
     <main id="app">
       <section class="hero" id="top">
@@ -39,6 +49,7 @@
             <button class="button secondary" id="readFirstButton">Читать первую</button>
             <button class="button secondary" id="openGeneratorButton">Создать историю</button>
             <button class="button secondary" id="openLibraryButton">Моя библиотека</button>
+            <button class="button secondary" id="openAboutButton">Об авторе</button>
           </div>
         </div>
 
@@ -159,6 +170,219 @@
         <div class="story-list library-list" id="libraryList" aria-live="polite"></div>
       </section>
 
+      <section class="about-section" id="about">
+        <div class="about-hero">
+          <div class="about-hero-copy">
+            <p class="eyebrow">Творческая мастерская</p>
+            <h2>Об авторе</h2>
+            <p class="about-lead">Как появились истории про Ежонка и Лисёнка</p>
+            <p>
+              Эти истории появились не в издательстве и не за большим писательским столом. Они родились дома —
+              из вечерних разговоров, детских вопросов, смешных идей и желания сделать чтение чуть теплее,
+              ближе и понятнее.
+            </p>
+            <button class="button secondary" data-about-read-stories type="button">Вернуться к историям</button>
+          </div>
+
+          <div class="handwritten-note hero-note" aria-label="Рукописная заметка">
+            <span class="tape tape-left"></span>
+            <p>А давай они будут друзьями?</p>
+            <span class="paperclip" aria-hidden="true"></span>
+          </div>
+        </div>
+
+        <div class="workshop-layout">
+          <article class="notebook-page wide-page">
+            <span class="margin-mark">01</span>
+            <h3>Почему я начал писать</h3>
+            <p>Я начал придумывать эти истории для своих дочек.</p>
+            <p>
+              Сначала это были просто короткие сказки перед сном — такие, которые можно рассказать тихим
+              голосом, когда день уже закончился, в комнате стало спокойно, а за окном темнеет.
+            </p>
+            <p>
+              Потом у историй появились постоянные герои — Ежонок и Лисёнок. Они не были придуманы “по плану”.
+              Скорее, они постепенно выросли из детских фантазий, вопросов и образов, которые нравились моим
+              дочкам.
+            </p>
+            <p>
+              Так Ежонок стал немного застенчивым, добрым и очень любознательным. А Лисёнок — смелым, тёплым,
+              живым и заботливым. Вместе они начали искать облака, разговаривать с ветром, находить маленькие
+              тайны в траве и учиться дружить.
+            </p>
+          </article>
+
+          <aside class="notes-stack" aria-label="Рукописные заметки">
+            <div class="handwritten-note small-note rotate-left">здесь сделать добрее</div>
+            <div class="handwritten-note small-note">добавить смешной момент</div>
+            <div class="handwritten-note small-note rotate-right">не страшно — перед сном</div>
+          </aside>
+        </div>
+
+        <div class="workshop-layout reverse-layout">
+          <article class="notebook-page">
+            <span class="margin-mark">02</span>
+            <h3>Для кого этот сайт</h3>
+            <p>
+              В первую очередь — для детей, которым нравится слушать и читать добрые истории.
+            </p>
+            <p>
+              Эти сказки подойдут детям 5–10 лет: тем, кто только начинает читать сам, и тем, кто уже может
+              читать короткие тексты, но всё ещё любит, когда взрослый рядом.
+            </p>
+            <p>
+              Я хотел, чтобы истории помогали не только засыпать, но и учиться читать: спокойно, без давления,
+              без скучных упражнений, через знакомых и любимых персонажей.
+            </p>
+            <p>
+              Когда ребёнок привязывается к героям, ему проще возвращаться к тексту. Он хочет узнать, что
+              случится дальше. А значит — читает не потому, что “надо”, а потому что интересно.
+            </p>
+          </article>
+
+          <aside class="soft-quote">
+            <span class="tape tape-center"></span>
+            <p>Главная идея простая: чтение легче полюбить, если в книге живут твои друзья.</p>
+          </aside>
+        </div>
+
+        <section class="process-block" aria-labelledby="processTitle">
+          <div class="section-heading">
+            <p class="eyebrow">Черновик становится сказкой</p>
+            <h2 id="processTitle">Как рождается новая история</h2>
+          </div>
+
+          <div class="step-grid">
+            <article class="draft-step">
+              <span>Шаг 1</span>
+              <h3>Идея</h3>
+              <p>
+                Сначала появляется маленькая мысль: облако заблудилось, ветер принёс карту, в траве кто-то
+                шуршит, а на небе зажглась необычная звезда.
+              </p>
+            </article>
+            <article class="draft-step">
+              <span>Шаг 2</span>
+              <h3>Вопрос</h3>
+              <p>
+                Потом появляется вопрос: чему эта история научит? Смелости? Дружбе? Заботе? Умению просить
+                помощи?
+              </p>
+            </article>
+            <article class="draft-step">
+              <span>Шаг 3</span>
+              <h3>Черновик</h3>
+              <p>
+                После этого рождается первый черновик. Он может быть неровным, с помарками и смешными фразами.
+                Но именно в черновике появляется настроение истории.
+              </p>
+            </article>
+            <article class="draft-step">
+              <span>Шаг 4</span>
+              <h3>Книжная страница</h3>
+              <p>
+                А потом история становится короткой сказкой — такой, которую можно прочитать за несколько минут
+                перед сном или днём вместе с ребёнком.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <div class="workshop-layout">
+          <article class="notebook-page">
+            <span class="margin-mark">03</span>
+            <h3>Почему именно Ежонок и Лисёнок</h3>
+            <p>
+              Мне хотелось, чтобы герои были разными, но хорошо дополняли друг друга.
+            </p>
+            <p>
+              Ежонок часто сомневается, осторожничает и задаёт много вопросов. Он похож на ребёнка, который
+              только открывает большой мир и не всегда уверен, что у него всё получится.
+            </p>
+            <p>
+              Лисёнок смелее и быстрее. Но его смелость не про шум и победы. Он умеет поддержать, подождать,
+              заметить настроение друга и сказать простые важные слова.
+            </p>
+            <p>
+              Вместе они показывают, что дружба — это не когда один всегда главный, а когда рядом есть кто-то,
+              с кем легче сделать следующий шаг.
+            </p>
+          </article>
+
+          <aside class="sketch-card" aria-label="Наброски Ежонка и Лисёнка">
+            <div class="sketch-row">
+              <div class="pencil-sketch hedgehog-sketch" aria-hidden="true"></div>
+              <div class="pencil-sketch fox-sketch" aria-hidden="true"></div>
+            </div>
+            <p class="sketch-caption">Набросок Ежонка и Лисёнка</p>
+            <blockquote>
+              Ежонок учит замечать маленькое.<br />
+              Лисёнок учит не бояться большого.
+            </blockquote>
+          </aside>
+        </div>
+
+        <section class="drafts-block" aria-labelledby="draftsTitle">
+          <div class="section-heading">
+            <p class="eyebrow">Немного черновиков</p>
+            <h2 id="draftsTitle">Как растут сказки</h2>
+          </div>
+
+          <article class="notebook-page wide-page">
+            <p>
+              Мне нравится мысль, что каждая история сначала бывает несовершенной. Она появляется как набросок:
+              несколько слов, смешная сцена, фраза ребёнка, случайная мысль перед сном.
+            </p>
+            <p>
+              Поэтому на этой странице есть черновики, карандашные рисунки и пометки — как напоминание, что
+              сказки не возникают сразу готовыми. Они растут постепенно.
+            </p>
+          </article>
+
+          <div class="draft-grid">
+            <article class="draft-card">
+              <span class="draft-label">первый черновик</span>
+              <p>Лисёнок сказал: если облако потерялось, ему просто нужно показать дорогу домой.</p>
+            </article>
+            <article class="draft-card">
+              <span class="draft-label">набросок героя</span>
+              <p>
+                Ежонок хотел быть храбрым. Но сначала он решил быть честным: признался, что ему немного
+                страшно.
+              </p>
+            </article>
+            <article class="draft-card">
+              <span class="draft-label">идея для новой истории</span>
+              <p>Добавить здесь тёплый финал. Чтобы после истории хотелось улыбнуться.</p>
+            </article>
+            <article class="draft-card">
+              <span class="draft-label">заметка на полях</span>
+              <p>Пусть герои говорят просто — так, как говорят дети.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="future-block" aria-labelledby="futureTitle">
+          <div class="notebook-page wide-page">
+            <span class="margin-mark">04</span>
+            <h3 id="futureTitle">Что будет дальше</h3>
+            <p>Этот сайт будет постепенно расти.</p>
+            <p>
+              Здесь будут появляться новые истории, маленькие приключения, добрые открытия и, возможно, целая
+              библиотека сказок, которые родители смогут читать вместе с детьми.
+            </p>
+            <p>
+              Я хочу, чтобы “Ежонок и Лисёнок” стали местом, куда можно вернуться вечером — спокойно выбрать
+              историю, устроиться поудобнее и провести несколько тёплых минут вместе.
+            </p>
+            <div class="about-actions">
+              <button class="button primary" data-about-read-stories type="button">Читать истории</button>
+              <button class="button secondary" data-about-create-story type="button">Создать свою историю</button>
+            </div>
+          </div>
+        </section>
+      </section>
+
       <section class="reader hidden" id="reader" aria-live="polite">
         <div class="reader-topbar">
           <button class="back-link" id="backToStoriesTop">← К историям</button>
@@ -169,11 +393,11 @@
       </section>
     </main>
 
-    <script src="js/storageService.js?v=5"></script>
-    <script src="js/storyService.js?v=5"></script>
-    <script src="js/likeService.js?v=5"></script>
-    <script src="js/subscriptionService.js?v=5"></script>
-    <script src="js/analyticsService.js?v=5"></script>
-    <script src="js/app.js?v=5"></script>
+    <script src="js/storageService.js?v=6"></script>
+    <script src="js/storyService.js?v=6"></script>
+    <script src="js/likeService.js?v=6"></script>
+    <script src="js/subscriptionService.js?v=6"></script>
+    <script src="js/analyticsService.js?v=6"></script>
+    <script src="js/app.js?v=6"></script>
   </body>
 </html>

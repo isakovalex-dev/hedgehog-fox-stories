@@ -15,10 +15,16 @@
   const slides = document.querySelector("#slides");
   const readerTitle = document.querySelector("#readerTitle");
   const readingProgress = document.querySelector("#readingProgress");
+  const navTopButton = document.querySelector("#navTopButton");
+  const navStoriesButton = document.querySelector("#navStoriesButton");
+  const navGeneratorButton = document.querySelector("#navGeneratorButton");
+  const navLibraryButton = document.querySelector("#navLibraryButton");
+  const navAboutButton = document.querySelector("#navAboutButton");
   const chooseStoryButton = document.querySelector("#chooseStoryButton");
   const readFirstButton = document.querySelector("#readFirstButton");
   const openGeneratorButton = document.querySelector("#openGeneratorButton");
   const openLibraryButton = document.querySelector("#openLibraryButton");
+  const openAboutButton = document.querySelector("#openAboutButton");
   const backToStoriesTop = document.querySelector("#backToStoriesTop");
   const readerLike = document.querySelector("#readerLike");
   const generatorForm = document.querySelector("#generatorForm");
@@ -28,6 +34,7 @@
   const storiesSection = document.querySelector("#stories");
   const generatorSection = document.querySelector("#generator");
   const librarySection = document.querySelector("#library");
+  const aboutSection = document.querySelector("#about");
   const hero = document.querySelector(".hero");
 
   const moodLabels = {
@@ -87,8 +94,13 @@
   }
 
   function scrollToSection(section, eventName) {
+    if (!section) return;
     section.scrollIntoView({ behavior: "smooth", block: "start" });
     if (eventName) trackEvent(eventName);
+  }
+
+  function openAboutSection() {
+    scrollToSection(aboutSection, EVENTS.ABOUT_OPENED);
   }
 
   function getUsageText() {
@@ -273,6 +285,7 @@
     storiesSection.classList.add("hidden");
     generatorSection.classList.add("hidden");
     librarySection.classList.add("hidden");
+    aboutSection.classList.add("hidden");
     reader.classList.remove("hidden");
 
     const [top, mid, bottom] = activeStory.colors;
@@ -333,6 +346,7 @@
     storiesSection.classList.remove("hidden");
     generatorSection.classList.remove("hidden");
     librarySection.classList.remove("hidden");
+    aboutSection.classList.remove("hidden");
     readingProgress.style.width = "0%";
     storiesSection.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -525,6 +539,24 @@
     scrollToSection(storiesSection);
   });
 
+  navTopButton.addEventListener("click", () => {
+    scrollToSection(hero);
+  });
+
+  navStoriesButton.addEventListener("click", () => {
+    scrollToSection(storiesSection);
+  });
+
+  navGeneratorButton.addEventListener("click", () => {
+    scrollToSection(generatorSection, EVENTS.GENERATOR_OPENED);
+  });
+
+  navLibraryButton.addEventListener("click", () => {
+    scrollToSection(librarySection, EVENTS.LIBRARY_OPENED);
+  });
+
+  navAboutButton.addEventListener("click", openAboutSection);
+
   readFirstButton.addEventListener("click", () => {
     const [firstStory] = storyService.getAllStories();
     if (firstStory) openStory(firstStory.id);
@@ -536,6 +568,22 @@
 
   openLibraryButton.addEventListener("click", () => {
     scrollToSection(librarySection, EVENTS.LIBRARY_OPENED);
+  });
+
+  openAboutButton.addEventListener("click", openAboutSection);
+
+  document.querySelectorAll("[data-about-read-stories]").forEach((button) => {
+    button.addEventListener("click", () => {
+      trackEvent(EVENTS.ABOUT_READ_STORIES_CLICKED);
+      scrollToSection(storiesSection);
+    });
+  });
+
+  document.querySelectorAll("[data-about-create-story]").forEach((button) => {
+    button.addEventListener("click", () => {
+      trackEvent(EVENTS.ABOUT_CREATE_STORY_CLICKED);
+      scrollToSection(generatorSection);
+    });
   });
 
   document.addEventListener("keydown", (event) => {
