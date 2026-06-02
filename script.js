@@ -2,12 +2,12 @@
   "use strict";
 
   const scripts = [
-    "js/storageService.js?v=4",
-    "js/storyService.js?v=4",
-    "js/likeService.js?v=4",
-    "js/subscriptionService.js?v=4",
-    "js/analyticsService.js?v=4",
-    "js/app.js?v=4"
+    "js/storageService.js?v=5",
+    "js/storyService.js?v=5",
+    "js/likeService.js?v=5",
+    "js/subscriptionService.js?v=5",
+    "js/analyticsService.js?v=5",
+    "js/app.js?v=5"
   ];
 
   function loadNextScript(index) {

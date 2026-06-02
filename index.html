@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Playfair+Display:wght@700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=4" />
+    <link rel="stylesheet" href="styles.css?v=5" />
   </head>
   <body>
     <div class="progress-shell" aria-hidden="true">
@@ -37,6 +37,8 @@
           <div class="hero-actions" aria-label="Главные действия">
             <button class="button primary" id="chooseStoryButton">Выбрать историю</button>
             <button class="button secondary" id="readFirstButton">Читать первую</button>
+            <button class="button secondary" id="openGeneratorButton">Создать историю</button>
+            <button class="button secondary" id="openLibraryButton">Моя библиотека</button>
           </div>
         </div>
 
@@ -67,6 +69,96 @@
         <div class="story-list" id="storyList" aria-live="polite"></div>
       </section>
 
+      <section class="generator-section" id="generator">
+        <div class="section-heading">
+          <p class="eyebrow">Создать историю</p>
+          <h2>Новая сказка для вечера</h2>
+        </div>
+
+        <div class="generator-shell">
+          <form class="generator-form" id="generatorForm">
+            <label class="field">
+              <span>Тема истории</span>
+              <input
+                id="storyTopic"
+                name="topic"
+                type="text"
+                maxlength="80"
+                placeholder="Например: потерянная ракушка"
+                required
+              />
+            </label>
+
+            <fieldset class="field-group">
+              <legend>Возраст</legend>
+              <label><input type="radio" name="ageGroup" value="5-7" checked /> 5–7</label>
+              <label><input type="radio" name="ageGroup" value="8-10" /> 8–10</label>
+            </fieldset>
+
+            <label class="field">
+              <span>Настроение</span>
+              <select id="storyMood" name="mood">
+                <option value="bedtime">Перед сном</option>
+                <option value="adventure">Приключение</option>
+                <option value="friendship">Про дружбу</option>
+                <option value="bravery">Про смелость</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Чему должна научить история</span>
+              <textarea
+                id="storyLesson"
+                name="lesson"
+                rows="3"
+                maxlength="160"
+                placeholder="Например: помогать друзьям и не бояться спрашивать"
+                required
+              ></textarea>
+            </label>
+
+            <fieldset class="field-group">
+              <legend>Количество страниц</legend>
+              <label><input type="radio" name="pageCount" value="3" checked /> 3</label>
+              <label><input type="radio" name="pageCount" value="4" /> 4</label>
+              <label><input type="radio" name="pageCount" value="5" /> 5</label>
+            </fieldset>
+
+            <fieldset class="field-group">
+              <legend>Иллюстрации</legend>
+              <label><input type="radio" name="illustrations" value="yes" checked /> Да</label>
+              <label><input type="radio" name="illustrations" value="no" /> Нет</label>
+            </fieldset>
+
+            <div class="generator-actions">
+              <button class="button primary" type="submit">Создать историю</button>
+              <p class="generation-status" id="generationStatus" aria-live="polite"></p>
+            </div>
+          </form>
+
+          <aside class="subscription-panel hidden" id="subscriptionScreen" aria-live="polite">
+            <p class="eyebrow">Оформить подписку</p>
+            <h3>Лимит историй закончился</h3>
+            <p>
+              В бесплатном режиме можно создать 1 историю. Mock-подписка включает до 20 историй в месяц.
+            </p>
+            <button class="button primary" id="activateSubscriptionButton" type="button">
+              Активировать mock-подписку
+            </button>
+          </aside>
+        </div>
+      </section>
+
+      <section class="library-section" id="library">
+        <div class="section-heading">
+          <p class="eyebrow">Моя библиотека</p>
+          <h2>Истории, которые вы создали</h2>
+        </div>
+
+        <div class="library-status" id="libraryStatus" aria-live="polite"></div>
+        <div class="story-list library-list" id="libraryList" aria-live="polite"></div>
+      </section>
+
       <section class="reader hidden" id="reader" aria-live="polite">
         <div class="reader-topbar">
           <button class="back-link" id="backToStoriesTop">← К историям</button>
@@ -77,11 +169,11 @@
       </section>
     </main>
 
-    <script src="js/storageService.js?v=4"></script>
-    <script src="js/storyService.js?v=4"></script>
-    <script src="js/likeService.js?v=4"></script>
-    <script src="js/subscriptionService.js?v=4"></script>
-    <script src="js/analyticsService.js?v=4"></script>
-    <script src="js/app.js?v=4"></script>
+    <script src="js/storageService.js?v=5"></script>
+    <script src="js/storyService.js?v=5"></script>
+    <script src="js/likeService.js?v=5"></script>
+    <script src="js/subscriptionService.js?v=5"></script>
+    <script src="js/analyticsService.js?v=5"></script>
+    <script src="js/app.js?v=5"></script>
   </body>
 </html>

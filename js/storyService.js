@@ -3,7 +3,7 @@
 
   const USER_STORIES_KEY = "hedgehogFoxUserStories";
   const DEFAULT_COLORS = ["#cfeaf1", "#f8e9be", "#9fca84"];
-  const DEFAULT_IMAGE = "assets/stories/lost-cloud.png";
+  const DEFAULT_SCENE_TAG = "forest_day";
 
   const builtInStories = [
     {
@@ -166,12 +166,13 @@
       ageGroup,
       time: story.time || `${Math.max(3, slides.length || 1)} минут`,
       tags,
-      imageUrl: story.imageUrl || DEFAULT_IMAGE,
+      imageUrl: story.imageUrl || "",
       baseLikes: Number.isFinite(story.baseLikes) ? story.baseLikes : 0,
       colors: Array.isArray(story.colors) && story.colors.length >= 3 ? story.colors : DEFAULT_COLORS,
       description: story.description || "Добрая история про Ежонка и Лисёнка.",
       slides,
       pages,
+      useIllustrations: story.useIllustrations !== false,
       source
     };
   }
@@ -227,15 +228,25 @@
 
   function prepareStoryForReader(story) {
     const normalizedStory = normalizeStory(story, story.source || "built-in");
+    const isBuiltInStory = normalizedStory.source === "built-in";
 
     return {
       ...normalizedStory,
-      readerPages: normalizedStory.slides.map((text, index) => ({
-        pageNumber: index + 1,
-        text,
-        imageUrl: getSlideImageUrl(normalizedStory.id, index),
-        fallbackImageUrl: getSlideFallbackImageUrl(normalizedStory.id, index)
-      }))
+      readerPages: normalizedStory.slides.map((text, index) => {
+        const page = normalizedStory.pages[index] || {};
+        const sceneTag = page.sceneTag || normalizedStory.sceneTag || DEFAULT_SCENE_TAG;
+
+        return {
+          pageNumber: index + 1,
+          text,
+          sceneTag,
+          imagePrompt: page.imagePrompt || "",
+          imageUrl: page.imageUrl || (isBuiltInStory ? getSlideImageUrl(normalizedStory.id, index) : ""),
+          fallbackImageUrl: isBuiltInStory ? getSlideFallbackImageUrl(normalizedStory.id, index) : "",
+          useSceneIllustration:
+            !page.imageUrl && !isBuiltInStory && normalizedStory.useIllustrations !== false
+        };
+      })
     };
   }
 
