@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Playfair+Display:wght@700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=7" />
+    <link rel="stylesheet" href="styles.css?v=8" />
   </head>
   <body>
     <div class="progress-shell" aria-hidden="true">
@@ -164,6 +164,42 @@
         <div class="section-heading">
           <p class="eyebrow">Моя библиотека</p>
           <h2>Истории, которые вы создали</h2>
+        </div>
+
+        <div class="auth-panel" id="authPanel">
+          <div class="auth-copy">
+            <p class="eyebrow">Аккаунт</p>
+            <h3>Сохранение историй</h3>
+            <p class="auth-status" id="authStatus" aria-live="polite">
+              Без входа истории сохраняются на этом устройстве.
+            </p>
+          </div>
+
+          <form class="auth-form" id="authForm">
+            <label class="field">
+              <span>Email</span>
+              <input id="authEmail" name="email" type="email" autocomplete="email" placeholder="you@example.com" />
+            </label>
+            <label class="field">
+              <span>Пароль</span>
+              <input
+                id="authPassword"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                minlength="6"
+                placeholder="Минимум 6 символов"
+              />
+            </label>
+            <div class="auth-buttons">
+              <button class="button primary" data-auth-action="signin" type="submit">Войти</button>
+              <button class="button secondary" data-auth-action="signup" type="submit">Зарегистрироваться</button>
+            </div>
+          </form>
+
+          <div class="auth-actions hidden" id="authSessionActions">
+            <button class="button secondary" id="signOutButton" type="button">Выйти</button>
+          </div>
         </div>
 
         <div class="library-status" id="libraryStatus" aria-live="polite"></div>
@@ -412,11 +448,13 @@
       </section>
     </main>
 
-    <script src="js/storageService.js?v=7"></script>
-    <script src="js/storyService.js?v=7"></script>
-    <script src="js/likeService.js?v=7"></script>
-    <script src="js/subscriptionService.js?v=7"></script>
-    <script src="js/analyticsService.js?v=7"></script>
-    <script src="js/app.js?v=7"></script>
+    <script src="js/config.js?v=8"></script>
+    <script src="js/storageService.js?v=8"></script>
+    <script src="js/supabaseService.js?v=8"></script>
+    <script src="js/storyService.js?v=8"></script>
+    <script src="js/likeService.js?v=8"></script>
+    <script src="js/subscriptionService.js?v=8"></script>
+    <script src="js/analyticsService.js?v=8"></script>
+    <script src="js/app.js?v=8"></script>
   </body>
 </html>

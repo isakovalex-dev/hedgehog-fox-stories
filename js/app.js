@@ -5,6 +5,7 @@
   const likeService = window.HFLikeService;
   const subscriptionService = window.HFSubscriptionService;
   const analyticsService = window.HFAnalyticsService;
+  const supabaseService = window.HFSupabaseService;
   const { EVENTS, trackEvent } = analyticsService;
 
   const storyList = document.querySelector("#storyList");
@@ -31,6 +32,11 @@
   const generationStatus = document.querySelector("#generationStatus");
   const subscriptionScreen = document.querySelector("#subscriptionScreen");
   const activateSubscriptionButton = document.querySelector("#activateSubscriptionButton");
+  const authPanel = document.querySelector("#authPanel");
+  const authForm = document.querySelector("#authForm");
+  const authStatus = document.querySelector("#authStatus");
+  const authSessionActions = document.querySelector("#authSessionActions");
+  const signOutButton = document.querySelector("#signOutButton");
   const storiesSection = document.querySelector("#stories");
   const generatorSection = document.querySelector("#generator");
   const librarySection = document.querySelector("#library");
@@ -68,6 +74,7 @@
   let activeFilter = "all";
   let activeStory = null;
   let activeStoryFinishedTracked = false;
+  let authNotice = { message: "", tone: "" };
 
   function escapeHtml(value) {
     return String(value)
@@ -113,6 +120,79 @@
   function updateGenerationStatus(message = "") {
     if (!generationStatus) return;
     generationStatus.textContent = message || getUsageText();
+  }
+
+  function getStorageStatusText() {
+    const storageState = storyService.getUserStoriesStorageState();
+
+    if (storageState.mode === "supabase") {
+      return "Истории синхронизируются с Supabase.";
+    }
+
+    if (storageState.mode === "local_fallback") {
+      return `Supabase временно недоступен, используется localStorage. ${storageState.lastError || ""}`.trim();
+    }
+
+    return "Истории сохраняются на этом устройстве.";
+  }
+
+  function setAuthNotice(message = "", tone = "") {
+    authNotice = { message, tone };
+  }
+
+  function setAuthFormBusy(isBusy) {
+    if (!authForm) return;
+
+    authForm.querySelectorAll("input, button").forEach((element) => {
+      element.disabled = isBusy;
+    });
+  }
+
+  function renderAuthPanel() {
+    if (!authPanel || !authStatus) return;
+
+    const authState = supabaseService?.getAuthState?.() || { status: "disabled" };
+    const user = authState.user || authState.session?.user || null;
+    const storageState = storyService.getUserStoriesStorageState();
+    const isSignedIn = authState.status === "signed_in" && user?.email;
+    const hasFallback = storageState.mode === "local_fallback";
+
+    authStatus.classList.remove("success", "warning");
+
+    if (!supabaseService?.isEnabled?.()) {
+      authForm?.classList.add("hidden");
+      authSessionActions?.classList.add("hidden");
+      authStatus.textContent = "Supabase выключен в конфиге. Истории сохраняются локально.";
+      authStatus.classList.add("warning");
+      return;
+    }
+
+    if (isSignedIn) {
+      authForm?.classList.add("hidden");
+      authSessionActions?.classList.remove("hidden");
+      authStatus.textContent = hasFallback
+        ? `Вы вошли как ${user.email}, но Supabase сейчас недоступен. Истории временно сохраняются локально.`
+        : `Вы вошли как ${user.email}. ${getStorageStatusText()}`;
+      authStatus.classList.add(hasFallback ? "warning" : "success");
+      return;
+    }
+
+    authForm?.classList.remove("hidden");
+    authSessionActions?.classList.add("hidden");
+
+    if (authNotice.message) {
+      authStatus.textContent = authNotice.message;
+      if (authNotice.tone) authStatus.classList.add(authNotice.tone);
+      return;
+    }
+
+    if (authState.status === "pending_confirmation") {
+      authStatus.textContent = "Регистрация создана. Проверьте почту и подтвердите email, если Supabase требует подтверждение.";
+      authStatus.classList.add("warning");
+      return;
+    }
+
+    authStatus.textContent = `Без входа ${getStorageStatusText()}`;
   }
 
   function showSubscriptionScreen() {
@@ -208,10 +288,11 @@
 
   function renderLibrary() {
     const userStories = storyService.getUserStories();
+    const storageText = getStorageStatusText();
 
     libraryStatus.textContent = userStories.length
-      ? `${userStories.length} пользовательских историй. ${getUsageText()}`
-      : `Пока нет пользовательских историй. ${getUsageText()}`;
+      ? `${userStories.length} пользовательских историй. ${storageText} ${getUsageText()}`
+      : `Пока нет пользовательских историй. ${storageText} ${getUsageText()}`;
 
     libraryList.innerHTML = userStories
       .map((story) => renderStoryCard(story, { canDelete: true }))
@@ -442,7 +523,7 @@
     };
   }
 
-  function handleGeneratorSubmit(event) {
+  async function handleGeneratorSubmit(event) {
     event.preventDefault();
 
     if (!subscriptionService.canGenerateStory()) {
@@ -452,19 +533,33 @@
 
     const formData = new FormData(generatorForm);
     const story = buildMockStory(formData);
-    const savedStory = storyService.saveUserStory(story);
 
-    subscriptionService.incrementGenerationUsage();
-    hideSubscriptionScreen();
-    updateGenerationStatus("История создана и сохранена в библиотеке.");
-    renderAllStoryLists();
-    generatorForm.reset();
-    librarySection.scrollIntoView({ behavior: "smooth", block: "start" });
-    trackEvent(EVENTS.STORY_GENERATED_MOCK, {
-      storyId: savedStory.id,
-      pageCount: savedStory.pages.length,
-      mood: savedStory.mood
-    });
+    try {
+      updateGenerationStatus("Сохраняю историю...");
+      const savedStory = await storyService.saveUserStory(story);
+      const storageState = storyService.getUserStoriesStorageState();
+
+      subscriptionService.incrementGenerationUsage();
+      hideSubscriptionScreen();
+      updateGenerationStatus(
+        storageState.mode === "supabase"
+          ? "История создана и сохранена в Supabase."
+          : "История создана и сохранена локально."
+      );
+      renderAuthPanel();
+      renderAllStoryLists();
+      generatorForm.reset();
+      librarySection.scrollIntoView({ behavior: "smooth", block: "start" });
+      trackEvent(EVENTS.STORY_GENERATED_MOCK, {
+        storyId: savedStory.id,
+        pageCount: savedStory.pages.length,
+        mood: savedStory.mood
+      });
+    } catch (error) {
+      console.warn("[app] Cannot save generated story", error);
+      updateGenerationStatus(`Не удалось сохранить историю: ${error.message || "ошибка"}`);
+      renderAuthPanel();
+    }
   }
 
   function handleStoryListClick(event) {
@@ -480,16 +575,79 @@
     }
   }
 
-  function handleLibraryClick(event) {
+  async function handleLibraryClick(event) {
     const deleteButton = event.target.closest("[data-delete-story]");
     if (deleteButton) {
-      storyService.deleteUserStory(deleteButton.dataset.deleteStory);
-      renderAllStoryLists();
-      updateGenerationStatus();
+      deleteButton.disabled = true;
+
+      try {
+        await storyService.deleteUserStory(deleteButton.dataset.deleteStory);
+        renderAuthPanel();
+        renderAllStoryLists();
+        updateGenerationStatus();
+      } catch (error) {
+        console.warn("[app] Cannot delete user story", error);
+        renderAuthPanel();
+        libraryStatus.textContent = `Не удалось удалить историю: ${error.message || "ошибка Supabase"}`;
+      } finally {
+        deleteButton.disabled = false;
+      }
+
       return;
     }
 
     handleStoryListClick(event);
+  }
+
+  async function handleAuthSubmit(event) {
+    event.preventDefault();
+    if (!supabaseService?.isEnabled?.()) return;
+
+    const formData = new FormData(authForm);
+    const email = String(formData.get("email") || "").trim();
+    const password = String(formData.get("password") || "");
+    const action = event.submitter?.dataset.authAction || "signin";
+
+    if (!email || !password) {
+      setAuthNotice("Введите email и пароль.", "warning");
+      renderAuthPanel();
+      return;
+    }
+
+    setAuthFormBusy(true);
+    setAuthNotice(action === "signup" ? "Создаю аккаунт..." : "Выполняю вход...", "");
+    renderAuthPanel();
+
+    try {
+      if (action === "signup") {
+        await supabaseService.signUpWithPassword(email, password);
+        setAuthNotice("Аккаунт создан. Если Supabase требует подтверждение email, проверьте почту.", "success");
+      } else {
+        await supabaseService.signInWithPassword(email, password);
+        setAuthNotice("Вход выполнен.", "success");
+      }
+
+      await storyService.initializeUserStories();
+      authForm.reset();
+      renderAuthPanel();
+      renderAllStoryLists();
+    } catch (error) {
+      console.warn("[app] Auth failed", error);
+      setAuthNotice(`Не удалось выполнить действие: ${error.message || "ошибка Supabase"}`, "warning");
+      renderAuthPanel();
+    } finally {
+      setAuthFormBusy(false);
+    }
+  }
+
+  async function handleSignOut() {
+    if (!supabaseService?.isEnabled?.()) return;
+
+    await supabaseService.signOut();
+    await storyService.initializeUserStories();
+    setAuthNotice("Вы вышли из аккаунта. Теперь истории снова сохраняются локально.", "warning");
+    renderAuthPanel();
+    renderAllStoryLists();
   }
 
   filters.addEventListener("click", (event) => {
@@ -502,6 +660,14 @@
   libraryList.addEventListener("click", handleLibraryClick);
 
   generatorForm.addEventListener("submit", handleGeneratorSubmit);
+
+  if (authForm) {
+    authForm.addEventListener("submit", handleAuthSubmit);
+  }
+
+  if (signOutButton) {
+    signOutButton.addEventListener("click", handleSignOut);
+  }
 
   activateSubscriptionButton.addEventListener("click", () => {
     trackEvent(EVENTS.SUBSCRIPTION_BUTTON_CLICKED);
@@ -592,6 +758,18 @@
     }
   });
 
-  updateGenerationStatus();
-  renderAllStoryLists();
+  async function initializeApp() {
+    updateGenerationStatus();
+    renderAuthPanel();
+    renderAllStoryLists();
+
+    if (supabaseService?.isEnabled?.()) {
+      await supabaseService.initializeAuth();
+      await storyService.initializeUserStories();
+      renderAuthPanel();
+      renderAllStoryLists();
+    }
+  }
+
+  initializeApp();
 })(window, document);

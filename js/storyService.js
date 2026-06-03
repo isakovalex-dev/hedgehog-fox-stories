@@ -2,8 +2,14 @@
   "use strict";
 
   const USER_STORIES_KEY = "hedgehogFoxUserStories";
+  const REMOTE_STORY_META_KEY = "hedgehogFoxSupabaseStoryMeta";
   const DEFAULT_COLORS = ["#cfeaf1", "#f8e9be", "#9fca84"];
   const DEFAULT_SCENE_TAG = "forest_day";
+  const supabaseService = window.HFSupabaseService;
+
+  let remoteUserStories = [];
+  let storageMode = "local";
+  let lastStorageError = "";
 
   const builtInStories = [
     {
@@ -181,11 +187,100 @@
     return builtInStories.map((story) => normalizeStory(cloneStory(story), "built-in"));
   }
 
-  function getUserStories() {
+  function getLocalUserStories() {
     const stories = window.HFStorageService.getJSON(USER_STORIES_KEY, []);
     if (!Array.isArray(stories)) return [];
 
-    return stories.map((story) => normalizeStory(story, "user"));
+    return stories.map((story) => normalizeStory({ ...story, storage: "local" }, "user"));
+  }
+
+  function saveLocalUserStory(story) {
+    const storyToSave = normalizeStory(
+      {
+        ...story,
+        id: story.id || `user-story-${Date.now()}`,
+        storage: "local",
+        baseLikes: Number.isFinite(story.baseLikes) ? story.baseLikes : 0,
+        createdAt: story.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      "user"
+    );
+    const savedStories = getLocalUserStories().filter((item) => item.id !== storyToSave.id);
+
+    window.HFStorageService.setJSON(USER_STORIES_KEY, [...savedStories, storyToSave]);
+    return storyToSave;
+  }
+
+  function deleteLocalUserStory(storyId) {
+    const nextStories = getLocalUserStories().filter((story) => story.id !== storyId);
+    window.HFStorageService.setJSON(USER_STORIES_KEY, nextStories);
+  }
+
+  function getRemoteStoryMeta() {
+    const meta = window.HFStorageService.getJSON(REMOTE_STORY_META_KEY, {});
+    return meta && typeof meta === "object" && !Array.isArray(meta) ? meta : {};
+  }
+
+  function saveRemoteStoryMeta(story) {
+    const meta = getRemoteStoryMeta();
+    meta[story.id] = {
+      colors: story.colors,
+      description: story.description,
+      imageUrl: story.imageUrl,
+      tags: story.tags,
+      time: story.time,
+      useIllustrations: story.useIllustrations
+    };
+    window.HFStorageService.setJSON(REMOTE_STORY_META_KEY, meta);
+  }
+
+  function deleteRemoteStoryMeta(storyId) {
+    const meta = getRemoteStoryMeta();
+    delete meta[storyId];
+    window.HFStorageService.setJSON(REMOTE_STORY_META_KEY, meta);
+  }
+
+  function applyRemoteStoryMeta(story) {
+    const meta = getRemoteStoryMeta()[story.id];
+    return meta ? { ...story, ...meta } : story;
+  }
+
+  function canUseSupabaseStories() {
+    return Boolean(supabaseService?.isEnabled?.() && supabaseService?.isAuthenticated?.());
+  }
+
+  async function initializeUserStories() {
+    if (!canUseSupabaseStories()) {
+      remoteUserStories = [];
+      storageMode = "local";
+      lastStorageError = "";
+      return getUserStories();
+    }
+
+    try {
+      const stories = await supabaseService.fetchUserStories();
+      remoteUserStories = stories.map((story) =>
+        normalizeStory({ ...applyRemoteStoryMeta(story), storage: "supabase" }, "user")
+      );
+      storageMode = "supabase";
+      lastStorageError = "";
+    } catch (error) {
+      console.warn("[storyService] Supabase stories unavailable, using localStorage", error);
+      remoteUserStories = [];
+      storageMode = "local_fallback";
+      lastStorageError = error.message || "Supabase недоступен";
+    }
+
+    return getUserStories();
+  }
+
+  function getUserStories() {
+    if (storageMode === "supabase") {
+      return remoteUserStories.map((story) => normalizeStory(cloneStory(story), "user"));
+    }
+
+    return getLocalUserStories();
   }
 
   function getAllStories() {
@@ -196,7 +291,7 @@
     return getAllStories().find((story) => story.id === storyId) || null;
   }
 
-  function saveUserStory(story) {
+  async function saveUserStory(story) {
     const storyToSave = normalizeStory(
       {
         ...story,
@@ -207,15 +302,60 @@
       },
       "user"
     );
-    const savedStories = getUserStories().filter((item) => item.id !== storyToSave.id);
 
-    window.HFStorageService.setJSON(USER_STORIES_KEY, [...savedStories, storyToSave]);
-    return storyToSave;
+    if (canUseSupabaseStories()) {
+      try {
+        const savedStory = normalizeStory(
+          {
+            ...(await supabaseService.saveUserStory(storyToSave)),
+            storage: "supabase"
+          },
+          "user"
+        );
+
+        remoteUserStories = [
+          savedStory,
+          ...remoteUserStories.filter((item) => item.id !== savedStory.id)
+        ];
+        saveRemoteStoryMeta(savedStory);
+        storageMode = "supabase";
+        lastStorageError = "";
+        return savedStory;
+      } catch (error) {
+        console.warn("[storyService] Cannot save to Supabase, using localStorage fallback", error);
+        storageMode = "local_fallback";
+        lastStorageError = error.message || "Supabase недоступен";
+      }
+    }
+
+    return saveLocalUserStory(storyToSave);
   }
 
-  function deleteUserStory(storyId) {
-    const nextStories = getUserStories().filter((story) => story.id !== storyId);
-    window.HFStorageService.setJSON(USER_STORIES_KEY, nextStories);
+  async function deleteUserStory(storyId) {
+    if (storageMode === "supabase" && canUseSupabaseStories()) {
+      try {
+        await supabaseService.deleteUserStory(storyId);
+        remoteUserStories = remoteUserStories.filter((story) => story.id !== storyId);
+        deleteRemoteStoryMeta(storyId);
+        lastStorageError = "";
+        return;
+      } catch (error) {
+        console.warn("[storyService] Cannot delete from Supabase", error);
+        lastStorageError = error.message || "Не удалось удалить историю из Supabase";
+        throw error;
+      }
+    }
+
+    deleteLocalUserStory(storyId);
+  }
+
+  function getUserStoriesStorageState() {
+    return {
+      mode: storageMode,
+      isRemote: storageMode === "supabase",
+      isFallback: storageMode === "local_fallback",
+      lastError: lastStorageError
+    };
   }
 
   function getSlideImageUrl(storyId, slideIndex) {
@@ -255,8 +395,10 @@
     getUserStories,
     getAllStories,
     getStoryById,
+    initializeUserStories,
     saveUserStory,
     deleteUserStory,
+    getUserStoriesStorageState,
     prepareStoryForReader
   };
 })(window);
