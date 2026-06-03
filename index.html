@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Playfair+Display:wght@700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=8" />
+    <link rel="stylesheet" href="styles.css?v=9" />
   </head>
   <body>
     <div class="progress-shell" aria-hidden="true">
@@ -147,11 +147,15 @@
             </div>
           </form>
 
-          <aside class="subscription-panel hidden" id="subscriptionScreen" aria-live="polite">
-            <p class="eyebrow">Оформить подписку</p>
-            <h3>Лимит историй закончился</h3>
+          <aside class="subscription-panel" id="subscriptionScreen" aria-live="polite">
+            <p class="eyebrow">Подписка</p>
+            <h3 id="subscriptionTitle">Ваш тариф: Бесплатный</h3>
+            <p class="subscription-usage" id="subscriptionUsageText">Использовано: 0 из 1 историй.</p>
+            <p class="subscription-period" id="subscriptionPeriodText">Период будет создан при первой синхронизации.</p>
+            <p class="subscription-warning hidden" id="subscriptionWarning"></p>
+            <p class="subscription-fallback hidden" id="subscriptionFallbackNotice"></p>
             <p>
-              В бесплатном режиме можно создать 1 историю. Mock-подписка включает до 20 историй в месяц.
+              Это тестовая подписка для проверки работы MVP. Реальная оплата пока не подключена.
             </p>
             <button class="button primary" id="activateSubscriptionButton" type="button">
               Активировать mock-подписку
@@ -448,13 +452,13 @@
       </section>
     </main>
 
-    <script src="js/config.js?v=8"></script>
-    <script src="js/storageService.js?v=8"></script>
-    <script src="js/supabaseService.js?v=8"></script>
-    <script src="js/storyService.js?v=8"></script>
-    <script src="js/likeService.js?v=8"></script>
-    <script src="js/subscriptionService.js?v=8"></script>
-    <script src="js/analyticsService.js?v=8"></script>
-    <script src="js/app.js?v=8"></script>
+    <script src="js/config.js?v=9"></script>
+    <script src="js/storageService.js?v=9"></script>
+    <script src="js/supabaseService.js?v=9"></script>
+    <script src="js/storyService.js?v=9"></script>
+    <script src="js/likeService.js?v=9"></script>
+    <script src="js/subscriptionService.js?v=9"></script>
+    <script src="js/analyticsService.js?v=9"></script>
+    <script src="js/app.js?v=9"></script>
   </body>
 </html>

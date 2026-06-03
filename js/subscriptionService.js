@@ -4,10 +4,32 @@
   const SUBSCRIPTION_KEY = "hedgehogFoxSubscription";
   const GENERATION_USAGE_KEY = "hedgehogFoxGenerationUsage";
   const VALID_STATUSES = ["free", "trial", "active", "expired"];
+  const supabaseService = window.HFSupabaseService;
 
-  function getCurrentPeriodKey() {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  let storageMode = "local";
+  let lastError = "";
+  let remoteSubscription = null;
+  let remoteUsage = null;
+
+  function trackEvent(eventName, params = {}) {
+    try {
+      window.HFAnalyticsService?.trackEvent?.(eventName, {
+        ...params,
+        subscriptionStorageMode: storageMode
+      });
+    } catch (error) {
+      console.warn("[subscriptionService] Analytics event failed", error);
+    }
+  }
+
+  function normalizeStatus(status) {
+    return VALID_STATUSES.includes(status) ? status : "free";
+  }
+
+  function addDays(date, days) {
+    const nextDate = new Date(date);
+    nextDate.setDate(nextDate.getDate() + days);
+    return nextDate;
   }
 
   function getGenerationLimit(status) {
@@ -17,66 +39,291 @@
     return 1;
   }
 
-  function getSubscriptionState() {
-    const state = window.HFStorageService.getJSON(SUBSCRIPTION_KEY, { status: "free" });
-    const rawStatus = typeof state === "string" ? state : state.status;
-    const status = VALID_STATUSES.includes(rawStatus) ? rawStatus : "free";
-
+  function getDefaultPeriod() {
+    const now = new Date();
     return {
-      status,
-      updatedAt: typeof state === "object" && state !== null ? state.updatedAt || null : null
+      periodStart: now.toISOString(),
+      periodEnd: addDays(now, 30).toISOString()
     };
   }
 
-  function setSubscriptionState(status) {
-    const nextStatus = VALID_STATUSES.includes(status) ? status : "free";
+  function isPeriodActive(periodEnd) {
+    return Boolean(periodEnd && new Date(periodEnd).getTime() > Date.now());
+  }
+
+  function getCurrentPeriodKey() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  function getLocalSubscriptionState() {
+    const state = window.HFStorageService.getJSON(SUBSCRIPTION_KEY, { status: "free" });
+    const rawStatus = typeof state === "string" ? state : state.status;
+    const status = normalizeStatus(rawStatus);
+
+    return {
+      status,
+      provider: typeof state === "object" && state !== null ? state.provider || "local" : "local",
+      currentPeriodStart:
+        typeof state === "object" && state !== null ? state.currentPeriodStart || null : null,
+      currentPeriodEnd:
+        typeof state === "object" && state !== null ? state.currentPeriodEnd || null : null,
+      updatedAt: typeof state === "object" && state !== null ? state.updatedAt || null : null,
+      storage: "local"
+    };
+  }
+
+  function setLocalSubscriptionState(status) {
+    const nextStatus = normalizeStatus(status);
+    const currentState = getLocalSubscriptionState();
+    const now = new Date();
     const nextState = {
       status: nextStatus,
-      updatedAt: new Date().toISOString()
+      provider: "local-mock",
+      currentPeriodStart: currentState.currentPeriodStart || now.toISOString(),
+      currentPeriodEnd: currentState.currentPeriodEnd || addDays(now, 30).toISOString(),
+      updatedAt: now.toISOString(),
+      storage: "local"
     };
 
     window.HFStorageService.setJSON(SUBSCRIPTION_KEY, nextState);
     return nextState;
   }
 
-  function getGenerationUsage() {
-    const subscription = getSubscriptionState();
-    const periodKey = getCurrentPeriodKey();
+  function getLocalGenerationUsage() {
+    const subscription = getLocalSubscriptionState();
     const usage = window.HFStorageService.getJSON(GENERATION_USAGE_KEY, {});
+    const expectedLimit = getGenerationLimit(subscription.status);
+    const legacyPeriodKey = getCurrentPeriodKey();
 
-    if (usage.periodKey !== periodKey) {
+    if (usage.periodStart && isPeriodActive(usage.periodEnd)) {
       return {
-        periodKey,
-        generationsUsed: 0,
-        generationLimit: getGenerationLimit(subscription.status)
+        periodStart: usage.periodStart,
+        periodEnd: usage.periodEnd,
+        periodKey: usage.periodKey || legacyPeriodKey,
+        generationsUsed: Number.isFinite(usage.generationsUsed) ? usage.generationsUsed : 0,
+        generationLimit: expectedLimit,
+        storage: "local"
+      };
+    }
+
+    if (usage.periodKey === legacyPeriodKey && Number.isFinite(usage.generationsUsed)) {
+      const period = getDefaultPeriod();
+      return {
+        ...period,
+        periodKey: legacyPeriodKey,
+        generationsUsed: usage.generationsUsed,
+        generationLimit: expectedLimit,
+        storage: "local"
       };
     }
 
     return {
-      periodKey,
-      generationsUsed: Number.isFinite(usage.generationsUsed) ? usage.generationsUsed : 0,
-      generationLimit: getGenerationLimit(subscription.status)
+      ...getDefaultPeriod(),
+      periodKey: legacyPeriodKey,
+      generationsUsed: 0,
+      generationLimit: expectedLimit,
+      storage: "local"
     };
   }
 
-  function canGenerateStory() {
-    const usage = getGenerationUsage();
-    return usage.generationsUsed < usage.generationLimit;
-  }
-
-  function incrementGenerationUsage() {
-    const usage = getGenerationUsage();
+  function setLocalGenerationUsage(usage) {
     const nextUsage = {
       ...usage,
-      generationsUsed: usage.generationsUsed + 1
+      storage: "local",
+      updatedAt: new Date().toISOString()
     };
 
     window.HFStorageService.setJSON(GENERATION_USAGE_KEY, nextUsage);
     return nextUsage;
   }
 
-  function activateMockSubscription() {
-    return setSubscriptionState("active");
+  function canUseSupabaseSubscription() {
+    return Boolean(supabaseService?.isEnabled?.() && supabaseService?.isAuthenticated?.());
+  }
+
+  function getSubscriptionState() {
+    if (storageMode === "supabase" && remoteSubscription) {
+      return {
+        ...remoteSubscription,
+        storage: "supabase"
+      };
+    }
+
+    return getLocalSubscriptionState();
+  }
+
+  async function setSubscriptionState(status) {
+    const nextStatus = normalizeStatus(status);
+
+    if (canUseSupabaseSubscription()) {
+      try {
+        const bundle = await supabaseService.setSubscriptionStatus(nextStatus);
+        remoteSubscription = bundle.subscription;
+        remoteUsage = bundle.usage;
+        storageMode = "supabase";
+        lastError = "";
+        return getSubscriptionState();
+      } catch (error) {
+        console.warn("[subscriptionService] Cannot update Supabase subscription, using local fallback", error);
+        storageMode = "local_fallback";
+        lastError = error.message || "Supabase недоступен";
+        trackEvent("subscription_error", { action: "setSubscriptionState", error: lastError });
+      }
+    }
+
+    return setLocalSubscriptionState(nextStatus);
+  }
+
+  function getGenerationUsage() {
+    if (storageMode === "supabase" && remoteUsage) {
+      return {
+        ...remoteUsage,
+        storage: "supabase"
+      };
+    }
+
+    return getLocalGenerationUsage();
+  }
+
+  function getStorageState() {
+    return {
+      mode: storageMode,
+      isRemote: storageMode === "supabase",
+      isFallback: storageMode === "local_fallback",
+      lastError
+    };
+  }
+
+  async function initializeSubscription() {
+    if (!canUseSupabaseSubscription()) {
+      storageMode = "local";
+      lastError = "";
+      remoteSubscription = null;
+      remoteUsage = null;
+      trackEvent("subscription_loaded", {
+        status: getSubscriptionState().status,
+        usage: getGenerationUsage()
+      });
+      return {
+        subscription: getSubscriptionState(),
+        usage: getGenerationUsage(),
+        storage: getStorageState()
+      };
+    }
+
+    try {
+      const bundle = await supabaseService.fetchSubscriptionBundle();
+      remoteSubscription = bundle.subscription;
+      remoteUsage = bundle.usage;
+      storageMode = "supabase";
+      lastError = "";
+      trackEvent("subscription_loaded", {
+        status: remoteSubscription.status,
+        usage: remoteUsage
+      });
+    } catch (error) {
+      console.warn("[subscriptionService] Supabase subscription unavailable, using localStorage", error);
+      storageMode = "local_fallback";
+      lastError = error.message || "Supabase недоступен";
+      remoteSubscription = null;
+      remoteUsage = null;
+      trackEvent("subscription_error", { action: "initializeSubscription", error: lastError });
+    }
+
+    return {
+      subscription: getSubscriptionState(),
+      usage: getGenerationUsage(),
+      storage: getStorageState()
+    };
+  }
+
+  function canGenerateStory() {
+    const usage = getGenerationUsage();
+    const canGenerate = usage.generationsUsed < usage.generationLimit;
+
+    trackEvent("generation_limit_checked", {
+      canGenerate,
+      generationsUsed: usage.generationsUsed,
+      generationLimit: usage.generationLimit
+    });
+
+    if (!canGenerate) {
+      trackEvent("generation_limit_reached", {
+        generationsUsed: usage.generationsUsed,
+        generationLimit: usage.generationLimit
+      });
+    }
+
+    return canGenerate;
+  }
+
+  async function incrementGenerationUsage() {
+    const usage = getGenerationUsage();
+    const nextGenerationsUsed = usage.generationsUsed + 1;
+
+    if (storageMode === "supabase" && remoteUsage?.id && canUseSupabaseSubscription()) {
+      try {
+        remoteUsage = await supabaseService.incrementGenerationUsage(remoteUsage.id, nextGenerationsUsed);
+        trackEvent("generation_usage_incremented", {
+          generationsUsed: remoteUsage.generationsUsed,
+          generationLimit: remoteUsage.generationLimit
+        });
+        return getGenerationUsage();
+      } catch (error) {
+        console.warn("[subscriptionService] Cannot increment Supabase usage, using local fallback", error);
+        storageMode = "local_fallback";
+        lastError = error.message || "Supabase недоступен";
+        trackEvent("subscription_error", { action: "incrementGenerationUsage", error: lastError });
+      }
+    }
+
+    const nextUsage = setLocalGenerationUsage({
+      ...usage,
+      generationsUsed: nextGenerationsUsed
+    });
+
+    trackEvent("generation_usage_incremented", {
+      generationsUsed: nextUsage.generationsUsed,
+      generationLimit: nextUsage.generationLimit
+    });
+
+    return nextUsage;
+  }
+
+  async function activateMockSubscription() {
+    if (canUseSupabaseSubscription()) {
+      try {
+        const bundle = await supabaseService.activateMockSubscription();
+        remoteSubscription = bundle.subscription;
+        remoteUsage = bundle.usage;
+        storageMode = "supabase";
+        lastError = "";
+        trackEvent("mock_subscription_activated", {
+          status: remoteSubscription.status,
+          generationLimit: remoteUsage.generationLimit
+        });
+        return getSubscriptionState();
+      } catch (error) {
+        console.warn("[subscriptionService] Cannot activate Supabase mock subscription, using local fallback", error);
+        storageMode = "local_fallback";
+        lastError = error.message || "Supabase недоступен";
+        trackEvent("subscription_error", { action: "activateMockSubscription", error: lastError });
+      }
+    }
+
+    const subscription = setLocalSubscriptionState("active");
+    const usage = getLocalGenerationUsage();
+    setLocalGenerationUsage({
+      ...usage,
+      generationLimit: getGenerationLimit("active")
+    });
+    trackEvent("mock_subscription_activated", {
+      status: subscription.status,
+      generationLimit: getGenerationLimit("active")
+    });
+
+    return subscription;
   }
 
   window.HFSubscriptionService = {
@@ -85,6 +332,8 @@
     getGenerationUsage,
     canGenerateStory,
     incrementGenerationUsage,
-    activateMockSubscription
+    activateMockSubscription,
+    initializeSubscription,
+    getStorageState
   };
 })(window);

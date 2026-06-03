@@ -325,6 +325,205 @@
     return "";
   }
 
+  function addDays(date, days) {
+    const nextDate = new Date(date);
+    nextDate.setDate(nextDate.getDate() + days);
+    return nextDate;
+  }
+
+  function getGenerationLimit(status) {
+    if (status === "active") return 20;
+    if (status === "trial") return 3;
+    if (status === "expired") return 0;
+    return 1;
+  }
+
+  function getSubscriptionFromRow(row) {
+    return {
+      id: row.id,
+      userId: row.user_id,
+      status: row.status || "free",
+      provider: row.provider || "mock",
+      providerSubscriptionId: row.provider_subscription_id || null,
+      currentPeriodStart: row.current_period_start || null,
+      currentPeriodEnd: row.current_period_end || null,
+      createdAt: row.created_at || null,
+      updatedAt: row.updated_at || null,
+      storage: "supabase"
+    };
+  }
+
+  function getGenerationUsageFromRow(row) {
+    return {
+      id: row.id,
+      userId: row.user_id,
+      periodStart: row.period_start || null,
+      periodEnd: row.period_end || null,
+      generationsUsed: Number.isFinite(row.generations_used) ? row.generations_used : 0,
+      generationLimit: Number.isFinite(row.generation_limit) ? row.generation_limit : 1,
+      createdAt: row.created_at || null,
+      updatedAt: row.updated_at || null,
+      storage: "supabase"
+    };
+  }
+
+  function getSubscriptionRowPayload(userId, status = "free") {
+    const now = new Date();
+    return {
+      user_id: userId,
+      status,
+      provider: "mock",
+      provider_subscription_id: null,
+      current_period_start: now.toISOString(),
+      current_period_end: addDays(now, 30).toISOString(),
+      updated_at: now.toISOString()
+    };
+  }
+
+  function getGenerationUsageRowPayload(userId, status = "free") {
+    const now = new Date();
+    return {
+      user_id: userId,
+      period_start: now.toISOString(),
+      period_end: addDays(now, 30).toISOString(),
+      generations_used: 0,
+      generation_limit: getGenerationLimit(status),
+      updated_at: now.toISOString()
+    };
+  }
+
+  async function fetchCurrentSubscriptionRow(userId) {
+    const rows = await rest(
+      `/rest/v1/subscriptions?select=*&user_id=eq.${encodeURIComponent(userId)}&order=updated_at.desc&limit=1`,
+      { method: "GET" }
+    );
+
+    return Array.isArray(rows) && rows.length ? rows[0] : null;
+  }
+
+  async function createSubscriptionRow(userId, status = "free") {
+    const rows = await rest("/rest/v1/subscriptions?select=*", {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify(getSubscriptionRowPayload(userId, status))
+    });
+
+    return Array.isArray(rows) ? rows[0] : rows;
+  }
+
+  async function updateSubscriptionRow(subscriptionId, status) {
+    const now = new Date();
+    const rows = await rest(`/rest/v1/subscriptions?id=eq.${encodeURIComponent(subscriptionId)}&select=*`, {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({
+        status,
+        provider: "mock",
+        current_period_start: now.toISOString(),
+        current_period_end: addDays(now, 30).toISOString(),
+        updated_at: now.toISOString()
+      })
+    });
+
+    return Array.isArray(rows) ? rows[0] : rows;
+  }
+
+  async function ensureSubscriptionRow(status = "free") {
+    const user = getCurrentUser();
+    if (!user?.id) {
+      throw new Error("User is not authenticated");
+    }
+
+    const existingRow = await fetchCurrentSubscriptionRow(user.id);
+    return existingRow || createSubscriptionRow(user.id, status);
+  }
+
+  async function fetchCurrentGenerationUsageRow(userId) {
+    const now = new Date().toISOString();
+    const rows = await rest(
+      `/rest/v1/generation_usage?select=*&user_id=eq.${encodeURIComponent(userId)}&period_end=gte.${encodeURIComponent(now)}&order=period_start.desc&limit=1`,
+      { method: "GET" }
+    );
+
+    return Array.isArray(rows) && rows.length ? rows[0] : null;
+  }
+
+  async function createGenerationUsageRow(userId, status = "free") {
+    const rows = await rest("/rest/v1/generation_usage?select=*", {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify(getGenerationUsageRowPayload(userId, status))
+    });
+
+    return Array.isArray(rows) ? rows[0] : rows;
+  }
+
+  async function updateGenerationUsageRow(usageId, payload) {
+    const rows = await rest(`/rest/v1/generation_usage?id=eq.${encodeURIComponent(usageId)}&select=*`, {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({
+        ...payload,
+        updated_at: new Date().toISOString()
+      })
+    });
+
+    return Array.isArray(rows) ? rows[0] : rows;
+  }
+
+  async function ensureGenerationUsageRow(status = "free") {
+    const user = getCurrentUser();
+    if (!user?.id) {
+      throw new Error("User is not authenticated");
+    }
+
+    const existingRow = await fetchCurrentGenerationUsageRow(user.id);
+    if (!existingRow) {
+      return createGenerationUsageRow(user.id, status);
+    }
+
+    const expectedLimit = getGenerationLimit(status);
+    if (Number(existingRow.generation_limit) !== expectedLimit) {
+      return updateGenerationUsageRow(existingRow.id, { generation_limit: expectedLimit });
+    }
+
+    return existingRow;
+  }
+
+  async function fetchSubscriptionBundle() {
+    const subscriptionRow = await ensureSubscriptionRow("free");
+    const subscription = getSubscriptionFromRow(subscriptionRow);
+    const usageRow = await ensureGenerationUsageRow(subscription.status);
+
+    return {
+      subscription,
+      usage: getGenerationUsageFromRow(usageRow)
+    };
+  }
+
+  async function setSubscriptionStatus(status) {
+    const subscriptionRow = await ensureSubscriptionRow(status);
+    const nextSubscriptionRow = await updateSubscriptionRow(subscriptionRow.id, status);
+    const usageRow = await ensureGenerationUsageRow(status);
+
+    return {
+      subscription: getSubscriptionFromRow(nextSubscriptionRow),
+      usage: getGenerationUsageFromRow(usageRow)
+    };
+  }
+
+  async function incrementGenerationUsage(usageId, nextGenerationsUsed) {
+    const usageRow = await updateGenerationUsageRow(usageId, {
+      generations_used: nextGenerationsUsed
+    });
+
+    return getGenerationUsageFromRow(usageRow);
+  }
+
+  async function activateMockSubscription() {
+    return setSubscriptionStatus("active");
+  }
+
   function getClientStoryFromRows(storyRow, pageRows) {
     const sortedPages = [...pageRows].sort((a, b) => Number(a.page_number) - Number(b.page_number));
     const pages = sortedPages.map((pageRow, index) => ({
@@ -492,6 +691,10 @@
     signOut,
     fetchUserStories,
     saveUserStory,
-    deleteUserStory
+    deleteUserStory,
+    fetchSubscriptionBundle,
+    setSubscriptionStatus,
+    incrementGenerationUsage,
+    activateMockSubscription
   };
 })(window);

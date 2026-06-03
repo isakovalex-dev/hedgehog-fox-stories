@@ -25,9 +25,9 @@ The visual behavior remains intentionally simple:
 `localStorage` is enough for the MVP because the project is still static and must work on GitHub Pages without a server. It is used for:
 
 - liked story ids;
-- mock user stories;
-- mock subscription state;
-- mock generation usage.
+- anonymous and fallback user stories;
+- anonymous and fallback mock subscription state;
+- anonymous and fallback generation usage.
 
 This keeps the public site usable while backend, authentication, payments, and AI generation are designed separately.
 
@@ -36,7 +36,7 @@ Limitations:
 - data is stored only in the user's browser;
 - data is not shared between devices;
 - likes are local counters, not public counters;
-- subscription state is only mock state and cannot be trusted.
+- anonymous/fallback subscription state is only mock state and cannot be trusted.
 
 ## JavaScript services
 
@@ -105,9 +105,10 @@ File: `js/subscriptionService.js`
 
 Responsibilities:
 
-- mock subscription status;
-- mock generation usage;
-- MVP generation limits.
+- subscription status for anonymous and authenticated users;
+- generation usage for anonymous and authenticated users;
+- Supabase-backed limits when the user is signed in;
+- `localStorage` fallback when the user is anonymous or Supabase is unavailable.
 
 Supported statuses:
 
@@ -131,6 +132,36 @@ Public functions:
 - `canGenerateStory()`
 - `incrementGenerationUsage()`
 - `activateMockSubscription()`
+- `initializeSubscription()`
+- `getStorageState()`
+
+## Subscription and generation usage layer
+
+Authenticated users use Supabase for generation limits.
+
+Tables:
+
+- `subscriptions`
+- `generation_usage`
+
+Current flow:
+
+1. The frontend restores Supabase Auth.
+2. `subscriptionService.initializeSubscription()` checks whether the user is authenticated.
+3. If authenticated, `supabaseService.fetchSubscriptionBundle()` reads or creates a `subscriptions` row.
+4. It also reads or creates the current-period `generation_usage` row.
+5. The generator calls `canGenerateStory()` before creating a mock story.
+6. If the limit is reached, generation is blocked and the subscription panel is shown.
+7. If the story is saved successfully, `incrementGenerationUsage()` updates the usage counter.
+8. Activating the mock subscription sets `subscriptions.status = active` and updates the usage limit to 20.
+
+Fallback behavior:
+
+- anonymous users use `localStorage`;
+- if Supabase is unavailable, authenticated users temporarily fall back to `localStorage`;
+- the UI shows a warning that cloud subscription limits are unavailable.
+
+This is still MVP logic. Production AI generation should move the final limit check and usage increment to a backend endpoint so the user cannot bypass limits from the browser.
 
 ### `analyticsService`
 

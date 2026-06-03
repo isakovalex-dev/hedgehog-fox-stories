@@ -714,6 +714,37 @@ h2 {
   color: var(--muted);
 }
 
+.subscription-usage,
+.subscription-period,
+.subscription-warning,
+.subscription-fallback {
+  font-weight: 800;
+}
+
+.subscription-usage {
+  color: var(--brown) !important;
+}
+
+.subscription-period {
+  color: var(--muted);
+}
+
+.subscription-warning,
+.subscription-fallback {
+  padding: 0.85rem 1rem;
+  border-radius: 18px;
+}
+
+.subscription-warning {
+  color: #8a4a2e !important;
+  background: rgba(239, 214, 166, 0.58);
+}
+
+.subscription-fallback {
+  color: #72543e !important;
+  background: rgba(207, 234, 241, 0.58);
+}
+
 .auth-panel {
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(320px, 1.1fr);

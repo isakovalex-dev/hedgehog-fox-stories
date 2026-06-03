@@ -31,6 +31,11 @@
   const generatorForm = document.querySelector("#generatorForm");
   const generationStatus = document.querySelector("#generationStatus");
   const subscriptionScreen = document.querySelector("#subscriptionScreen");
+  const subscriptionTitle = document.querySelector("#subscriptionTitle");
+  const subscriptionUsageText = document.querySelector("#subscriptionUsageText");
+  const subscriptionPeriodText = document.querySelector("#subscriptionPeriodText");
+  const subscriptionWarning = document.querySelector("#subscriptionWarning");
+  const subscriptionFallbackNotice = document.querySelector("#subscriptionFallbackNotice");
   const activateSubscriptionButton = document.querySelector("#activateSubscriptionButton");
   const authPanel = document.querySelector("#authPanel");
   const authForm = document.querySelector("#authForm");
@@ -110,11 +115,32 @@
     scrollToSection(aboutSection, EVENTS.ABOUT_OPENED);
   }
 
+  function getTariffLabel(status) {
+    if (status === "active") return "Семейный";
+    if (status === "trial") return "Пробный";
+    if (status === "expired") return "Истёк";
+    return "Бесплатный";
+  }
+
+  function formatDate(value) {
+    if (!value) return "";
+
+    try {
+      return new Intl.DateTimeFormat("ru-RU", {
+        day: "numeric",
+        month: "long",
+        year: "numeric"
+      }).format(new Date(value));
+    } catch (error) {
+      return "";
+    }
+  }
+
   function getUsageText() {
     const subscription = subscriptionService.getSubscriptionState();
     const usage = subscriptionService.getGenerationUsage();
 
-    return `Статус: ${subscription.status}. Создано: ${usage.generationsUsed} из ${usage.generationLimit}.`;
+    return `Тариф: ${getTariffLabel(subscription.status)}. Использовано: ${usage.generationsUsed} из ${usage.generationLimit}.`;
   }
 
   function updateGenerationStatus(message = "") {
@@ -196,13 +222,54 @@
   }
 
   function showSubscriptionScreen() {
-    subscriptionScreen.classList.remove("hidden");
-    updateGenerationStatus("Лимит исчерпан.");
+    subscriptionScreen?.classList.remove("hidden");
+    if (subscriptionWarning) {
+      subscriptionWarning.classList.remove("hidden");
+      subscriptionWarning.textContent =
+        "Лимит бесплатных историй исчерпан. Чтобы создавать больше историй, активируйте mock-подписку.";
+    }
+    updateGenerationStatus("Лимит бесплатных историй исчерпан.");
+    renderSubscriptionPanel();
+    subscriptionScreen?.scrollIntoView({ behavior: "smooth", block: "center" });
     trackEvent(EVENTS.SUBSCRIPTION_SCREEN_OPENED, subscriptionService.getGenerationUsage());
   }
 
   function hideSubscriptionScreen() {
-    subscriptionScreen.classList.add("hidden");
+    if (subscriptionWarning) {
+      subscriptionWarning.classList.add("hidden");
+      subscriptionWarning.textContent = "";
+    }
+    renderSubscriptionPanel();
+  }
+
+  function renderSubscriptionPanel() {
+    if (!subscriptionScreen) return;
+
+    const subscription = subscriptionService.getSubscriptionState();
+    const usage = subscriptionService.getGenerationUsage();
+    const storageState = subscriptionService.getStorageState?.() || { mode: "local" };
+    const periodEnd = usage.periodEnd || subscription.currentPeriodEnd;
+    const periodText = formatDate(periodEnd);
+
+    if (subscriptionTitle) {
+      subscriptionTitle.textContent = `Ваш тариф: ${getTariffLabel(subscription.status)}`;
+    }
+
+    if (subscriptionUsageText) {
+      subscriptionUsageText.textContent = `Использовано: ${usage.generationsUsed} из ${usage.generationLimit} историй.`;
+    }
+
+    if (subscriptionPeriodText) {
+      subscriptionPeriodText.textContent = periodText ? `Период до: ${periodText}.` : "Период будет создан при первой синхронизации.";
+    }
+
+    if (subscriptionFallbackNotice) {
+      const isFallback = storageState.mode === "local_fallback";
+      subscriptionFallbackNotice.classList.toggle("hidden", !isFallback);
+      subscriptionFallbackNotice.textContent = isFallback
+        ? "Облачная подписка временно недоступна. Лимиты применяются только на этом устройстве."
+        : "";
+    }
   }
 
   function renderLikeButton(story, variant = "") {
@@ -302,6 +369,7 @@
   function renderAllStoryLists() {
     renderStories();
     renderLibrary();
+    renderSubscriptionPanel();
   }
 
   function setFilter(filter) {
@@ -539,13 +607,14 @@
       const savedStory = await storyService.saveUserStory(story);
       const storageState = storyService.getUserStoriesStorageState();
 
-      subscriptionService.incrementGenerationUsage();
+      await subscriptionService.incrementGenerationUsage();
       hideSubscriptionScreen();
       updateGenerationStatus(
         storageState.mode === "supabase"
           ? "История создана и сохранена в Supabase."
           : "История создана и сохранена локально."
       );
+      renderSubscriptionPanel();
       renderAuthPanel();
       renderAllStoryLists();
       generatorForm.reset();
@@ -628,6 +697,7 @@
       }
 
       await storyService.initializeUserStories();
+      await subscriptionService.initializeSubscription();
       authForm.reset();
       renderAuthPanel();
       renderAllStoryLists();
@@ -645,6 +715,7 @@
 
     await supabaseService.signOut();
     await storyService.initializeUserStories();
+    await subscriptionService.initializeSubscription();
     setAuthNotice("Вы вышли из аккаунта. Теперь истории снова сохраняются локально.", "warning");
     renderAuthPanel();
     renderAllStoryLists();
@@ -669,12 +740,24 @@
     signOutButton.addEventListener("click", handleSignOut);
   }
 
-  activateSubscriptionButton.addEventListener("click", () => {
+  activateSubscriptionButton.addEventListener("click", async () => {
     trackEvent(EVENTS.SUBSCRIPTION_BUTTON_CLICKED);
-    subscriptionService.activateMockSubscription();
-    hideSubscriptionScreen();
-    updateGenerationStatus("Mock-подписка активна.");
-    renderLibrary();
+    activateSubscriptionButton.disabled = true;
+    updateGenerationStatus("Активирую mock-подписку...");
+
+    try {
+      await subscriptionService.activateMockSubscription();
+      hideSubscriptionScreen();
+      updateGenerationStatus("Mock-подписка активна. Это тестовая подписка для проверки работы MVP.");
+      renderSubscriptionPanel();
+      renderLibrary();
+    } catch (error) {
+      console.warn("[app] Cannot activate mock subscription", error);
+      updateGenerationStatus(`Не удалось активировать mock-подписку: ${error.message || "ошибка"}`);
+      renderSubscriptionPanel();
+    } finally {
+      activateSubscriptionButton.disabled = false;
+    }
   });
 
   if (readerLike) {
@@ -760,12 +843,16 @@
 
   async function initializeApp() {
     updateGenerationStatus();
+    await subscriptionService.initializeSubscription();
+    renderSubscriptionPanel();
     renderAuthPanel();
     renderAllStoryLists();
 
     if (supabaseService?.isEnabled?.()) {
       await supabaseService.initializeAuth();
+      await subscriptionService.initializeSubscription();
       await storyService.initializeUserStories();
+      renderSubscriptionPanel();
       renderAuthPanel();
       renderAllStoryLists();
     }

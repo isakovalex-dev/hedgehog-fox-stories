@@ -11,6 +11,12 @@
     LIBRARY_OPENED: "library_opened",
     SUBSCRIPTION_SCREEN_OPENED: "subscription_screen_opened",
     SUBSCRIPTION_BUTTON_CLICKED: "subscription_button_clicked",
+    SUBSCRIPTION_LOADED: "subscription_loaded",
+    GENERATION_LIMIT_CHECKED: "generation_limit_checked",
+    GENERATION_LIMIT_REACHED: "generation_limit_reached",
+    GENERATION_USAGE_INCREMENTED: "generation_usage_incremented",
+    MOCK_SUBSCRIPTION_ACTIVATED: "mock_subscription_activated",
+    SUBSCRIPTION_ERROR: "subscription_error",
     ABOUT_OPENED: "about_opened",
     ABOUT_READ_STORIES_CLICKED: "about_read_stories_clicked",
     ABOUT_CREATE_STORY_CLICKED: "about_create_story_clicked"
