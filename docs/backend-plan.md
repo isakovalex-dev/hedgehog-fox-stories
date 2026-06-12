@@ -32,6 +32,14 @@ Payments:
 
 Creates a story generation request for the authenticated user. The backend checks subscription and usage limits, calls the AI provider, validates JSON, saves the story, increments usage, and returns the saved story.
 
+Current scaffold:
+
+- file: `api/generate-story.js`;
+- runtime target: Vercel-style Node serverless function;
+- current mode: mock only, no real AI API call;
+- current persistence: returns the generated story but does not save it;
+- purpose: lock the endpoint contract before connecting auth, limits, Supabase writes, and OpenAI-compatible API calls.
+
 ### Stories
 
 - `GET /api/stories`
