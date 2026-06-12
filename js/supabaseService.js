@@ -679,6 +679,37 @@
     });
   }
 
+  async function fetchLikedStoryIds() {
+    const rows = await rest("/rest/v1/story_likes?select=story_id&order=created_at.desc", {
+      method: "GET"
+    });
+
+    return Array.isArray(rows) ? rows.map((row) => row.story_id).filter(Boolean) : [];
+  }
+
+  async function likeStory(storyId) {
+    const user = getCurrentUser();
+    if (!user?.id) {
+      throw new Error("User is not authenticated");
+    }
+
+    await rest("/rest/v1/story_likes", {
+      method: "POST",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({
+        story_id: storyId,
+        user_id: user.id
+      })
+    });
+  }
+
+  async function unlikeStory(storyId) {
+    await rest(`/rest/v1/story_likes?story_id=eq.${encodeURIComponent(storyId)}`, {
+      method: "DELETE",
+      headers: { Prefer: "return=minimal" }
+    });
+  }
+
   window.HFSupabaseService = {
     isEnabled,
     isAuthenticated,
@@ -692,6 +723,9 @@
     fetchUserStories,
     saveUserStory,
     deleteUserStory,
+    fetchLikedStoryIds,
+    likeStory,
+    unlikeStory,
     fetchSubscriptionBundle,
     setSubscriptionStatus,
     incrementGenerationUsage,

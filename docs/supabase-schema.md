@@ -72,8 +72,10 @@ Constraints:
 
 Notes:
 
-- public story like counts can be calculated from this table;
-- private story likes can be hidden or limited to the owner.
+- authenticated users store their own likes in this table;
+- anonymous users keep likes in `localStorage`;
+- current RLS allows users to read, insert, and delete only their own likes;
+- public shared like counts can be added later through a backend endpoint or a read policy designed for aggregate counts.
 
 ## subscriptions
 

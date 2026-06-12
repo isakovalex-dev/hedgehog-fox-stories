@@ -380,16 +380,23 @@
     renderStories();
   }
 
-  function handleStoryLike(storyId) {
+  async function handleStoryLike(storyId) {
     const wasLiked = likeService.isStoryLiked(storyId);
-    const isLiked = likeService.toggleStoryLike(storyId);
 
-    renderAllStoryLists();
-    renderReaderLike();
-    trackEvent(isLiked ? EVENTS.STORY_LIKED : EVENTS.STORY_UNLIKED, {
-      storyId,
-      wasLiked
-    });
+    try {
+      const isLiked = await likeService.toggleStoryLike(storyId);
+
+      renderAllStoryLists();
+      renderReaderLike();
+      trackEvent(isLiked ? EVENTS.STORY_LIKED : EVENTS.STORY_UNLIKED, {
+        storyId,
+        wasLiked
+      });
+    } catch (error) {
+      console.warn("[app] Cannot toggle story like", error);
+      renderAllStoryLists();
+      renderReaderLike();
+    }
   }
 
   function renderPageIllustration(page, storyTitle) {
@@ -698,6 +705,7 @@
 
       await storyService.initializeUserStories();
       await subscriptionService.initializeSubscription();
+      await likeService.initializeLikes();
       authForm.reset();
       renderAuthPanel();
       renderAllStoryLists();
@@ -716,6 +724,7 @@
     await supabaseService.signOut();
     await storyService.initializeUserStories();
     await subscriptionService.initializeSubscription();
+    await likeService.initializeLikes();
     setAuthNotice("Вы вышли из аккаунта. Теперь истории снова сохраняются локально.", "warning");
     renderAuthPanel();
     renderAllStoryLists();
@@ -852,6 +861,7 @@
       await supabaseService.initializeAuth();
       await subscriptionService.initializeSubscription();
       await storyService.initializeUserStories();
+      await likeService.initializeLikes();
       renderSubscriptionPanel();
       renderAuthPanel();
       renderAllStoryLists();
