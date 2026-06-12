@@ -182,7 +182,14 @@
           <form class="auth-form" id="authForm">
             <label class="field">
               <span>Email</span>
-              <input id="authEmail" name="email" type="email" autocomplete="email" placeholder="you@example.com" />
+              <input
+                id="authEmail"
+                name="email"
+                type="email"
+                autocomplete="email"
+                placeholder="you@example.com"
+                required
+              />
             </label>
             <label class="field">
               <span>Пароль</span>
@@ -193,6 +200,7 @@
                 autocomplete="current-password"
                 minlength="6"
                 placeholder="Минимум 6 символов"
+                required
               />
             </label>
             <div class="auth-buttons">

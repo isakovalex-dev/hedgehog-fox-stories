@@ -166,6 +166,44 @@
     authNotice = { message, tone };
   }
 
+  function getAuthErrorMessage(error, action) {
+    const rawMessage = String(error?.message || "").toLowerCase();
+    const rawDetails = JSON.stringify(error?.details || {}).toLowerCase();
+    const source = `${rawMessage} ${rawDetails}`;
+
+    if (source.includes("email not confirmed")) {
+      return "Почта ещё не подтверждена. Откройте письмо от Ежонка и Лисёнка и перейдите по ссылке подтверждения.";
+    }
+
+    if (source.includes("invalid login credentials") || source.includes("invalid credentials")) {
+      return "Не удалось войти. Проверьте email и пароль.";
+    }
+
+    if (source.includes("user already registered") || source.includes("already registered")) {
+      return "Аккаунт с такой почтой уже есть. Попробуйте войти или восстановить доступ через Supabase.";
+    }
+
+    if (source.includes("password") && source.includes("six")) {
+      return "Пароль должен быть не короче 6 символов.";
+    }
+
+    if (source.includes("signup") && source.includes("disabled")) {
+      return "Регистрация временно выключена в настройках Supabase.";
+    }
+
+    if (source.includes("rate limit") || source.includes("too many")) {
+      return "Слишком много попыток. Подождите немного и попробуйте ещё раз.";
+    }
+
+    if (source.includes("failed to fetch") || source.includes("network")) {
+      return "Не удалось связаться с Supabase. Проверьте интернет и попробуйте ещё раз.";
+    }
+
+    return action === "signup"
+      ? "Не удалось зарегистрироваться. Проверьте email и пароль, затем попробуйте ещё раз."
+      : "Не удалось войти. Проверьте email и пароль, затем попробуйте ещё раз.";
+  }
+
   function setAuthFormBusy(isBusy) {
     if (!authForm) return;
 
@@ -696,8 +734,13 @@
 
     try {
       if (action === "signup") {
-        await supabaseService.signUpWithPassword(email, password);
-        setAuthNotice("Аккаунт создан. Если Supabase требует подтверждение email, проверьте почту.", "success");
+        const authState = await supabaseService.signUpWithPassword(email, password);
+        setAuthNotice(
+          authState.status === "pending_confirmation"
+            ? "Регистрация создана. Проверьте почту и перейдите по ссылке подтверждения."
+            : "Аккаунт создан, вход выполнен.",
+          authState.status === "pending_confirmation" ? "warning" : "success"
+        );
       } else {
         await supabaseService.signInWithPassword(email, password);
         setAuthNotice("Вход выполнен.", "success");
@@ -711,7 +754,7 @@
       renderAllStoryLists();
     } catch (error) {
       console.warn("[app] Auth failed", error);
-      setAuthNotice(`Не удалось выполнить действие: ${error.message || "ошибка Supabase"}`, "warning");
+      setAuthNotice(getAuthErrorMessage(error, action), "warning");
       renderAuthPanel();
     } finally {
       setAuthFormBusy(false);
