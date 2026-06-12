@@ -6,6 +6,6 @@
     SUPABASE_ANON_KEY: "sb_publishable_nQg--YaINF8OoBd4wceHkA_yo76Z5hy",
     SUPABASE_ENABLED: true,
     GENERATION_API_ENABLED: true,
-    GENERATION_API_URL: "/api/generate-story"
+    GENERATION_API_URL: "https://hedgehog-fox-stories.vercel.app/api/generate-story"
   };
 })(window);

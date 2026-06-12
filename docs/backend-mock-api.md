@@ -29,6 +29,12 @@ Target runtime:
 Vercel Node serverless function
 ```
 
+Current deployed mock backend:
+
+```text
+https://hedgehog-fox-stories.vercel.app/api/generate-story
+```
+
 No `package.json`, npm dependencies, build step, real AI API, payment API, or service role key is required for this scaffold.
 
 ## Request body
