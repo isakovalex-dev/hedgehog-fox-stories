@@ -120,7 +120,9 @@ Authenticated backend checks:
 - the backend reads or creates `subscriptions`;
 - the backend reads or creates the active `generation_usage` row;
 - the backend blocks generation when `generations_used >= generation_limit`;
-- the backend does not increment usage yet, because story saving still happens in the frontend after generation.
+- the backend increments `generation_usage` after a successful mock generation;
+- the frontend does not increment Supabase usage again for `backend mock` responses;
+- browser mock fallback still increments local usage on the frontend.
 
 ## Next steps
 
@@ -130,4 +132,4 @@ Authenticated backend checks:
 4. Call an OpenAI-compatible API with a server-side environment variable.
 5. Validate the AI JSON response.
 6. Save `stories` and `story_pages`.
-7. Increment `generation_usage` only after a successful save.
+7. Move story persistence into the backend, then increment `generation_usage` only after a successful save.

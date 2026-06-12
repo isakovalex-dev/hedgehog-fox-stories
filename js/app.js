@@ -824,7 +824,12 @@
       const savedStory = await storyService.saveUserStory(story);
       const storageState = storyService.getUserStoriesStorageState();
 
-      await subscriptionService.incrementGenerationUsage();
+      if (generated.mode === "backend-mock") {
+        await subscriptionService.initializeSubscription();
+      } else {
+        await subscriptionService.incrementGenerationUsage();
+      }
+
       hideSubscriptionScreen();
       updateGenerationStatus(
         storageState.mode === "supabase"

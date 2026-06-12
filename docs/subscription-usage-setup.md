@@ -139,7 +139,15 @@ That endpoint should:
 5. call the real AI provider;
 6. validate the JSON response;
 7. save `stories` and `story_pages`;
-8. increment `generations_used`;
-9. return the saved story to the frontend.
+8. save the generated story;
+9. increment `generations_used`;
+10. return the saved story to the frontend.
+
+Current intermediate state:
+
+- backend mock generation already validates auth and checks `generation_usage`;
+- backend mock generation increments Supabase `generation_usage`;
+- story persistence still happens in the frontend through `storyService.saveUserStory()`;
+- browser mock fallback still increments local usage on the frontend.
 
 The frontend should not call real AI APIs directly.

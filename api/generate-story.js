@@ -231,6 +231,23 @@ async function updateGenerationUsageLimit(usageId, accessToken, generationLimit)
   return Array.isArray(rows) ? rows[0] : rows;
 }
 
+async function updateGenerationUsageCount(usageId, accessToken, generationsUsed) {
+  const rows = await supabaseRequest(
+    `/rest/v1/generation_usage?id=eq.${encodeURIComponent(usageId)}&select=*`,
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({
+        generations_used: generationsUsed,
+        updated_at: new Date().toISOString()
+      })
+    },
+    accessToken
+  );
+
+  return Array.isArray(rows) ? rows[0] : rows;
+}
+
 async function ensureGenerationUsageRow(userId, accessToken, status) {
   const existingRow = await fetchCurrentGenerationUsageRow(userId, accessToken);
   const expectedLimit = getGenerationLimit(status);
@@ -272,6 +289,7 @@ async function checkAuthenticatedGenerationLimit(req) {
   }
 
   return {
+    accessToken,
     userId: user.id,
     userEmail: user.email || "",
     subscription: {
@@ -287,6 +305,23 @@ async function checkAuthenticatedGenerationLimit(req) {
       periodStart: usage.period_start || null,
       periodEnd: usage.period_end || null
     }
+  };
+}
+
+async function incrementAuthenticatedGenerationUsage(generationAccess) {
+  const nextGenerationsUsed = generationAccess.usage.generationsUsed + 1;
+  const usageRow = await updateGenerationUsageCount(
+    generationAccess.usage.id,
+    generationAccess.accessToken,
+    nextGenerationsUsed
+  );
+
+  return {
+    id: usageRow.id,
+    generationsUsed: Number(usageRow.generations_used || nextGenerationsUsed),
+    generationLimit: Number(usageRow.generation_limit || generationAccess.usage.generationLimit),
+    periodStart: usageRow.period_start || generationAccess.usage.periodStart || null,
+    periodEnd: usageRow.period_end || generationAccess.usage.periodEnd || null
   };
 }
 
@@ -525,6 +560,8 @@ async function handler(req, res) {
       return;
     }
 
+    const incrementedUsage = await incrementAuthenticatedGenerationUsage(generationAccess);
+
     sendJson(req, res, 200, {
       story,
       meta: {
@@ -533,13 +570,14 @@ async function handler(req, res) {
         savedToDatabase: false,
         authChecked: true,
         usageLimitChecked: true,
+        usageIncremented: true,
         userId: generationAccess.userId,
         subscription: generationAccess.subscription,
-        usage: generationAccess.usage,
+        usage: incrementedUsage,
         nextBackendSteps: [
           "call OpenAI-compatible API with a server-side key",
           "save stories and story_pages",
-          "increment generation_usage after successful save"
+          "move story persistence into the backend before incrementing generation_usage"
         ]
       }
     });
