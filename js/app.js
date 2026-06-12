@@ -738,6 +738,12 @@
     const authState = supabaseService?.getAuthState?.();
     const accessToken = authState?.session?.access_token || "";
 
+    if (!accessToken) {
+      const error = new Error("Backend generation requires an authenticated user");
+      error.isBackendUnavailable = true;
+      throw error;
+    }
+
     try {
       const response = await window.fetch(appConfig.GENERATION_API_URL, {
         method: "POST",
@@ -837,7 +843,7 @@
       });
     } catch (error) {
       console.warn("[app] Cannot save generated story", error);
-      updateGenerationStatus(`Не удалось сохранить историю: ${error.message || "ошибка"}`);
+      updateGenerationStatus(`Не удалось создать историю: ${error.message || "ошибка"}`);
       renderAuthPanel();
     }
   }

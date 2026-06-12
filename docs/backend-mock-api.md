@@ -108,9 +108,19 @@ GENERATION_API_URL: "/api/generate-story"
 
 Fallback behavior:
 
+- anonymous users keep using the existing browser mock generator;
 - if `/api/generate-story` returns `404`, `5xx`, times out, or cannot be reached, the frontend uses the existing browser mock generator;
 - if the backend returns a validation error such as an unsafe topic, the frontend shows the backend message and does not bypass it with browser mock generation;
 - generated stories are still saved through the existing `storyService.saveUserStory()` flow.
+
+Authenticated backend checks:
+
+- the frontend sends `Authorization: Bearer <Supabase access token>`;
+- the backend validates the token through Supabase Auth;
+- the backend reads or creates `subscriptions`;
+- the backend reads or creates the active `generation_usage` row;
+- the backend blocks generation when `generations_used >= generation_limit`;
+- the backend does not increment usage yet, because story saving still happens in the frontend after generation.
 
 ## Next steps
 
