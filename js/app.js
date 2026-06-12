@@ -6,6 +6,7 @@
   const subscriptionService = window.HFSubscriptionService;
   const analyticsService = window.HFAnalyticsService;
   const supabaseService = window.HFSupabaseService;
+  const appConfig = window.HFConfig || {};
   const { EVENTS, trackEvent } = analyticsService;
 
   const storyList = document.querySelector("#storyList");
@@ -670,6 +671,134 @@
     };
   }
 
+  function getGenerationRequestPayload(formData) {
+    return {
+      topic: getFormValue(formData, "topic", "маленькое приключение"),
+      ageGroup: getFormValue(formData, "ageGroup", "5-7"),
+      mood: getFormValue(formData, "mood", "bedtime"),
+      lesson: getFormValue(formData, "lesson", "доброта становится сильнее, когда ей делятся"),
+      pageCount: Number(getFormValue(formData, "pageCount", "3"))
+    };
+  }
+
+  function getStoryFromBackendResponse(payload, formData) {
+    const backendStory = payload?.story;
+    if (!backendStory || !Array.isArray(backendStory.pages)) {
+      throw new Error("Backend returned an invalid story");
+    }
+
+    const mood = getFormValue(formData, "mood", "bedtime");
+    const useIllustrations = getFormValue(formData, "illustrations", "yes") === "yes";
+    const pages = backendStory.pages.map((page, index) => ({
+      pageNumber: Number(page.pageNumber || index + 1),
+      text: page.text || "",
+      sceneTag: page.sceneTag || "forest_day",
+      imagePrompt: page.imagePrompt || ""
+    }));
+
+    return {
+      id: backendStory.id || `backend-story-${Date.now()}`,
+      title: backendStory.title || "Новая история",
+      age: (backendStory.ageGroup || "5-7").replace("-", "–"),
+      ageGroup: backendStory.ageGroup || "5-7",
+      mood: backendStory.mood || moodLabels[mood] || moodLabels.bedtime,
+      lesson: backendStory.lesson || getFormValue(formData, "lesson", ""),
+      time: `${pages.length + 2} минут`,
+      tags: Array.from(new Set([backendStory.ageGroup || "5-7", moodTags[mood]].filter(Boolean))),
+      imageUrl: "",
+      baseLikes: 0,
+      colors: moodColors[mood] || moodColors.bedtime,
+      description: backendStory.lesson
+        ? `Пользовательская история, где друзья узнают: ${backendStory.lesson}.`
+        : "Пользовательская история про Ежонка и Лисёнка.",
+      pages,
+      slides: pages.map((page) => page.text),
+      useIllustrations,
+      createdAt: new Date().toISOString()
+    };
+  }
+
+  function canUseGenerationApi() {
+    return Boolean(appConfig.GENERATION_API_ENABLED && appConfig.GENERATION_API_URL);
+  }
+
+  function isBackendUnavailableError(error) {
+    return Boolean(error?.isBackendUnavailable);
+  }
+
+  async function requestBackendStory(formData) {
+    if (!canUseGenerationApi()) {
+      const error = new Error("Generation API is disabled");
+      error.isBackendUnavailable = true;
+      throw error;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 8000);
+    const authState = supabaseService?.getAuthState?.();
+    const accessToken = authState?.session?.access_token || "";
+
+    try {
+      const response = await window.fetch(appConfig.GENERATION_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
+        },
+        body: JSON.stringify(getGenerationRequestPayload(formData)),
+        signal: controller.signal
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        const message = payload?.details?.[0] || payload?.message || payload?.error || "Backend generation failed";
+        const error = new Error(message);
+        error.status = response.status;
+        error.isBackendUnavailable = response.status === 404 || response.status >= 500;
+        throw error;
+      }
+
+      return getStoryFromBackendResponse(payload, formData);
+    } catch (error) {
+      if (error.name === "AbortError" || error instanceof TypeError) {
+        error.isBackendUnavailable = true;
+      }
+
+      throw error;
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  }
+
+  async function generateStory(formData) {
+    if (!canUseGenerationApi()) {
+      return {
+        story: buildMockStory(formData),
+        mode: "browser-mock",
+        label: "локальный mock"
+      };
+    }
+
+    try {
+      return {
+        story: await requestBackendStory(formData),
+        mode: "backend-mock",
+        label: "backend mock"
+      };
+    } catch (error) {
+      if (!isBackendUnavailableError(error)) {
+        throw error;
+      }
+
+      console.warn("[app] Backend generation unavailable, using browser mock", error);
+      return {
+        story: buildMockStory(formData),
+        mode: "browser-mock-fallback",
+        label: "локальный mock, backend временно недоступен"
+      };
+    }
+  }
+
   async function handleGeneratorSubmit(event) {
     event.preventDefault();
 
@@ -679,9 +808,12 @@
     }
 
     const formData = new FormData(generatorForm);
-    const story = buildMockStory(formData);
 
     try {
+      updateGenerationStatus("Создаю историю...");
+      const generated = await generateStory(formData);
+      const story = generated.story;
+
       updateGenerationStatus("Сохраняю историю...");
       const savedStory = await storyService.saveUserStory(story);
       const storageState = storyService.getUserStoriesStorageState();
@@ -690,8 +822,8 @@
       hideSubscriptionScreen();
       updateGenerationStatus(
         storageState.mode === "supabase"
-          ? "История создана и сохранена в Supabase."
-          : "История создана и сохранена локально."
+          ? `История создана: ${generated.label}. Сохранена в Supabase.`
+          : `История создана: ${generated.label}. Сохранена локально.`
       );
       renderSubscriptionPanel();
       renderAuthPanel();

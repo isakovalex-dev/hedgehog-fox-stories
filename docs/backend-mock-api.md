@@ -89,6 +89,23 @@ cd /Users/a1234/Documents/ezhik-i-lisenok
 
 The function is written as a serverless handler, so local HTTP execution should be done later through a Vercel local dev setup or a small test harness.
 
+## Frontend integration
+
+The browser generator now tries this endpoint first when `window.HFConfig.GENERATION_API_ENABLED` is `true`.
+
+Frontend config:
+
+```js
+GENERATION_API_ENABLED: true,
+GENERATION_API_URL: "/api/generate-story"
+```
+
+Fallback behavior:
+
+- if `/api/generate-story` returns `404`, `5xx`, times out, or cannot be reached, the frontend uses the existing browser mock generator;
+- if the backend returns a validation error such as an unsafe topic, the frontend shows the backend message and does not bypass it with browser mock generation;
+- generated stories are still saved through the existing `storyService.saveUserStory()` flow.
+
 ## Next steps
 
 1. Deploy the static site and backend function together on a platform that supports `/api/*`, or keep GitHub Pages for the site and deploy the backend separately.
