@@ -325,6 +325,131 @@ async function incrementAuthenticatedGenerationUsage(generationAccess) {
   };
 }
 
+function getStoryRowPayload(story, userId) {
+  return {
+    user_id: userId,
+    title: story.title,
+    age_group: story.ageGroup,
+    mood: story.mood || "",
+    lesson: story.lesson || "",
+    visibility: "private"
+  };
+}
+
+async function insertStoryRow(story, generationAccess) {
+  const payload = getStoryRowPayload(story, generationAccess.userId);
+
+  try {
+    const rows = await supabaseRequest(
+      "/rest/v1/stories?select=*",
+      {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify(payload)
+      },
+      generationAccess.accessToken
+    );
+
+    return Array.isArray(rows) ? rows[0] : rows;
+  } catch (error) {
+    const message = `${error.message || ""} ${JSON.stringify(error.details || {})}`;
+    if (!message.includes("visibility")) throw error;
+
+    const { visibility, ...payloadWithoutVisibility } = payload;
+    const rows = await supabaseRequest(
+      "/rest/v1/stories?select=*",
+      {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify(payloadWithoutVisibility)
+      },
+      generationAccess.accessToken
+    );
+
+    return Array.isArray(rows) ? rows[0] : rows;
+  }
+}
+
+async function insertPageRows(storyId, story, generationAccess) {
+  const pageRows = story.pages.map((page, index) => ({
+    story_id: storyId,
+    page_number: Number(page.pageNumber || index + 1),
+    text: page.text || "",
+    scene_tag: page.sceneTag || "forest_day",
+    image_url: page.imageUrl || "",
+    image_prompt: page.imagePrompt || ""
+  }));
+
+  const rows = await supabaseRequest(
+    "/rest/v1/story_pages?select=*",
+    {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify(pageRows)
+    },
+    generationAccess.accessToken
+  );
+
+  return Array.isArray(rows) ? rows : [rows];
+}
+
+async function deleteStoryRows(storyId, generationAccess) {
+  await supabaseRequest(
+    `/rest/v1/story_pages?story_id=eq.${encodeURIComponent(storyId)}`,
+    {
+      method: "DELETE",
+      headers: { Prefer: "return=minimal" }
+    },
+    generationAccess.accessToken
+  );
+  await supabaseRequest(
+    `/rest/v1/stories?id=eq.${encodeURIComponent(storyId)}`,
+    {
+      method: "DELETE",
+      headers: { Prefer: "return=minimal" }
+    },
+    generationAccess.accessToken
+  );
+}
+
+function getSavedStoryFromRows(storyRow, pageRows) {
+  const sortedPages = [...pageRows].sort((a, b) => Number(a.page_number) - Number(b.page_number));
+
+  return {
+    id: storyRow.id,
+    title: storyRow.title || "Новая история",
+    ageGroup: storyRow.age_group || "5-7",
+    mood: storyRow.mood || "",
+    lesson: storyRow.lesson || "",
+    pages: sortedPages.map((pageRow, index) => ({
+      pageNumber: Number(pageRow.page_number || index + 1),
+      text: pageRow.text || "",
+      sceneTag: pageRow.scene_tag || "forest_day",
+      imageUrl: pageRow.image_url || "",
+      imagePrompt: pageRow.image_prompt || ""
+    })),
+    createdAt: storyRow.created_at || "",
+    updatedAt: storyRow.updated_at || ""
+  };
+}
+
+async function saveGeneratedStory(story, generationAccess) {
+  const storyRow = await insertStoryRow(story, generationAccess);
+
+  try {
+    const pageRows = await insertPageRows(storyRow.id, story, generationAccess);
+    return getSavedStoryFromRows(storyRow, pageRows);
+  } catch (error) {
+    try {
+      await deleteStoryRows(storyRow.id, generationAccess);
+    } catch (cleanupError) {
+      console.warn("[generate-story] Cannot clean up story after page insert failure", cleanupError);
+    }
+
+    throw error;
+  }
+}
+
 function setCorsHeaders(req, res) {
   const allowedOrigin = getAllowedOrigin(req.headers?.origin || "");
 
@@ -560,14 +685,15 @@ async function handler(req, res) {
       return;
     }
 
+    const savedStory = await saveGeneratedStory(story, generationAccess);
     const incrementedUsage = await incrementAuthenticatedGenerationUsage(generationAccess);
 
     sendJson(req, res, 200, {
-      story,
+      story: savedStory,
       meta: {
         mode: "mock",
         aiProvider: "disabled",
-        savedToDatabase: false,
+        savedToDatabase: true,
         authChecked: true,
         usageLimitChecked: true,
         usageIncremented: true,
@@ -576,8 +702,8 @@ async function handler(req, res) {
         usage: incrementedUsage,
         nextBackendSteps: [
           "call OpenAI-compatible API with a server-side key",
-          "save stories and story_pages",
-          "move story persistence into the backend before incrementing generation_usage"
+          "replace mock text generation with validated OpenAI-compatible API output",
+          "wrap story save and usage increment in an atomic backend operation"
         ]
       }
     });

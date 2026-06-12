@@ -820,16 +820,21 @@
       const generated = await generateStory(formData);
       const story = generated.story;
 
-      updateGenerationStatus("Сохраняю историю...");
-      const savedStory = await storyService.saveUserStory(story);
-      const storageState = storyService.getUserStoriesStorageState();
+      updateGenerationStatus(
+        generated.mode === "backend-mock" ? "Обновляю библиотеку..." : "Сохраняю историю..."
+      );
+      let savedStory = story;
 
       if (generated.mode === "backend-mock") {
+        await storyService.initializeUserStories();
         await subscriptionService.initializeSubscription();
+        savedStory = storyService.getStoryById(story.id) || story;
       } else {
+        savedStory = await storyService.saveUserStory(story);
         await subscriptionService.incrementGenerationUsage();
       }
 
+      const storageState = storyService.getUserStoriesStorageState();
       hideSubscriptionScreen();
       updateGenerationStatus(
         storageState.mode === "supabase"

@@ -146,8 +146,9 @@ That endpoint should:
 Current intermediate state:
 
 - backend mock generation already validates auth and checks `generation_usage`;
-- backend mock generation increments Supabase `generation_usage`;
-- story persistence still happens in the frontend through `storyService.saveUserStory()`;
+- backend mock generation saves `stories` and `story_pages`;
+- backend mock generation increments Supabase `generation_usage` only after story save succeeds;
+- frontend refreshes the Supabase library after backend generation instead of saving the same story again;
 - browser mock fallback still increments local usage on the frontend.
 
 The frontend should not call real AI APIs directly.
