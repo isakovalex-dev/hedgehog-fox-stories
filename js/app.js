@@ -39,6 +39,8 @@
   const activateSubscriptionButton = document.querySelector("#activateSubscriptionButton");
   const authPanel = document.querySelector("#authPanel");
   const authForm = document.querySelector("#authForm");
+  const passwordResetForm = document.querySelector("#passwordResetForm");
+  const cancelPasswordResetButton = document.querySelector("#cancelPasswordResetButton");
   const authStatus = document.querySelector("#authStatus");
   const authSessionActions = document.querySelector("#authSessionActions");
   const signOutButton = document.querySelector("#signOutButton");
@@ -80,6 +82,7 @@
   let activeStory = null;
   let activeStoryFinishedTracked = false;
   let authNotice = { message: "", tone: "" };
+  let passwordRecoverySession = null;
 
   function escapeHtml(value) {
     return String(value)
@@ -187,6 +190,10 @@
       return "Пароль должен быть не короче 6 символов.";
     }
 
+    if (source.includes("new password should be different")) {
+      return "Новый пароль должен отличаться от старого.";
+    }
+
     if (source.includes("signup") && source.includes("disabled")) {
       return "Регистрация временно выключена в настройках Supabase.";
     }
@@ -197,6 +204,10 @@
 
     if (source.includes("failed to fetch") || source.includes("network")) {
       return "Не удалось связаться с Supabase. Проверьте интернет и попробуйте ещё раз.";
+    }
+
+    if (action === "recover") {
+      return "Не удалось отправить письмо восстановления. Проверьте email и попробуйте ещё раз.";
     }
 
     return action === "signup"
@@ -210,6 +221,9 @@
     authForm.querySelectorAll("input, button").forEach((element) => {
       element.disabled = isBusy;
     });
+    passwordResetForm?.querySelectorAll("input, button").forEach((element) => {
+      element.disabled = isBusy;
+    });
   }
 
   function renderAuthPanel() {
@@ -219,20 +233,39 @@
     const user = authState.user || authState.session?.user || null;
     const storageState = storyService.getUserStoriesStorageState();
     const isSignedIn = authState.status === "signed_in" && user?.email;
+    const isPasswordRecovery = Boolean(passwordRecoverySession);
     const hasFallback = storageState.mode === "local_fallback";
 
     authStatus.classList.remove("success", "warning");
 
     if (!supabaseService?.isEnabled?.()) {
       authForm?.classList.add("hidden");
+      passwordResetForm?.classList.add("hidden");
       authSessionActions?.classList.add("hidden");
       authStatus.textContent = "Supabase выключен в конфиге. Истории сохраняются локально.";
       authStatus.classList.add("warning");
       return;
     }
 
+    if (isPasswordRecovery) {
+      authForm?.classList.add("hidden");
+      passwordResetForm?.classList.remove("hidden");
+      authSessionActions?.classList.add("hidden");
+
+      if (authNotice.message) {
+        authStatus.textContent = authNotice.message;
+        if (authNotice.tone) authStatus.classList.add(authNotice.tone);
+        return;
+      }
+
+      authStatus.textContent = "Введите новый пароль для аккаунта.";
+      authStatus.classList.add("warning");
+      return;
+    }
+
     if (isSignedIn) {
       authForm?.classList.add("hidden");
+      passwordResetForm?.classList.add("hidden");
       authSessionActions?.classList.remove("hidden");
       authStatus.textContent = hasFallback
         ? `Вы вошли как ${user.email}, но Supabase сейчас недоступен. Истории временно сохраняются локально.`
@@ -242,6 +275,7 @@
     }
 
     authForm?.classList.remove("hidden");
+    passwordResetForm?.classList.add("hidden");
     authSessionActions?.classList.add("hidden");
 
     if (authNotice.message) {
@@ -722,18 +756,40 @@
     const password = String(formData.get("password") || "");
     const action = event.submitter?.dataset.authAction || "signin";
 
-    if (!email || !password) {
+    if (!email) {
+      setAuthNotice("Введите email.", "warning");
+      renderAuthPanel();
+      return;
+    }
+
+    if (!authForm.elements.email.checkValidity()) {
+      setAuthNotice("Введите корректный email.", "warning");
+      renderAuthPanel();
+      return;
+    }
+
+    if (action !== "recover" && !password) {
       setAuthNotice("Введите email и пароль.", "warning");
       renderAuthPanel();
       return;
     }
 
     setAuthFormBusy(true);
-    setAuthNotice(action === "signup" ? "Создаю аккаунт..." : "Выполняю вход...", "");
+    setAuthNotice(
+      action === "recover"
+        ? "Отправляю письмо для восстановления пароля..."
+        : action === "signup"
+          ? "Создаю аккаунт..."
+          : "Выполняю вход...",
+      ""
+    );
     renderAuthPanel();
 
     try {
-      if (action === "signup") {
+      if (action === "recover") {
+        await supabaseService.requestPasswordRecovery(email);
+        setAuthNotice("Письмо для восстановления пароля отправлено. Проверьте почту.", "success");
+      } else if (action === "signup") {
         const authState = await supabaseService.signUpWithPassword(email, password);
         setAuthNotice(
           authState.status === "pending_confirmation"
@@ -746,12 +802,15 @@
         setAuthNotice("Вход выполнен.", "success");
       }
 
-      await storyService.initializeUserStories();
-      await subscriptionService.initializeSubscription();
-      await likeService.initializeLikes();
-      authForm.reset();
+      if (action !== "recover") {
+        await storyService.initializeUserStories();
+        await subscriptionService.initializeSubscription();
+        await likeService.initializeLikes();
+        authForm.reset();
+        renderAllStoryLists();
+      }
+
       renderAuthPanel();
-      renderAllStoryLists();
     } catch (error) {
       console.warn("[app] Auth failed", error);
       setAuthNotice(getAuthErrorMessage(error, action), "warning");
@@ -759,6 +818,71 @@
     } finally {
       setAuthFormBusy(false);
     }
+  }
+
+  async function handlePasswordResetSubmit(event) {
+    event.preventDefault();
+
+    if (!passwordRecoverySession?.access_token) {
+      setAuthNotice("Ссылка восстановления устарела. Запросите новое письмо.", "warning");
+      passwordRecoverySession = null;
+      renderAuthPanel();
+      return;
+    }
+
+    const formData = new FormData(passwordResetForm);
+    const newPassword = String(formData.get("newPassword") || "");
+    const confirmNewPassword = String(formData.get("confirmNewPassword") || "");
+
+    if (!newPassword || !confirmNewPassword) {
+      setAuthNotice("Введите новый пароль два раза.", "warning");
+      renderAuthPanel();
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setAuthNotice("Пароль должен быть не короче 6 символов.", "warning");
+      renderAuthPanel();
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setAuthNotice("Пароли не совпадают.", "warning");
+      renderAuthPanel();
+      return;
+    }
+
+    setAuthFormBusy(true);
+    setAuthNotice("Сохраняю новый пароль...", "");
+    renderAuthPanel();
+
+    try {
+      await supabaseService.updatePassword(passwordRecoverySession.access_token, newPassword);
+      passwordRecoverySession = null;
+      passwordResetForm.reset();
+      supabaseService.clearAuthParamsFromUrl?.();
+      await supabaseService.signOut();
+      await storyService.initializeUserStories();
+      await subscriptionService.initializeSubscription();
+      await likeService.initializeLikes();
+      setAuthNotice("Пароль обновлён. Теперь войдите с новым паролем.", "success");
+      renderAuthPanel();
+      renderAllStoryLists();
+    } catch (error) {
+      console.warn("[app] Password reset failed", error);
+      setAuthNotice(getAuthErrorMessage(error, "recover"), "warning");
+      renderAuthPanel();
+    } finally {
+      setAuthFormBusy(false);
+    }
+  }
+
+  function cancelPasswordReset() {
+    passwordRecoverySession = null;
+    passwordResetForm?.reset();
+    supabaseService?.clearAuthParamsFromUrl?.();
+    setAuthNotice("Восстановление пароля отменено.", "warning");
+    renderAuthPanel();
   }
 
   async function handleSignOut() {
@@ -786,6 +910,14 @@
 
   if (authForm) {
     authForm.addEventListener("submit", handleAuthSubmit);
+  }
+
+  if (passwordResetForm) {
+    passwordResetForm.addEventListener("submit", handlePasswordResetSubmit);
+  }
+
+  if (cancelPasswordResetButton) {
+    cancelPasswordResetButton.addEventListener("click", cancelPasswordReset);
   }
 
   if (signOutButton) {
@@ -901,10 +1033,20 @@
     renderAllStoryLists();
 
     if (supabaseService?.isEnabled?.()) {
-      await supabaseService.initializeAuth();
-      await subscriptionService.initializeSubscription();
-      await storyService.initializeUserStories();
-      await likeService.initializeLikes();
+      try {
+        passwordRecoverySession = await supabaseService.getPasswordRecoverySessionFromUrl();
+      } catch (error) {
+        console.warn("[app] Cannot read password recovery session", error);
+        setAuthNotice("Ссылка восстановления устарела. Запросите новое письмо.", "warning");
+      }
+
+      if (!passwordRecoverySession) {
+        await supabaseService.initializeAuth();
+        await subscriptionService.initializeSubscription();
+        await storyService.initializeUserStories();
+        await likeService.initializeLikes();
+      }
+
       renderSubscriptionPanel();
       renderAuthPanel();
       renderAllStoryLists();

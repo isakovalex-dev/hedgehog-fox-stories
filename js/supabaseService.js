@@ -142,6 +142,26 @@
     };
   }
 
+  function getAuthParamsFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const hash = window.location.hash.startsWith("#")
+      ? window.location.hash.slice(1)
+      : window.location.hash;
+    const hashParams = new URLSearchParams(hash);
+
+    hashParams.forEach((value, key) => {
+      if (!params.has(key)) params.set(key, value);
+    });
+
+    return params;
+  }
+
+  function clearAuthParamsFromUrl() {
+    if (!window.history?.replaceState) return;
+
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+
   function isSessionExpired(session) {
     if (!session?.expires_at) return false;
     return session.expires_at <= Math.floor(Date.now() / 1000) + 60;
@@ -296,6 +316,59 @@
     });
 
     return getAuthState();
+  }
+
+  async function requestPasswordRecovery(email) {
+    const redirectTo = `${window.location.origin}${window.location.pathname}`;
+
+    await request(
+      `/auth/v1/recover?redirect_to=${encodeURIComponent(redirectTo)}`,
+      {
+        method: "POST",
+        body: JSON.stringify({ email })
+      },
+      config.SUPABASE_ANON_KEY
+    );
+  }
+
+  async function getPasswordRecoverySessionFromUrl() {
+    const params = getAuthParamsFromUrl();
+    const type = params.get("type");
+    const accessToken = params.get("access_token");
+
+    if (type !== "recovery" || !accessToken) return null;
+
+    const session = normalizeAuthSession({
+      access_token: accessToken,
+      refresh_token: params.get("refresh_token") || "",
+      expires_in: Number(params.get("expires_in") || 3600),
+      expires_at: Number(params.get("expires_at") || 0) || undefined
+    });
+
+    if (!session) return null;
+
+    const nextSession = { ...session, user: null };
+
+    saveStoredSession(nextSession);
+    setAuthState({
+      status: "password_recovery",
+      session: nextSession,
+      user: null,
+      lastError: null
+    });
+
+    return nextSession;
+  }
+
+  async function updatePassword(accessToken, password) {
+    await request(
+      "/auth/v1/user",
+      {
+        method: "PUT",
+        body: JSON.stringify({ password })
+      },
+      accessToken
+    );
   }
 
   async function signOut() {
@@ -719,6 +792,10 @@
     initializeAuth,
     signInWithPassword,
     signUpWithPassword,
+    requestPasswordRecovery,
+    getPasswordRecoverySessionFromUrl,
+    updatePassword,
+    clearAuthParamsFromUrl,
     signOut,
     fetchUserStories,
     saveUserStory,

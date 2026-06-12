@@ -206,6 +206,42 @@
             <div class="auth-buttons">
               <button class="button primary" data-auth-action="signin" type="submit">Войти</button>
               <button class="button secondary" data-auth-action="signup" type="submit">Зарегистрироваться</button>
+              <button class="button quiet" data-auth-action="recover" type="submit" formnovalidate>
+                Забыли пароль?
+              </button>
+            </div>
+          </form>
+
+          <form class="auth-form hidden" id="passwordResetForm">
+            <label class="field">
+              <span>Новый пароль</span>
+              <input
+                id="newPassword"
+                name="newPassword"
+                type="password"
+                autocomplete="new-password"
+                minlength="6"
+                placeholder="Минимум 6 символов"
+                required
+              />
+            </label>
+            <label class="field">
+              <span>Повторите пароль</span>
+              <input
+                id="confirmNewPassword"
+                name="confirmNewPassword"
+                type="password"
+                autocomplete="new-password"
+                minlength="6"
+                placeholder="Повторите новый пароль"
+                required
+              />
+            </label>
+            <div class="auth-buttons">
+              <button class="button primary" type="submit">Сохранить пароль</button>
+              <button class="button secondary" id="cancelPasswordResetButton" type="button">
+                Вернуться ко входу
+              </button>
             </div>
           </form>
 
