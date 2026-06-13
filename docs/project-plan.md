@@ -6,8 +6,8 @@ This file tracks the current implementation plan for "Ежонок и Лисён
 
 1. Backend generation scaffold - done.
 2. Push latest commit - done.
-3. Vercel AI environment variables - waiting for confirmation.
-4. Choose AI provider - not started.
+3. Vercel AI environment variables - done.
+4. Choose AI provider - done.
 5. Test AI generation - not started.
 6. Improve backend AI validation - not started.
 7. Make Supabase story persistence atomic - not started.
@@ -19,16 +19,16 @@ This file tracks the current implementation plan for "Ежонок и Лисён
 
 ## Current Next Step
 
-Configure these Vercel environment variables for the backend project, keep real AI disabled, and redeploy:
+Add real AI credentials to Vercel, enable generation for a short test, and create several test stories.
+
+Chosen provider for the first test:
 
 ```text
-AI_GENERATION_ENABLED=false
-AI_API_BASE_URL=
-AI_API_KEY=
-AI_MODEL=
+AI_API_BASE_URL=https://api.openai.com/v1
+AI_MODEL=gpt-5.4-mini
 ```
 
-After the Vercel settings are confirmed, mark item 3 as done and move to item 4.
+Keep `AI_GENERATION_ENABLED=false` until the API key is added and the test window starts.
 
 ## Completion Rule
 

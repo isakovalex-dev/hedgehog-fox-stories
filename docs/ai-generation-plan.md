@@ -78,6 +78,14 @@ Backend AI adapter scaffold:
 - if AI generation fails, the endpoint falls back to mock generation and records `meta.aiFallbackReason`;
 - generated AI JSON is validated before saving to Supabase.
 
+First provider choice:
+
+- provider: OpenAI;
+- base URL: `https://api.openai.com/v1`;
+- first model to test: `gpt-5.4-mini`;
+- reason: low-friction OpenAI-compatible backend setup for short Russian children's stories;
+- keep `AI_GENERATION_ENABLED=false` until the API key is added in Vercel and a short test window starts.
+
 Frontend flow:
 
 1. User opens generator.
