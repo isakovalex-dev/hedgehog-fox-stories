@@ -37,6 +37,29 @@ https://hedgehog-fox-stories.vercel.app/api/generate-story
 
 No `package.json`, npm dependencies, build step, real AI API, payment API, or service role key is required for this scaffold.
 
+## AI adapter scaffold
+
+The backend includes an OpenAI-compatible adapter, but it is disabled by default.
+
+Vercel environment variables for later:
+
+```text
+AI_GENERATION_ENABLED=false
+AI_API_BASE_URL=
+AI_API_KEY=
+AI_MODEL=
+```
+
+When `AI_GENERATION_ENABLED` is not exactly `true`, the endpoint keeps using mock generation.
+
+When real AI is enabled later:
+
+- the backend calls `POST {AI_API_BASE_URL}/chat/completions`;
+- the frontend still does not see the API key;
+- the AI response must be valid JSON;
+- backend validation still runs before saving the story;
+- if AI generation fails, the endpoint falls back to mock and returns `meta.aiFallbackReason`.
+
 ## Request body
 
 ```json

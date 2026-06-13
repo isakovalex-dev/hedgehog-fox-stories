@@ -36,9 +36,10 @@ Current scaffold:
 
 - file: `api/generate-story.js`;
 - runtime target: Vercel-style Node serverless function;
-- current mode: mock only, no real AI API call;
-- current persistence: returns the generated story but does not save it;
-- purpose: lock the endpoint contract before connecting auth, limits, Supabase writes, and OpenAI-compatible API calls.
+- current mode: mock by default, optional OpenAI-compatible adapter behind `AI_GENERATION_ENABLED=true`;
+- current persistence: validates the Supabase JWT, checks generation limits, saves `stories` and `story_pages`, then increments `generation_usage`;
+- current fallback: if AI is enabled but the provider fails or returns invalid JSON, backend saves a mock story and returns `meta.aiFallbackReason`;
+- purpose: keep the endpoint contract stable before enabling a paid AI provider and payment flow.
 
 ### Stories
 

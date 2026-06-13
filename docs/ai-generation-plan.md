@@ -65,6 +65,19 @@ Images can be generated later when:
 
 The frontend must never call the AI API directly. API keys must stay on the backend in environment variables.
 
+Backend AI adapter scaffold:
+
+- file: `api/generate-story.js`;
+- compatible endpoint: `POST {AI_API_BASE_URL}/chat/completions`;
+- required env variables:
+  - `AI_GENERATION_ENABLED`;
+  - `AI_API_BASE_URL`;
+  - `AI_API_KEY`;
+  - `AI_MODEL`;
+- default mode: mock generation remains active while `AI_GENERATION_ENABLED` is not `true`;
+- if AI generation fails, the endpoint falls back to mock generation and records `meta.aiFallbackReason`;
+- generated AI JSON is validated before saving to Supabase.
+
 Frontend flow:
 
 1. User opens generator.

@@ -41,6 +41,10 @@ const DEFAULT_ORIGIN = "https://ezhik-i-lisenok.ru";
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ynidvdesfolavhngubqv.supabase.co";
 const SUPABASE_ANON_KEY =
   process.env.SUPABASE_ANON_KEY || "sb_publishable_nQg--YaINF8OoBd4wceHkA_yo76Z5hy";
+const AI_GENERATION_ENABLED = process.env.AI_GENERATION_ENABLED === "true";
+const AI_API_BASE_URL = process.env.AI_API_BASE_URL || "";
+const AI_API_KEY = process.env.AI_API_KEY || "";
+const AI_MODEL = process.env.AI_MODEL || "";
 const LOCAL_ORIGINS = new Set([
   "http://localhost:8000",
   "http://localhost:8001",
@@ -644,6 +648,156 @@ function validateGeneratedStory(story) {
   return errors;
 }
 
+function isAiGenerationReady() {
+  return Boolean(AI_GENERATION_ENABLED && AI_API_BASE_URL && AI_API_KEY && AI_MODEL);
+}
+
+function getAiEndpointUrl() {
+  return `${AI_API_BASE_URL.replace(/\/$/, "")}/chat/completions`;
+}
+
+function getAiSystemPrompt() {
+  return [
+    "Ты пишешь короткие, спокойные, безопасные детские истории на русском языке.",
+    "Главные герои всегда Ежонок и Лисёнок.",
+    "Возраст читателей: 5-10 лет.",
+    "Тон: добрый, тёплый, без страшных, взрослых, опасных и манипулятивных тем.",
+    "Верни только JSON без markdown и без пояснений.",
+    "Каждая страница должна быть короткой.",
+    `sceneTag выбирай только из списка: ${ALLOWED_SCENE_TAGS.join(", ")}.`
+  ].join(" ");
+}
+
+function getAiUserPrompt(input) {
+  return JSON.stringify({
+    task: "generate_child_story",
+    outputFormat: {
+      title: "Название истории",
+      ageGroup: "5-7 или 8-10",
+      mood: "настроение на русском",
+      lesson: "короткий урок истории",
+      pages: [
+        {
+          pageNumber: 1,
+          text: "Текст страницы",
+          sceneTag: "forest_day",
+          imagePrompt: "Описание будущей акварельной иллюстрации"
+        }
+      ]
+    },
+    constraints: {
+      topic: input.topic,
+      ageGroup: input.ageGroup,
+      mood: MOOD_CONFIG[input.mood].label,
+      lesson: input.lesson,
+      pageCount: input.pageCount,
+      maxPages: 5,
+      heroes: ["Ежонок", "Лисёнок"],
+      allowedSceneTags: ALLOWED_SCENE_TAGS
+    }
+  });
+}
+
+function extractJsonObject(text) {
+  const source = String(text || "").trim();
+
+  if (source.startsWith("{") && source.endsWith("}")) {
+    return source;
+  }
+
+  const start = source.indexOf("{");
+  const end = source.lastIndexOf("}");
+
+  if (start >= 0 && end > start) {
+    return source.slice(start, end + 1);
+  }
+
+  throw createHttpError(502, "AI response did not contain JSON");
+}
+
+async function parseAiResponse(response) {
+  const rawText = await response.text();
+  const data = rawText ? JSON.parse(rawText) : null;
+
+  if (!response.ok) {
+    const message =
+      data?.error?.message ||
+      data?.message ||
+      response.statusText ||
+      "AI provider request failed";
+    throw createHttpError(response.status >= 500 ? 502 : 500, message, data);
+  }
+
+  const content = data?.choices?.[0]?.message?.content;
+  if (!content) {
+    throw createHttpError(502, "AI response content is empty", data);
+  }
+
+  try {
+    return JSON.parse(extractJsonObject(content));
+  } catch (error) {
+    if (error.statusCode) throw error;
+    throw createHttpError(502, "AI response JSON is invalid", { content });
+  }
+}
+
+async function generateAiStory(input) {
+  if (!isAiGenerationReady()) {
+    throw createHttpError(500, "AI generation is not configured");
+  }
+
+  const response = await fetch(getAiEndpointUrl(), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${AI_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: AI_MODEL,
+      temperature: 0.7,
+      messages: [
+        {
+          role: "system",
+          content: getAiSystemPrompt()
+        },
+        {
+          role: "user",
+          content: getAiUserPrompt(input)
+        }
+      ],
+      response_format: { type: "json_object" }
+    })
+  });
+
+  return parseAiResponse(response);
+}
+
+async function generateStoryContent(input) {
+  if (!isAiGenerationReady()) {
+    return {
+      story: buildMockStory(input),
+      mode: "mock",
+      aiProvider: "disabled"
+    };
+  }
+
+  try {
+    return {
+      story: await generateAiStory(input),
+      mode: "ai",
+      aiProvider: "openai-compatible"
+    };
+  } catch (error) {
+    console.warn("[generate-story] AI generation failed, using mock fallback", error);
+    return {
+      story: buildMockStory(input),
+      mode: "mock-fallback",
+      aiProvider: "openai-compatible",
+      aiFallbackReason: error.message || "AI generation failed"
+    };
+  }
+}
+
 async function handler(req, res) {
   setCorsHeaders(req, res);
 
@@ -674,7 +828,8 @@ async function handler(req, res) {
       return;
     }
 
-    const story = buildMockStory(requestValidation.value);
+    const generationResult = await generateStoryContent(requestValidation.value);
+    const story = generationResult.story;
     const generatedStoryErrors = validateGeneratedStory(story);
 
     if (generatedStoryErrors.length) {
@@ -691,8 +846,9 @@ async function handler(req, res) {
     sendJson(req, res, 200, {
       story: savedStory,
       meta: {
-        mode: "mock",
-        aiProvider: "disabled",
+        mode: generationResult.mode,
+        aiProvider: generationResult.aiProvider,
+        aiFallbackReason: generationResult.aiFallbackReason || null,
         savedToDatabase: true,
         authChecked: true,
         usageLimitChecked: true,
@@ -701,8 +857,7 @@ async function handler(req, res) {
         subscription: generationAccess.subscription,
         usage: incrementedUsage,
         nextBackendSteps: [
-          "call OpenAI-compatible API with a server-side key",
-          "replace mock text generation with validated OpenAI-compatible API output",
+          "configure AI_GENERATION_ENABLED=true after provider testing",
           "wrap story save and usage increment in an atomic backend operation"
         ]
       }
