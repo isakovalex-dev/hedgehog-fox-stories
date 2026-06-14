@@ -8,7 +8,7 @@ This file tracks the current implementation plan for "Ежонок и Лисён
 2. Push latest commit - done.
 3. Vercel AI environment variables - done.
 4. Choose AI provider - done.
-5. Test AI generation - not started.
+5. Test AI generation - in progress.
 6. Improve backend AI validation - not started.
 7. Make Supabase story persistence atomic - not started.
 8. Prepare real subscription plans - not started.
@@ -19,16 +19,16 @@ This file tracks the current implementation plan for "Ежонок и Лисён
 
 ## Current Next Step
 
-Add real AI credentials to Vercel, enable generation for a short test, and create several test stories.
+Redeploy the frontend timeout/status fix, then create several test stories and confirm whether the result is `backend ai` or `backend mock-fallback`.
 
 Chosen provider for the first test:
 
 ```text
-AI_API_BASE_URL=https://api.openai.com/v1
-AI_MODEL=gpt-5.4-mini
+AI_API_BASE_URL=https://api.deepseek.com
+AI_MODEL=deepseek-v4-flash
 ```
 
-Keep `AI_GENERATION_ENABLED=false` until the API key is added and the test window starts.
+Use `AI_GENERATION_ENABLED=true` only during the test window.
 
 ## Completion Rule
 

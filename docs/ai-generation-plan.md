@@ -80,11 +80,11 @@ Backend AI adapter scaffold:
 
 First provider choice:
 
-- provider: OpenAI;
-- base URL: `https://api.openai.com/v1`;
-- first model to test: `gpt-5.4-mini`;
-- reason: low-friction OpenAI-compatible backend setup for short Russian children's stories;
-- keep `AI_GENERATION_ENABLED=false` until the API key is added in Vercel and a short test window starts.
+- provider: DeepSeek;
+- base URL: `https://api.deepseek.com`;
+- first model to test: `deepseek-v4-flash`;
+- reason: available OpenAI-compatible API for short Russian children's stories;
+- use `AI_GENERATION_ENABLED=true` only during a controlled test window.
 
 Frontend flow:
 

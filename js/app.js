@@ -8,6 +8,7 @@
   const supabaseService = window.HFSupabaseService;
   const appConfig = window.HFConfig || {};
   const { EVENTS, trackEvent } = analyticsService;
+  const BACKEND_GENERATION_TIMEOUT_MS = 30000;
 
   const storyList = document.querySelector("#storyList");
   const libraryList = document.querySelector("#libraryList");
@@ -718,6 +719,13 @@
     };
   }
 
+  function getBackendGenerationLabel(meta) {
+    if (meta?.mode === "ai") return "backend ai";
+    if (meta?.mode === "mock-fallback") return "backend mock-fallback";
+    if (meta?.mode === "mock") return "backend mock";
+    return "backend";
+  }
+
   function canUseGenerationApi() {
     return Boolean(appConfig.GENERATION_API_ENABLED && appConfig.GENERATION_API_URL);
   }
@@ -734,7 +742,7 @@
     }
 
     const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), 8000);
+    const timeoutId = window.setTimeout(() => controller.abort(), BACKEND_GENERATION_TIMEOUT_MS);
     const authState = supabaseService?.getAuthState?.();
     const accessToken = authState?.session?.access_token || "";
 
@@ -764,7 +772,10 @@
         throw error;
       }
 
-      return getStoryFromBackendResponse(payload, formData);
+      return {
+        story: getStoryFromBackendResponse(payload, formData),
+        meta: payload?.meta || {}
+      };
     } catch (error) {
       if (error.name === "AbortError" || error instanceof TypeError) {
         error.isBackendUnavailable = true;
@@ -786,10 +797,12 @@
     }
 
     try {
+      const backendResult = await requestBackendStory(formData);
+
       return {
-        story: await requestBackendStory(formData),
-        mode: "backend-mock",
-        label: "backend mock"
+        story: backendResult.story,
+        mode: `backend-${backendResult.meta?.mode || "unknown"}`,
+        label: getBackendGenerationLabel(backendResult.meta)
       };
     } catch (error) {
       if (!isBackendUnavailableError(error)) {
@@ -819,13 +832,14 @@
       updateGenerationStatus("Создаю историю...");
       const generated = await generateStory(formData);
       const story = generated.story;
+      const isBackendGenerated = generated.mode.startsWith("backend-");
 
       updateGenerationStatus(
-        generated.mode === "backend-mock" ? "Обновляю библиотеку..." : "Сохраняю историю..."
+        isBackendGenerated ? "Обновляю библиотеку..." : "Сохраняю историю..."
       );
       let savedStory = story;
 
-      if (generated.mode === "backend-mock") {
+      if (isBackendGenerated) {
         await storyService.initializeUserStories();
         await subscriptionService.initializeSubscription();
         savedStory = storyService.getStoryById(story.id) || story;
