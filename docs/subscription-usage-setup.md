@@ -148,6 +148,8 @@ Current intermediate state:
 - backend mock generation already validates auth and checks `generation_usage`;
 - backend mock generation saves `stories` and `story_pages`;
 - backend mock generation increments Supabase `generation_usage` only after story save succeeds;
+- backend can call `create_generated_story_with_usage` RPC to save the story and increment usage in one transaction;
+- if the RPC is not installed yet, backend uses the existing REST fallback;
 - frontend refreshes the Supabase library after backend generation instead of saving the same story again;
 - browser mock fallback still increments local usage on the frontend.
 

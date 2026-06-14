@@ -441,6 +441,79 @@ function getSavedStoryFromRows(storyRow, pageRows) {
   };
 }
 
+function getStoryPagesRpcPayload(story) {
+  return story.pages.map((page, index) => ({
+    page_number: Number(page.pageNumber || index + 1),
+    text: page.text || "",
+    scene_tag: page.sceneTag || "forest_day",
+    image_url: page.imageUrl || "",
+    image_prompt: page.imagePrompt || ""
+  }));
+}
+
+function getSavedStoryFromRpcPayload(payload) {
+  const story = payload?.story || {};
+  const pages = Array.isArray(payload?.pages) ? payload.pages : [];
+
+  return getSavedStoryFromRows(story, pages);
+}
+
+function getGenerationUsageFromRpcPayload(payload, generationAccess) {
+  const usage = payload?.usage || {};
+  const generationsUsed = Number(
+    usage.generations_used ?? generationAccess.usage.generationsUsed + 1
+  );
+  const generationLimit = Number(
+    usage.generation_limit ?? generationAccess.usage.generationLimit
+  );
+
+  return {
+    id: usage.id || generationAccess.usage.id,
+    generationsUsed,
+    generationLimit,
+    periodStart: usage.period_start || generationAccess.usage.periodStart || null,
+    periodEnd: usage.period_end || generationAccess.usage.periodEnd || null
+  };
+}
+
+function canFallbackFromRpcError(error) {
+  const source = `${error.message || ""} ${JSON.stringify(error.details || {})}`.toLowerCase();
+
+  return (
+    error.statusCode === 404 ||
+    source.includes("could not find the function") ||
+    source.includes("schema cache")
+  );
+}
+
+async function saveGeneratedStoryWithUsageRpc(story, generationAccess) {
+  const rows = await supabaseRequest(
+    "/rest/v1/rpc/create_generated_story_with_usage",
+    {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({
+        p_usage_id: generationAccess.usage.id,
+        p_title: story.title,
+        p_age_group: story.ageGroup,
+        p_mood: story.mood || "",
+        p_lesson: story.lesson || "",
+        p_visibility: "private",
+        p_pages: getStoryPagesRpcPayload(story)
+      })
+    },
+    generationAccess.accessToken
+  );
+
+  const payload = Array.isArray(rows) ? rows[0] : rows;
+
+  return {
+    story: getSavedStoryFromRpcPayload(payload),
+    usage: getGenerationUsageFromRpcPayload(payload, generationAccess),
+    storageMode: "rpc"
+  };
+}
+
 async function saveGeneratedStory(story, generationAccess) {
   const storyRow = await insertStoryRow(story, generationAccess);
 
@@ -457,6 +530,25 @@ async function saveGeneratedStory(story, generationAccess) {
     throw error;
   }
 }
+
+async function saveGeneratedStoryAndIncrementUsage(story, generationAccess) {
+  try {
+    return await saveGeneratedStoryWithUsageRpc(story, generationAccess);
+  } catch (error) {
+    if (!canFallbackFromRpcError(error)) throw error;
+
+    console.warn("[generate-story] Atomic RPC is unavailable, using REST fallback", error);
+    const savedStory = await saveGeneratedStory(story, generationAccess);
+    const usage = await incrementAuthenticatedGenerationUsage(generationAccess);
+
+    return {
+      story: savedStory,
+      usage,
+      storageMode: "rest-fallback"
+    };
+  }
+}
+
 
 function setCorsHeaders(req, res) {
   const allowedOrigin = getAllowedOrigin(req.headers?.origin || "");
@@ -902,25 +994,25 @@ async function handler(req, res) {
       return;
     }
 
-    const savedStory = await saveGeneratedStory(story, generationAccess);
-    const incrementedUsage = await incrementAuthenticatedGenerationUsage(generationAccess);
+    const persistenceResult = await saveGeneratedStoryAndIncrementUsage(story, generationAccess);
 
     sendJson(req, res, 200, {
-      story: savedStory,
+      story: persistenceResult.story,
       meta: {
         mode: generationResult.mode,
         aiProvider: generationResult.aiProvider,
         aiFallbackReason: generationResult.aiFallbackReason || null,
+        persistenceMode: persistenceResult.storageMode,
         savedToDatabase: true,
         authChecked: true,
         usageLimitChecked: true,
         usageIncremented: true,
         userId: generationAccess.userId,
         subscription: generationAccess.subscription,
-        usage: incrementedUsage,
+        usage: persistenceResult.usage,
         nextBackendSteps: [
-          "configure AI_GENERATION_ENABLED=true after provider testing",
-          "wrap story save and usage increment in an atomic backend operation"
+          "run create_generated_story_with_usage SQL in Supabase",
+          "remove REST fallback after RPC is verified in production"
         ]
       }
     });

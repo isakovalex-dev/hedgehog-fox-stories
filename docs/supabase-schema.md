@@ -119,3 +119,25 @@ Notes:
 
 - backend must check this table before calling the AI provider;
 - usage should reset per billing period.
+
+## RPC: create_generated_story_with_usage
+
+SQL file:
+
+```text
+docs/supabase-rpc-generated-story.sql
+```
+
+Purpose:
+
+- saves one generated story;
+- saves all generated story pages;
+- increments the matching `generation_usage` row;
+- runs inside one PostgreSQL transaction;
+- locks the usage row with `for update` before incrementing.
+
+Backend behavior:
+
+- `api/generate-story.js` first tries this RPC;
+- if the RPC is not installed yet, backend uses the older REST fallback;
+- after the RPC is installed and verified in production, the fallback can be removed.

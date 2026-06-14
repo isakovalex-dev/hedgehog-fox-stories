@@ -10,7 +10,7 @@ This file tracks the current implementation plan for "Ежонок и Лисён
 4. Choose AI provider - done.
 5. Test AI generation - done.
 6. Improve backend AI validation - done.
-7. Make Supabase story persistence atomic - not started.
+7. Make Supabase story persistence atomic - in progress.
 8. Prepare real subscription plans - not started.
 9. Connect payments - not started.
 10. Improve account UI - not started.
@@ -19,7 +19,7 @@ This file tracks the current implementation plan for "Ежонок и Лисён
 
 ## Current Next Step
 
-Make Supabase story persistence and usage increment atomic so a partial backend failure cannot save a story without a matching usage update.
+Run `docs/supabase-rpc-generated-story.sql` in Supabase SQL Editor, then verify that backend responses use `meta.persistenceMode = "rpc"`.
 
 Chosen provider for the first test:
 
