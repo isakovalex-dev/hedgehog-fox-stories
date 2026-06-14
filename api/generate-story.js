@@ -38,6 +38,10 @@ const MOOD_CONFIG = {
 };
 
 const DEFAULT_ORIGIN = "https://ezhik-i-lisenok.ru";
+const MAX_STORY_TITLE_LENGTH = 120;
+const MAX_STORY_LESSON_LENGTH = 160;
+const MAX_PAGE_TEXT_LENGTH = 700;
+const MAX_IMAGE_PROMPT_LENGTH = 240;
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ynidvdesfolavhngubqv.supabase.co";
 const SUPABASE_ANON_KEY =
   process.env.SUPABASE_ANON_KEY || "sb_publishable_nQg--YaINF8OoBd4wceHkA_yo76Z5hy";
@@ -537,6 +541,12 @@ function containsUnsafeContent(value) {
   return blockedWords.some((word) => source.includes(word));
 }
 
+function assertSafeGeneratedText(value, fieldName) {
+  if (containsUnsafeContent(value)) {
+    throw createHttpError(502, `Generated story contains unsafe content in ${fieldName}`);
+  }
+}
+
 function validateGenerationRequest(body) {
   const errors = [];
   const topic = cleanText(body.topic, "маленькое приключение", 80);
@@ -619,7 +629,7 @@ function buildMockStory(input) {
 function validateGeneratedStory(story) {
   const errors = [];
 
-  if (!story.title || story.title.length > 120) {
+  if (!story.title || story.title.length > MAX_STORY_TITLE_LENGTH) {
     errors.push("Generated story title is missing or too long.");
   }
 
@@ -636,7 +646,7 @@ function validateGeneratedStory(story) {
       errors.push(`Page ${index + 1} has invalid pageNumber.`);
     }
 
-    if (!page.text || page.text.length > 700) {
+    if (!page.text || page.text.length > MAX_PAGE_TEXT_LENGTH) {
       errors.push(`Page ${index + 1} text is missing or too long.`);
     }
 
@@ -646,6 +656,57 @@ function validateGeneratedStory(story) {
   });
 
   return errors;
+}
+
+function normalizeGeneratedStory(rawStory, input) {
+  if (!rawStory || typeof rawStory !== "object") {
+    throw createHttpError(502, "AI response story is missing");
+  }
+
+  const title = cleanText(rawStory.title, "", MAX_STORY_TITLE_LENGTH);
+  const ageGroup = getAgeGroup(rawStory.ageGroup || input.ageGroup);
+  const mood = cleanText(rawStory.mood, MOOD_CONFIG[input.mood].label, 80);
+  const lesson = cleanText(rawStory.lesson, input.lesson, MAX_STORY_LESSON_LENGTH);
+  const rawPages = Array.isArray(rawStory.pages) ? rawStory.pages : [];
+
+  if (!title) {
+    throw createHttpError(502, "AI response title is missing");
+  }
+
+  if (rawPages.length < 1 || rawPages.length > 5) {
+    throw createHttpError(502, "AI response must contain 1-5 pages");
+  }
+
+  assertSafeGeneratedText(`${title} ${mood} ${lesson}`, "story metadata");
+
+  const pages = rawPages.map((rawPage, index) => {
+    const pageNumber = index + 1;
+    const text = cleanText(rawPage?.text, "", MAX_PAGE_TEXT_LENGTH);
+    const sceneTag = ALLOWED_SCENE_TAGS.includes(rawPage?.sceneTag) ? rawPage.sceneTag : "forest_day";
+    const imagePrompt = cleanText(rawPage?.imagePrompt, "", MAX_IMAGE_PROMPT_LENGTH);
+
+    if (!text) {
+      throw createHttpError(502, `AI response page ${pageNumber} text is missing`);
+    }
+
+    assertSafeGeneratedText(text, `page ${pageNumber}`);
+
+    return {
+      pageNumber,
+      text,
+      sceneTag,
+      imagePrompt
+    };
+  });
+
+  return {
+    id: `backend-ai-${Date.now()}`,
+    title,
+    ageGroup,
+    mood,
+    lesson,
+    pages
+  };
 }
 
 function isAiGenerationReady() {
@@ -769,7 +830,8 @@ async function generateAiStory(input) {
     })
   });
 
-  return parseAiResponse(response);
+  const rawStory = await parseAiResponse(response);
+  return normalizeGeneratedStory(rawStory, input);
 }
 
 async function generateStoryContent(input) {

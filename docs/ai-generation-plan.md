@@ -42,13 +42,13 @@ The model must return JSON only:
 The backend must validate the model response before saving or returning it:
 
 - JSON is valid and parseable;
-- `title` is present and not too long;
-- `ageGroup` is one of `5-7` or `8-10`;
+- `title` is present, normalized, and not too long;
+- `ageGroup` is normalized to one of `5-7` or `8-10`;
 - `pages` is an array with 1-5 pages;
-- every page has `pageNumber`, `text`, and `sceneTag`;
-- page text is not empty and not too long;
+- every page has normalized `pageNumber`, `text`, and `sceneTag`;
+- page text is trimmed, compacted, not empty, and not too long;
 - scene tags are known or replaced with a safe fallback;
-- unsafe content is rejected or regenerated.
+- unsafe content is rejected and the endpoint falls back to mock generation.
 
 ## Scene tags instead of new images
 
@@ -76,7 +76,7 @@ Backend AI adapter scaffold:
   - `AI_MODEL`;
 - default mode: mock generation remains active while `AI_GENERATION_ENABLED` is not `true`;
 - if AI generation fails, the endpoint falls back to mock generation and records `meta.aiFallbackReason`;
-- generated AI JSON is validated before saving to Supabase.
+- generated AI JSON is normalized and validated before saving to Supabase.
 
 First provider choice:
 

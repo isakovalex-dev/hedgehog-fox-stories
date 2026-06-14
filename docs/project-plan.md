@@ -8,8 +8,8 @@ This file tracks the current implementation plan for "Ежонок и Лисён
 2. Push latest commit - done.
 3. Vercel AI environment variables - done.
 4. Choose AI provider - done.
-5. Test AI generation - in progress.
-6. Improve backend AI validation - not started.
+5. Test AI generation - done.
+6. Improve backend AI validation - done.
 7. Make Supabase story persistence atomic - not started.
 8. Prepare real subscription plans - not started.
 9. Connect payments - not started.
@@ -19,7 +19,7 @@ This file tracks the current implementation plan for "Ежонок и Лисён
 
 ## Current Next Step
 
-Redeploy the frontend timeout/status fix, then create several test stories and confirm whether the result is `backend ai` or `backend mock-fallback`.
+Make Supabase story persistence and usage increment atomic so a partial backend failure cannot save a story without a matching usage update.
 
 Chosen provider for the first test:
 
@@ -29,6 +29,14 @@ AI_MODEL=deepseek-v4-flash
 ```
 
 Use `AI_GENERATION_ENABLED=true` only during the test window.
+
+Latest verified result:
+
+```text
+История создана: backend ai. Сохранена в Supabase.
+```
+
+Backend AI validation now normalizes generated stories, replaces unknown scene tags, rejects unsafe generated text, and falls back to mock generation when AI output is invalid.
 
 ## Completion Rule
 
