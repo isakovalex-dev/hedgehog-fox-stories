@@ -743,8 +743,8 @@
 
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), BACKEND_GENERATION_TIMEOUT_MS);
-    const authState = supabaseService?.getAuthState?.();
-    const accessToken = authState?.session?.access_token || "";
+    const session = await supabaseService?.ensureFreshSession?.();
+    const accessToken = session?.access_token || "";
 
     if (!accessToken) {
       const error = new Error("Backend generation requires an authenticated user");

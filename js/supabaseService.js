@@ -788,6 +788,7 @@
     isAuthenticated,
     getAuthState,
     getCurrentUser,
+    ensureFreshSession,
     onAuthStateChange,
     initializeAuth,
     signInWithPassword,
