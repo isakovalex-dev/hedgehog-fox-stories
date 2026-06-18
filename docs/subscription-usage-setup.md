@@ -92,6 +92,18 @@ For `free` users:
 
 The frontend increments usage only after the generated story is successfully saved.
 
+User-facing name: `Бесплатный`.
+
+## Trial limit
+
+For `trial` users:
+
+- `generation_limit = 3`;
+- recommended period for future production use: 7 days;
+- payment is not required for this status in the MVP.
+
+User-facing name: `Пробный`.
+
 ## Active limit
 
 For `active` users:
@@ -100,6 +112,18 @@ For `active` users:
 - the current MVP uses a 30-day period;
 - activating the mock subscription updates `subscriptions.status = 'active'`;
 - the current `generation_usage` row is created or updated with `generation_limit = 20`.
+
+User-facing name: `Семейный`.
+
+## Expired status
+
+For `expired` users:
+
+- `generation_limit = 0`;
+- generation is blocked;
+- saved library stories remain available.
+
+User-facing name: `Истёк`.
 
 ## Why store limits in Supabase
 

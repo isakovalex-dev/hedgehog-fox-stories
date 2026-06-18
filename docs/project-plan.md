@@ -10,8 +10,8 @@ This file tracks the current implementation plan for "Ежонок и Лисён
 4. Choose AI provider - done.
 5. Test AI generation - done.
 6. Improve backend AI validation - done.
-7. Make Supabase story persistence atomic - in progress.
-8. Prepare real subscription plans - not started.
+7. Make Supabase story persistence atomic - done.
+8. Prepare real subscription plans - done.
 9. Connect payments - not started.
 10. Improve account UI - not started.
 11. Improve "My Library" - not started.
@@ -19,7 +19,7 @@ This file tracks the current implementation plan for "Ежонок и Лисён
 
 ## Current Next Step
 
-Run `docs/supabase-rpc-generated-story.sql` in Supabase SQL Editor, then verify that backend responses use `meta.persistenceMode = "rpc"`.
+Connect payments after choosing the provider flow and webhook rules.
 
 Chosen provider for the first test:
 
@@ -37,6 +37,21 @@ Latest verified result:
 ```
 
 Backend AI validation now normalizes generated stories, replaces unknown scene tags, rejects unsafe generated text, and falls back to mock generation when AI output is invalid.
+
+Atomic persistence is verified with:
+
+```text
+meta.persistenceMode = "rpc"
+```
+
+MVP subscription plans are documented:
+
+```text
+Бесплатный: 1 AI story per 30-day period
+Пробный: 3 AI stories, future 7-day period
+Семейный: 20 AI stories per 30-day period
+Истёк: generation disabled, saved stories remain available
+```
 
 ## Completion Rule
 

@@ -119,10 +119,10 @@ Supported statuses:
 
 MVP rules:
 
-- `free`: 1 generated story;
-- `trial`: 3 generated stories;
-- `active`: 20 generated stories per month;
-- `expired`: generation disabled.
+- `free` / `Бесплатный`: 1 generated story per 30-day period;
+- `trial` / `Пробный`: 3 generated stories, recommended future period 7 days;
+- `active` / `Семейный`: 20 generated stories per 30-day period;
+- `expired` / `Истёк`: generation disabled, saved stories remain available.
 
 Public functions:
 
