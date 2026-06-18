@@ -12,14 +12,14 @@ This file tracks the current implementation plan for "Ежонок и Лисён
 6. Improve backend AI validation - done.
 7. Make Supabase story persistence atomic - done.
 8. Prepare real subscription plans - done.
-9. Connect payments - not started.
+9. Connect payments - in progress.
 10. Improve account UI - not started.
 11. Improve "My Library" - not started.
 12. Public launch checklist - not started.
 
 ## Current Next Step
 
-Connect payments after choosing the provider flow and webhook rules.
+Configure YooKassa credentials in Vercel, add the YooKassa webhook, and run the first test payment.
 
 Chosen provider for the first test:
 
@@ -51,6 +51,23 @@ MVP subscription plans are documented:
 Пробный: 3 AI stories, future 7-day period
 Семейный: 20 AI stories per 30-day period
 Истёк: generation disabled, saved stories remain available
+```
+
+Payment backend scaffold is added:
+
+```text
+POST /api/create-checkout
+POST /api/payment-webhook
+PAYMENT_PROVIDER=yookassa supported
+PAYMENTS_ENABLED=false by default until production credentials are configured
+```
+
+YooKassa backend flow is implemented:
+
+```text
+create-checkout creates a YooKassa redirect payment
+payment-webhook verifies the payment through YooKassa API
+payment-webhook creates an active family subscription in Supabase
 ```
 
 ## Completion Rule

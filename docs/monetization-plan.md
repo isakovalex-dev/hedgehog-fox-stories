@@ -56,9 +56,17 @@ True unlimited generation creates several risks:
 
 The product can still use friendly wording like "up to 20 new stories every month" instead of "limited".
 
-## Future YooKassa integration
+## YooKassa integration
 
-Payments should be added only after the plan names, limits, and UI copy are stable.
+YooKassa is the selected MVP payment provider.
+
+Current backend scaffold:
+
+- `POST /api/create-checkout`;
+- `POST /api/payment-webhook`;
+- payments disabled by default through `PAYMENTS_ENABLED=false`;
+- `PAYMENT_PROVIDER=yookassa` creates a redirect payment through YooKassa;
+- successful `payment.succeeded` webhooks activate the `Семейный` subscription in Supabase.
 
 Payment flow:
 
@@ -68,9 +76,16 @@ Payment flow:
 4. Backend returns a confirmation URL.
 5. User pays through YooKassa.
 6. YooKassa sends a webhook to `POST /api/payment-webhook`.
-7. Backend verifies the webhook signature.
+7. Backend verifies the payment by requesting it from YooKassa API.
 8. Backend updates `subscriptions` in Supabase.
 9. Frontend receives the updated subscription through `GET /api/subscription`.
+
+Production gaps after the first real payment test:
+
+- idempotency for repeated YooKassa webhooks;
+- subscription expiration handling;
+- refund and cancellation handling;
+- account UI for tariff and payment status.
 
 ## Subscription checks before generation
 

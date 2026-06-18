@@ -94,10 +94,20 @@ Behavior:
 
 `POST /api/payment-webhook` receives payment provider events and updates Supabase.
 
+Current payment scaffold:
+
+- files: `api/create-checkout.js`, `api/payment-webhook.js`;
+- default mode: disabled while `PAYMENTS_ENABLED` is not `true`;
+- manual mode can return `PAYMENT_CHECKOUT_URL` for a temporary external payment link;
+- YooKassa mode creates a redirect payment through YooKassa API;
+- YooKassa webhook verifies the payment by requesting the current payment object from YooKassa API;
+- successful YooKassa payments create an active `family` subscription row in Supabase through the service role key;
+- webhook idempotency, expiration handling, refunds, and cancellation events are still pending.
+
 ## Security rules
 
 - frontend must not contain AI keys, payment keys, or Supabase service role keys;
 - generation limits must be checked on the backend;
 - story ownership must be checked on every private story mutation;
-- payment webhooks must verify provider signatures;
+- payment webhooks must verify provider events before changing subscriptions;
 - localStorage can remain only for UI preferences and temporary optimistic state.
