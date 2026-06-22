@@ -12,14 +12,14 @@ This file tracks the current implementation plan for "Ежонок и Лисён
 6. Improve backend AI validation - done.
 7. Make Supabase story persistence atomic - done.
 8. Prepare real subscription plans - done.
-9. Connect payments - in progress.
-10. Improve account UI - not started.
+9. Connect payments - deferred until self-employed status is ready.
+10. Improve account UI - in progress.
 11. Improve "My Library" - not started.
 12. Public launch checklist - not started.
 
 ## Current Next Step
 
-Configure YooKassa credentials in Vercel, add the YooKassa webhook, and run the first test payment.
+Improve the account area so users clearly see login status, storage mode, tariff, usage, and payment status.
 
 Chosen provider for the first test:
 
@@ -69,6 +69,8 @@ create-checkout creates a YooKassa redirect payment
 payment-webhook verifies the payment through YooKassa API
 payment-webhook creates an active family subscription in Supabase
 ```
+
+YooKassa production activation is deferred because the project does not yet have the required self-employed payment requisites.
 
 ## Completion Rule
 

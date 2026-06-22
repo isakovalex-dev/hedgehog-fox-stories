@@ -155,10 +155,10 @@
             <p class="subscription-warning hidden" id="subscriptionWarning"></p>
             <p class="subscription-fallback hidden" id="subscriptionFallbackNotice"></p>
             <p>
-              Это тестовая подписка для проверки работы MVP. Реальная оплата пока не подключена.
+              Оплата через YooKassa отложена до оформления статуса самозанятого.
             </p>
             <button class="button primary" id="activateSubscriptionButton" type="button">
-              Активировать mock-подписку
+              Активировать тестовый тариф
             </button>
           </aside>
         </div>
@@ -177,6 +177,24 @@
             <p class="auth-status" id="authStatus" aria-live="polite">
               Без входа истории сохраняются на этом устройстве.
             </p>
+            <dl class="account-summary" id="accountSummary" aria-label="Сводка аккаунта">
+              <div>
+                <dt>Аккаунт</dt>
+                <dd id="accountEmailText">Гость</dd>
+              </div>
+              <div>
+                <dt>Хранение</dt>
+                <dd id="accountStorageText">На этом устройстве</dd>
+              </div>
+              <div>
+                <dt>Тариф</dt>
+                <dd id="accountTariffText">Бесплатный</dd>
+              </div>
+              <div>
+                <dt>Платежи</dt>
+                <dd id="accountPaymentText">Отложены</dd>
+              </div>
+            </dl>
           </div>
 
           <form class="auth-form" id="authForm">

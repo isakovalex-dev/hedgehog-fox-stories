@@ -44,6 +44,10 @@
   const passwordResetForm = document.querySelector("#passwordResetForm");
   const cancelPasswordResetButton = document.querySelector("#cancelPasswordResetButton");
   const authStatus = document.querySelector("#authStatus");
+  const accountEmailText = document.querySelector("#accountEmailText");
+  const accountStorageText = document.querySelector("#accountStorageText");
+  const accountTariffText = document.querySelector("#accountTariffText");
+  const accountPaymentText = document.querySelector("#accountPaymentText");
   const authSessionActions = document.querySelector("#authSessionActions");
   const signOutButton = document.querySelector("#signOutButton");
   const storiesSection = document.querySelector("#stories");
@@ -167,6 +171,37 @@
     return "Истории сохраняются на этом устройстве.";
   }
 
+  function getShortStorageStatusText(storageState) {
+    if (storageState.mode === "supabase") return "Supabase";
+    if (storageState.mode === "local_fallback") return "Локально, Supabase недоступен";
+    return "На этом устройстве";
+  }
+
+  function renderAccountSummary() {
+    const authState = supabaseService?.getAuthState?.() || { status: "disabled" };
+    const user = authState.user || authState.session?.user || null;
+    const storageState = storyService.getUserStoriesStorageState();
+    const subscription = subscriptionService.getSubscriptionState();
+    const usage = subscriptionService.getGenerationUsage();
+    const isSignedIn = authState.status === "signed_in" && user?.email;
+
+    if (accountEmailText) {
+      accountEmailText.textContent = isSignedIn ? user.email : "Гость";
+    }
+
+    if (accountStorageText) {
+      accountStorageText.textContent = getShortStorageStatusText(storageState);
+    }
+
+    if (accountTariffText) {
+      accountTariffText.textContent = `${getTariffLabel(subscription.status)}: ${usage.generationsUsed}/${usage.generationLimit}`;
+    }
+
+    if (accountPaymentText) {
+      accountPaymentText.textContent = "YooKassa отложена";
+    }
+  }
+
   function setAuthNotice(message = "", tone = "") {
     authNotice = { message, tone };
   }
@@ -238,6 +273,7 @@
     const isPasswordRecovery = Boolean(passwordRecoverySession);
     const hasFallback = storageState.mode === "local_fallback";
 
+    renderAccountSummary();
     authStatus.classList.remove("success", "warning");
 
     if (!supabaseService?.isEnabled?.()) {
@@ -344,6 +380,8 @@
         ? "Облачная подписка временно недоступна. Лимиты применяются только на этом устройстве."
         : "";
     }
+
+    renderAccountSummary();
   }
 
   function renderLikeButton(story, variant = "") {
@@ -438,6 +476,8 @@
     libraryList.innerHTML = userStories
       .map((story) => renderStoryCard(story, { canDelete: true }))
       .join("");
+
+    renderAccountSummary();
   }
 
   function renderAllStoryLists() {
