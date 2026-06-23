@@ -13,6 +13,8 @@
   const storyList = document.querySelector("#storyList");
   const libraryList = document.querySelector("#libraryList");
   const libraryStatus = document.querySelector("#libraryStatus");
+  const librarySearchInput = document.querySelector("#librarySearchInput");
+  const librarySortSelect = document.querySelector("#librarySortSelect");
   const filters = document.querySelector("#filters");
   const reader = document.querySelector("#reader");
   const slides = document.querySelector("#slides");
@@ -49,6 +51,7 @@
   const accountTariffText = document.querySelector("#accountTariffText");
   const accountPaymentText = document.querySelector("#accountPaymentText");
   const authSessionActions = document.querySelector("#authSessionActions");
+  const refreshAccountButton = document.querySelector("#refreshAccountButton");
   const signOutButton = document.querySelector("#signOutButton");
   const storiesSection = document.querySelector("#stories");
   const generatorSection = document.querySelector("#generator");
@@ -89,6 +92,8 @@
   let activeStoryFinishedTracked = false;
   let authNotice = { message: "", tone: "" };
   let passwordRecoverySession = null;
+  let librarySearchQuery = "";
+  let librarySortMode = "newest";
 
   function escapeHtml(value) {
     return String(value)
@@ -259,6 +264,9 @@
       element.disabled = isBusy;
     });
     passwordResetForm?.querySelectorAll("input, button").forEach((element) => {
+      element.disabled = isBusy;
+    });
+    authSessionActions?.querySelectorAll("button").forEach((element) => {
       element.disabled = isBusy;
     });
   }
@@ -452,6 +460,63 @@
     `;
   }
 
+  function getLibrarySearchText(story) {
+    return [
+      story.title,
+      story.description,
+      story.lesson,
+      story.mood,
+      story.age,
+      ...(story.tags || [])
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+  }
+
+  function getStoryCreatedAtTime(story) {
+    const time = new Date(story.createdAt || 0).getTime();
+    return Number.isFinite(time) ? time : 0;
+  }
+
+  function getVisibleLibraryStories(userStories) {
+    const query = librarySearchQuery.trim().toLowerCase();
+    const visibleStories = query
+      ? userStories.filter((story) => getLibrarySearchText(story).includes(query))
+      : [...userStories];
+
+    return visibleStories.sort((left, right) => {
+      if (librarySortMode === "oldest") {
+        return getStoryCreatedAtTime(left) - getStoryCreatedAtTime(right);
+      }
+
+      if (librarySortMode === "title") {
+        return String(left.title || "").localeCompare(String(right.title || ""), "ru");
+      }
+
+      return getStoryCreatedAtTime(right) - getStoryCreatedAtTime(left);
+    });
+  }
+
+  function renderLibraryEmptyState({ hasStories, storageText }) {
+    const title = hasStories ? "Истории не найдены" : "В библиотеке пока пусто";
+    const description = hasStories
+      ? "Попробуйте изменить поисковый запрос или сбросить поле поиска."
+      : `Создайте первую историю, и она появится здесь. ${storageText}`;
+    const action = hasStories
+      ? `<button class="button secondary" data-clear-library-search type="button">Сбросить поиск</button>`
+      : `<button class="button primary" data-library-create-story type="button">Создать историю</button>`;
+
+    return `
+      <article class="library-empty">
+        <p class="eyebrow">Моя библиотека</p>
+        <h3>${title}</h3>
+        <p>${escapeHtml(description)}</p>
+        ${action}
+      </article>
+    `;
+  }
+
   function renderReaderLike() {
     if (!readerLike) return;
     readerLike.innerHTML = activeStory ? renderLikeButton(activeStory) : "";
@@ -467,15 +532,32 @@
 
   function renderLibrary() {
     const userStories = storyService.getUserStories();
+    const visibleStories = getVisibleLibraryStories(userStories);
     const storageText = getStorageStatusText();
+    const searchText = librarySearchQuery.trim();
+
+    if (librarySearchInput && librarySearchInput.value !== librarySearchQuery) {
+      librarySearchInput.value = librarySearchQuery;
+    }
+
+    if (librarySortSelect && librarySortSelect.value !== librarySortMode) {
+      librarySortSelect.value = librarySortMode;
+    }
 
     libraryStatus.textContent = userStories.length
-      ? `${userStories.length} пользовательских историй. ${storageText} ${getUsageText()}`
+      ? `${visibleStories.length} из ${userStories.length} историй. ${storageText} ${getUsageText()}`
       : `Пока нет пользовательских историй. ${storageText} ${getUsageText()}`;
 
-    libraryList.innerHTML = userStories
-      .map((story) => renderStoryCard(story, { canDelete: true }))
-      .join("");
+    if (!visibleStories.length) {
+      libraryList.innerHTML = renderLibraryEmptyState({
+        hasStories: Boolean(userStories.length || searchText),
+        storageText
+      });
+    } else {
+      libraryList.innerHTML = visibleStories
+        .map((story) => renderStoryCard(story, { canDelete: true }))
+        .join("");
+    }
 
     renderAccountSummary();
   }
@@ -926,6 +1008,20 @@
   }
 
   async function handleLibraryClick(event) {
+    const createStoryButton = event.target.closest("[data-library-create-story]");
+    if (createStoryButton) {
+      scrollToSection(generatorSection, EVENTS.GENERATOR_OPENED);
+      return;
+    }
+
+    const clearSearchButton = event.target.closest("[data-clear-library-search]");
+    if (clearSearchButton) {
+      librarySearchQuery = "";
+      renderLibrary();
+      librarySearchInput?.focus();
+      return;
+    }
+
     const deleteButton = event.target.closest("[data-delete-story]");
     if (deleteButton) {
       deleteButton.disabled = true;
@@ -947,6 +1043,16 @@
     }
 
     handleStoryListClick(event);
+  }
+
+  function handleLibrarySearchInput(event) {
+    librarySearchQuery = String(event.target.value || "");
+    renderLibrary();
+  }
+
+  function handleLibrarySortChange(event) {
+    librarySortMode = String(event.target.value || "newest");
+    renderLibrary();
   }
 
   async function handleAuthSubmit(event) {
@@ -1099,6 +1205,31 @@
     renderAllStoryLists();
   }
 
+  async function handleRefreshAccount() {
+    if (!supabaseService?.isEnabled?.()) return;
+
+    setAuthFormBusy(true);
+    setAuthNotice("Обновляю синхронизацию аккаунта...", "");
+    renderAuthPanel();
+
+    try {
+      await supabaseService.ensureFreshSession?.();
+      await storyService.initializeUserStories();
+      await subscriptionService.initializeSubscription();
+      await likeService.initializeLikes();
+      setAuthNotice("Синхронизация обновлена.", "success");
+      renderAllStoryLists();
+      renderAuthPanel();
+      updateGenerationStatus();
+    } catch (error) {
+      console.warn("[app] Cannot refresh account sync", error);
+      setAuthNotice("Не удалось обновить синхронизацию. Проверьте интернет и попробуйте ещё раз.", "warning");
+      renderAuthPanel();
+    } finally {
+      setAuthFormBusy(false);
+    }
+  }
+
   filters.addEventListener("click", (event) => {
     const button = event.target.closest("[data-filter]");
     if (!button) return;
@@ -1107,6 +1238,14 @@
 
   storyList.addEventListener("click", handleStoryListClick);
   libraryList.addEventListener("click", handleLibraryClick);
+
+  if (librarySearchInput) {
+    librarySearchInput.addEventListener("input", handleLibrarySearchInput);
+  }
+
+  if (librarySortSelect) {
+    librarySortSelect.addEventListener("change", handleLibrarySortChange);
+  }
 
   generatorForm.addEventListener("submit", handleGeneratorSubmit);
 
@@ -1120,6 +1259,10 @@
 
   if (cancelPasswordResetButton) {
     cancelPasswordResetButton.addEventListener("click", cancelPasswordReset);
+  }
+
+  if (refreshAccountButton) {
+    refreshAccountButton.addEventListener("click", handleRefreshAccount);
   }
 
   if (signOutButton) {

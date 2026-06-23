@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Playfair+Display:wght@700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=9" />
+    <link rel="stylesheet" href="styles.css?v=11" />
   </head>
   <body>
     <div class="progress-shell" aria-hidden="true">
@@ -264,8 +264,29 @@
           </form>
 
           <div class="auth-actions hidden" id="authSessionActions">
+            <button class="button primary" id="refreshAccountButton" type="button">Обновить синхронизацию</button>
             <button class="button secondary" id="signOutButton" type="button">Выйти</button>
           </div>
+        </div>
+
+        <div class="library-toolbar" aria-label="Инструменты библиотеки">
+          <label class="field library-search">
+            <span>Найти историю</span>
+            <input
+              id="librarySearchInput"
+              type="search"
+              autocomplete="off"
+              placeholder="Название, тема или урок"
+            />
+          </label>
+          <label class="field library-sort">
+            <span>Сортировка</span>
+            <select id="librarySortSelect">
+              <option value="newest">Сначала новые</option>
+              <option value="oldest">Сначала старые</option>
+              <option value="title">По названию</option>
+            </select>
+          </label>
         </div>
 
         <div class="library-status" id="libraryStatus" aria-live="polite"></div>
@@ -521,6 +542,6 @@
     <script src="js/likeService.js?v=12"></script>
     <script src="js/subscriptionService.js?v=12"></script>
     <script src="js/analyticsService.js?v=12"></script>
-    <script src="js/app.js?v=12"></script>
+    <script src="js/app.js?v=14"></script>
   </body>
 </html>
