@@ -698,6 +698,21 @@ h2 {
   font-weight: 800;
 }
 
+.ai-notice {
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(111, 154, 103, 0.14);
+  border-radius: 20px;
+  background: rgba(207, 234, 241, 0.48);
+}
+
+.ai-notice p:not(.eyebrow) {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.98rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
 .subscription-panel {
   padding: clamp(1rem, 3vw, 1.5rem);
 }
@@ -891,6 +906,85 @@ body.about-page {
 
 .about-page .about-section {
   min-height: calc(100vh - 4.5rem);
+}
+
+.site-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem 1.1rem;
+  padding: 1.5rem clamp(1rem, 5vw, 5rem) 2rem;
+  color: var(--muted);
+  background: rgba(255, 253, 247, 0.9);
+  border-top: 1px solid rgba(104, 74, 54, 0.08);
+}
+
+.site-footer a {
+  color: var(--brown);
+  font-size: 0.95rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.site-footer a:hover {
+  color: var(--orange);
+}
+
+.legal-page {
+  background:
+    radial-gradient(circle at 8% 12%, rgba(248, 233, 190, 0.44), transparent 18rem),
+    radial-gradient(circle at 92% 10%, rgba(207, 234, 241, 0.48), transparent 18rem),
+    #fffdf7;
+}
+
+.legal-section {
+  padding: clamp(3rem, 7vw, 5rem) clamp(1rem, 5vw, 5rem);
+}
+
+.legal-shell {
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+.legal-card {
+  padding: clamp(1.2rem, 4vw, 2.2rem);
+  border: 1px solid rgba(104, 74, 54, 0.08);
+  border-radius: 28px;
+  background: rgba(255, 253, 247, 0.94);
+  box-shadow: var(--shadow);
+}
+
+.legal-card h1 {
+  margin: 0 0 1rem;
+  color: var(--brown);
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: clamp(2.3rem, 8vw, 4.2rem);
+  line-height: 1;
+}
+
+.legal-card h2 {
+  margin: 2rem 0 0.65rem;
+  color: var(--brown);
+  font-size: clamp(1.35rem, 3vw, 1.8rem);
+  line-height: 1.2;
+}
+
+.legal-card p,
+.legal-card li {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.legal-card ul {
+  padding-left: 1.2rem;
+}
+
+.legal-note {
+  padding: 1rem 1.1rem;
+  border-radius: 20px;
+  color: #72543e !important;
+  background: rgba(207, 234, 241, 0.58);
+  font-weight: 800 !important;
 }
 
 .about-section::before {

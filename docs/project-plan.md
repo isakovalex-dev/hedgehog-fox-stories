@@ -15,11 +15,11 @@ This file tracks the current implementation plan for "Ежонок и Лисён
 9. Connect payments - deferred until self-employed status is ready.
 10. Improve account UI - done.
 11. Improve "My Library" - done.
-12. Public launch checklist - in progress.
+12. Public launch checklist - done.
 
 ## Current Next Step
 
-Prepare the public launch checklist for domain, auth, generation, subscriptions, legal pages, and payment prerequisites.
+Manually verify the public site after pushing the latest commits.
 
 Chosen provider for the first test:
 
@@ -75,6 +75,16 @@ YooKassa production activation is deferred because the project does not yet have
 Account UI now shows login status, storage mode, tariff usage, payment status, and a manual sync refresh action.
 
 My Library now has search, sorting, clearer counts, and empty states with direct actions.
+
+Public launch checklist is documented in `docs/launch-checklist.md`.
+
+Public legal/trust pages are added:
+
+```text
+requisites.html
+privacy.html
+terms.html
+```
 
 ## Completion Rule
 
