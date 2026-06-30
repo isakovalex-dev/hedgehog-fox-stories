@@ -88,6 +88,13 @@ terms.html
 
 Manual public-site browser verification was reported as passed on 2026-06-26.
 
+Operational audit docs are prepared:
+
+```text
+docs/operational-audit.md
+docs/supabase-rls-audit.sql
+```
+
 ## Completion Rule
 
 When an item is completed, update this file and mention the completed item in the user-facing status update.

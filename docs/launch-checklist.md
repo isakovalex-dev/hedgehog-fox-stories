@@ -134,6 +134,9 @@ https://ezhik-i-lisenok.ru/terms.html
 - [x] Keep Supabase service role key only in Vercel environment variables.
 - [x] Do not expose payment secrets in frontend JavaScript.
 - [x] Keep `pictures/` and `export_chat_ezhik_lisenok.docx` out of commits unless explicitly approved.
+- [x] Prepare Supabase RLS audit SQL.
+- [x] Prepare fresh-account generation limit test steps.
+- [x] Prepare Vercel and Supabase log review steps.
 - [ ] Verify Supabase RLS policies before public traffic.
 - [ ] Verify generation limits from a fresh account.
 - [ ] Check Vercel logs after test generation.
