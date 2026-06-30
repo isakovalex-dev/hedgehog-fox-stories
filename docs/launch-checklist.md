@@ -70,22 +70,24 @@ Expected:
 
 Manual browser checks:
 
-- [ ] Open the homepage on desktop.
-- [ ] Open the homepage on mobile width.
-- [ ] Open `about.html`.
-- [ ] Register a new test user.
-- [ ] Confirm email if Supabase requires confirmation.
-- [ ] Sign in.
-- [ ] Sign out.
-- [ ] Request password recovery.
-- [ ] Generate one story while signed in.
-- [ ] Confirm the story is saved in Supabase.
-- [ ] Refresh the page and confirm the story remains in My Library.
-- [ ] Use My Library search.
-- [ ] Use My Library sorting.
-- [ ] Delete a test story.
-- [ ] Like and unlike a story.
-- [ ] Confirm account sync refresh does not break the page.
+- [x] Open the homepage on desktop.
+- [x] Open the homepage on mobile width.
+- [x] Open `about.html`.
+- [x] Register a new test user.
+- [x] Confirm email if Supabase requires confirmation.
+- [x] Sign in.
+- [x] Sign out.
+- [x] Request password recovery.
+- [x] Generate one story while signed in.
+- [x] Confirm the story is saved in Supabase.
+- [x] Refresh the page and confirm the story remains in My Library.
+- [x] Use My Library search.
+- [x] Use My Library sorting.
+- [x] Delete a test story.
+- [x] Like and unlike a story.
+- [x] Confirm account sync refresh does not break the page.
+
+Manual browser checks were reported as passed on 2026-06-26.
 
 ## Required Before Paid Launch
 
@@ -128,10 +130,10 @@ https://ezhik-i-lisenok.ru/terms.html
 
 ## Operational Checklist
 
-- [ ] Keep AI keys only in Vercel environment variables.
-- [ ] Keep Supabase service role key only in Vercel environment variables.
-- [ ] Do not expose payment secrets in frontend JavaScript.
-- [ ] Keep `pictures/` and `export_chat_ezhik_lisenok.docx` out of commits unless explicitly approved.
+- [x] Keep AI keys only in Vercel environment variables.
+- [x] Keep Supabase service role key only in Vercel environment variables.
+- [x] Do not expose payment secrets in frontend JavaScript.
+- [x] Keep `pictures/` and `export_chat_ezhik_lisenok.docx` out of commits unless explicitly approved.
 - [ ] Verify Supabase RLS policies before public traffic.
 - [ ] Verify generation limits from a fresh account.
 - [ ] Check Vercel logs after test generation.

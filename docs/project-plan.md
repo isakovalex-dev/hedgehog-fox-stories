@@ -19,7 +19,7 @@ This file tracks the current implementation plan for "Ежонок и Лисён
 
 ## Current Next Step
 
-Manually verify the public site after pushing the latest commits.
+Run the operational/security audit before broader public sharing.
 
 Chosen provider for the first test:
 
@@ -85,6 +85,8 @@ requisites.html
 privacy.html
 terms.html
 ```
+
+Manual public-site browser verification was reported as passed on 2026-06-26.
 
 ## Completion Rule
 
