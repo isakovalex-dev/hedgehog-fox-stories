@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Playfair+Display:wght@700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=11" />
+    <link rel="stylesheet" href="styles.css?v=13" />
   </head>
   <body>
     <div class="progress-shell" aria-hidden="true">
@@ -153,6 +153,28 @@
               <button class="button primary" type="submit">Создать историю</button>
               <p class="generation-status" id="generationStatus" aria-live="polite"></p>
             </div>
+
+            <div class="generation-wait-panel hidden" id="generationWaitPanel" aria-live="polite">
+              <div class="generation-wait-heading">
+                <p class="eyebrow">Пока история создаётся</p>
+                <h3 id="generationWaitTitle">Ежонок собирает слова...</h3>
+              </div>
+              <div class="generation-task">
+                <p id="generationTaskText">Решите маленькую задачку.</p>
+                <div class="generation-task-answer">
+                  <input
+                    id="generationTaskAnswer"
+                    type="text"
+                    inputmode="text"
+                    autocomplete="off"
+                    placeholder="Ответ"
+                  />
+                  <button class="button secondary" id="checkGenerationTaskButton" type="button">Проверить</button>
+                  <button class="button quiet" id="nextGenerationTaskButton" type="button">Другая задачка</button>
+                </div>
+                <p class="generation-task-feedback" id="generationTaskFeedback"></p>
+              </div>
+            </div>
           </form>
 
           <aside class="subscription-panel" id="subscriptionScreen" aria-live="polite">
@@ -219,15 +241,26 @@
             </label>
             <label class="field">
               <span>Пароль</span>
-              <input
-                id="authPassword"
-                name="password"
-                type="password"
-                autocomplete="current-password"
-                minlength="6"
-                placeholder="Минимум 6 символов"
-                required
-              />
+              <span class="password-field">
+                <input
+                  id="authPassword"
+                  name="password"
+                  type="password"
+                  autocomplete="current-password"
+                  minlength="6"
+                  placeholder="Минимум 6 символов"
+                  required
+                />
+                <button
+                  class="password-toggle"
+                  type="button"
+                  data-password-toggle="authPassword"
+                  aria-label="Показать пароль"
+                  aria-pressed="false"
+                >
+                  Показать
+                </button>
+              </span>
             </label>
             <div class="auth-buttons">
               <button class="button primary" data-auth-action="signin" type="submit">Войти</button>
@@ -241,27 +274,49 @@
           <form class="auth-form hidden" id="passwordResetForm">
             <label class="field">
               <span>Новый пароль</span>
-              <input
-                id="newPassword"
-                name="newPassword"
-                type="password"
-                autocomplete="new-password"
-                minlength="6"
-                placeholder="Минимум 6 символов"
-                required
-              />
+              <span class="password-field">
+                <input
+                  id="newPassword"
+                  name="newPassword"
+                  type="password"
+                  autocomplete="new-password"
+                  minlength="6"
+                  placeholder="Минимум 6 символов"
+                  required
+                />
+                <button
+                  class="password-toggle"
+                  type="button"
+                  data-password-toggle="newPassword"
+                  aria-label="Показать новый пароль"
+                  aria-pressed="false"
+                >
+                  Показать
+                </button>
+              </span>
             </label>
             <label class="field">
               <span>Повторите пароль</span>
-              <input
-                id="confirmNewPassword"
-                name="confirmNewPassword"
-                type="password"
-                autocomplete="new-password"
-                minlength="6"
-                placeholder="Повторите новый пароль"
-                required
-              />
+              <span class="password-field">
+                <input
+                  id="confirmNewPassword"
+                  name="confirmNewPassword"
+                  type="password"
+                  autocomplete="new-password"
+                  minlength="6"
+                  placeholder="Повторите новый пароль"
+                  required
+                />
+                <button
+                  class="password-toggle"
+                  type="button"
+                  data-password-toggle="confirmNewPassword"
+                  aria-label="Показать повтор пароля"
+                  aria-pressed="false"
+                >
+                  Показать
+                </button>
+              </span>
             </label>
             <div class="auth-buttons">
               <button class="button primary" type="submit">Сохранить пароль</button>
@@ -552,11 +607,11 @@
 
     <script src="js/config.js?v=12"></script>
     <script src="js/storageService.js?v=12"></script>
-    <script src="js/supabaseService.js?v=12"></script>
+    <script src="js/supabaseService.js?v=14"></script>
     <script src="js/storyService.js?v=12"></script>
     <script src="js/likeService.js?v=12"></script>
     <script src="js/subscriptionService.js?v=12"></script>
     <script src="js/analyticsService.js?v=12"></script>
-    <script src="js/app.js?v=14"></script>
+    <script src="js/app.js?v=17"></script>
   </body>
 </html>

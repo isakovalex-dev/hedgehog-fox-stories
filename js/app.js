@@ -34,6 +34,13 @@
   const readerLike = document.querySelector("#readerLike");
   const generatorForm = document.querySelector("#generatorForm");
   const generationStatus = document.querySelector("#generationStatus");
+  const generationWaitPanel = document.querySelector("#generationWaitPanel");
+  const generationWaitTitle = document.querySelector("#generationWaitTitle");
+  const generationTaskText = document.querySelector("#generationTaskText");
+  const generationTaskAnswer = document.querySelector("#generationTaskAnswer");
+  const generationTaskFeedback = document.querySelector("#generationTaskFeedback");
+  const checkGenerationTaskButton = document.querySelector("#checkGenerationTaskButton");
+  const nextGenerationTaskButton = document.querySelector("#nextGenerationTaskButton");
   const subscriptionScreen = document.querySelector("#subscriptionScreen");
   const subscriptionTitle = document.querySelector("#subscriptionTitle");
   const subscriptionUsageText = document.querySelector("#subscriptionUsageText");
@@ -53,6 +60,7 @@
   const authSessionActions = document.querySelector("#authSessionActions");
   const refreshAccountButton = document.querySelector("#refreshAccountButton");
   const signOutButton = document.querySelector("#signOutButton");
+  const passwordToggleButtons = document.querySelectorAll("[data-password-toggle]");
   const storiesSection = document.querySelector("#stories");
   const generatorSection = document.querySelector("#generator");
   const librarySection = document.querySelector("#library");
@@ -92,8 +100,29 @@
   let activeStoryFinishedTracked = false;
   let authNotice = { message: "", tone: "" };
   let passwordRecoverySession = null;
+  let activeGenerationTask = null;
+  let generationTaskTimerId = null;
+  let generationProgressTimerId = null;
+  let generationWaitStartedAt = 0;
   let librarySearchQuery = "";
   let librarySortMode = "newest";
+
+  const generationWaitMessages = [
+    "Ежонок собирает слова...",
+    "Лисёнок выбирает тёплые картинки...",
+    "Страницы складываются в сказку...",
+    "Герои ищут добрый конец...",
+    "История почти готова..."
+  ];
+
+  const missingLetterTasks = [
+    { word: "л_са", answer: "и", hint: "рыжая лесная героиня" },
+    { word: "ёж_к", answer: "и", hint: "маленький колючий друг" },
+    { word: "м_ре", answer: "о", hint: "большая вода" },
+    { word: "др_г", answer: "у", hint: "тот, кто рядом" },
+    { word: "с_нце", answer: "о", hint: "светит утром" },
+    { word: "зв_зда", answer: "е", hint: "горит в небе ночью" }
+  ];
 
   function escapeHtml(value) {
     return String(value)
@@ -123,6 +152,23 @@
     if (!section) return;
     section.scrollIntoView({ behavior: "smooth", block: "start" });
     if (eventName) trackEvent(eventName);
+  }
+
+  function focusPasswordResetForm() {
+    if (!librarySection) return;
+
+    window.setTimeout(() => {
+      librarySection.scrollIntoView({ behavior: "smooth", block: "start" });
+      const resetInput = document.querySelector("#newPassword");
+      const resetFormVisible = passwordResetForm && !passwordResetForm.classList.contains("hidden");
+
+      if (resetFormVisible && resetInput) {
+        resetInput.focus({ preventScroll: true });
+        return;
+      }
+
+      document.querySelector("#authEmail")?.focus({ preventScroll: true });
+    }, 80);
   }
 
   function openAboutSection() {
@@ -160,6 +206,140 @@
   function updateGenerationStatus(message = "") {
     if (!generationStatus) return;
     generationStatus.textContent = message || getUsageText();
+  }
+
+  function getRandomInteger(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  function pickRandom(items) {
+    return items[getRandomInteger(0, items.length - 1)];
+  }
+
+  function normalizeTaskAnswer(value) {
+    return String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/ё/g, "е");
+  }
+
+  function buildArithmeticTask(ageGroup) {
+    const isOlder = ageGroup === "8-10";
+    const taskType = isOlder ? pickRandom(["addition", "subtraction", "multiplication"]) : pickRandom(["addition", "subtraction"]);
+
+    if (taskType === "multiplication") {
+      const left = getRandomInteger(2, 5);
+      const right = getRandomInteger(2, 6);
+      return {
+        text: `Таблица умножения: сколько будет ${left} × ${right}?`,
+        answer: String(left * right),
+        success: "Верно! Таблица умножения помогла Лисёнку.",
+        retry: "Почти. Попробуйте ещё раз."
+      };
+    }
+
+    if (taskType === "subtraction") {
+      const answer = getRandomInteger(2, isOlder ? 18 : 9);
+      const right = getRandomInteger(1, isOlder ? 12 : 6);
+      const left = answer + right;
+      return {
+        text: `Посчитайте: ${left} − ${right} = ?`,
+        answer: String(answer),
+        success: "Правильно! Ежонок аккуратно записал ответ.",
+        retry: "Почти. Посчитайте ещё раз не спеша."
+      };
+    }
+
+    const left = getRandomInteger(2, isOlder ? 24 : 9);
+    const right = getRandomInteger(1, isOlder ? 18 : 8);
+    return {
+      text: `Посчитайте: ${left} + ${right} = ?`,
+      answer: String(left + right),
+      success: "Точно! Ещё одна страница стала ближе.",
+      retry: "Почти. Попробуйте сложить ещё раз."
+    };
+  }
+
+  function buildMissingLetterTask() {
+    const task = pickRandom(missingLetterTasks);
+    return {
+      text: `Вставьте пропущенную букву: ${task.word}. Подсказка: ${task.hint}.`,
+      answer: task.answer,
+      success: "Верно! Слово снова целое.",
+      retry: "Почти. Нужна одна буква."
+    };
+  }
+
+  function buildGenerationTask(formData = null) {
+    const ageGroup = formData ? getFormValue(formData, "ageGroup", "5-7") : "5-7";
+    return Math.random() < 0.68 ? buildArithmeticTask(ageGroup) : buildMissingLetterTask();
+  }
+
+  function renderGenerationTask(task) {
+    activeGenerationTask = task;
+
+    if (generationTaskText) {
+      generationTaskText.textContent = task.text;
+    }
+
+    if (generationTaskAnswer) {
+      generationTaskAnswer.value = "";
+    }
+
+    if (generationTaskFeedback) {
+      generationTaskFeedback.textContent = "";
+    }
+  }
+
+  function updateGenerationWaitTitle() {
+    if (!generationWaitTitle || !generationWaitStartedAt) return;
+
+    const elapsedSeconds = Math.max(0, Math.round((Date.now() - generationWaitStartedAt) / 1000));
+    const messageIndex = Math.floor(elapsedSeconds / 12) % generationWaitMessages.length;
+    const minutes = Math.floor(elapsedSeconds / 60);
+    const seconds = String(elapsedSeconds % 60).padStart(2, "0");
+
+    generationWaitTitle.textContent = `${generationWaitMessages[messageIndex]} ${minutes}:${seconds}`;
+  }
+
+  function startGenerationWaiting(formData) {
+    if (!generationWaitPanel) return;
+
+    generationWaitStartedAt = Date.now();
+    generationWaitPanel.classList.remove("hidden");
+    renderGenerationTask(buildGenerationTask(formData));
+    updateGenerationWaitTitle();
+
+    window.clearInterval(generationTaskTimerId);
+    window.clearInterval(generationProgressTimerId);
+    generationTaskTimerId = window.setInterval(() => {
+      renderGenerationTask(buildGenerationTask(formData));
+    }, 18000);
+    generationProgressTimerId = window.setInterval(updateGenerationWaitTitle, 1000);
+  }
+
+  function stopGenerationWaiting() {
+    window.clearInterval(generationTaskTimerId);
+    window.clearInterval(generationProgressTimerId);
+    generationTaskTimerId = null;
+    generationProgressTimerId = null;
+    generationWaitStartedAt = 0;
+    activeGenerationTask = null;
+    generationWaitPanel?.classList.add("hidden");
+  }
+
+  function checkGenerationTaskAnswer() {
+    if (!activeGenerationTask || !generationTaskAnswer || !generationTaskFeedback) return;
+
+    const answer = normalizeTaskAnswer(generationTaskAnswer.value);
+    const expected = normalizeTaskAnswer(activeGenerationTask.answer);
+
+    if (!answer) {
+      generationTaskFeedback.textContent = "Введите ответ.";
+      return;
+    }
+
+    generationTaskFeedback.textContent = answer === expected ? activeGenerationTask.success : activeGenerationTask.retry;
   }
 
   function getStorageStatusText() {
@@ -269,6 +449,20 @@
     authSessionActions?.querySelectorAll("button").forEach((element) => {
       element.disabled = isBusy;
     });
+  }
+
+  function handlePasswordToggle(event) {
+    const button = event.currentTarget;
+    const inputId = button.dataset.passwordToggle;
+    const input = inputId ? document.getElementById(inputId) : null;
+
+    if (!input) return;
+
+    const shouldShow = input.type === "password";
+    input.type = shouldShow ? "text" : "password";
+    button.textContent = shouldShow ? "Скрыть" : "Показать";
+    button.setAttribute("aria-label", shouldShow ? "Скрыть пароль" : "Показать пароль");
+    button.setAttribute("aria-pressed", String(shouldShow));
   }
 
   function renderAuthPanel() {
@@ -952,6 +1146,7 @@
 
     try {
       updateGenerationStatus("Создаю историю...");
+      startGenerationWaiting(formData);
       const generated = await generateStory(formData);
       const story = generated.story;
       const isBackendGenerated = generated.mode.startsWith("backend-");
@@ -991,6 +1186,8 @@
       console.warn("[app] Cannot save generated story", error);
       updateGenerationStatus(`Не удалось создать историю: ${error.message || "ошибка"}`);
       renderAuthPanel();
+    } finally {
+      stopGenerationWaiting();
     }
   }
 
@@ -1096,7 +1293,10 @@
     try {
       if (action === "recover") {
         await supabaseService.requestPasswordRecovery(email);
-        setAuthNotice("Письмо для восстановления пароля отправлено. Проверьте почту.", "success");
+        setAuthNotice(
+          "Письмо для восстановления пароля отправлено. Откройте ссылку из письма: сайт покажет форму нового пароля в блоке аккаунта.",
+          "success"
+        );
       } else if (action === "signup") {
         const authState = await supabaseService.signUpWithPassword(email, password);
         setAuthNotice(
@@ -1134,6 +1334,7 @@
     if (!passwordRecoverySession?.access_token) {
       setAuthNotice("Ссылка восстановления устарела. Запросите новое письмо.", "warning");
       passwordRecoverySession = null;
+      supabaseService?.clearAuthParamsFromUrl?.();
       renderAuthPanel();
       return;
     }
@@ -1269,6 +1470,30 @@
     signOutButton.addEventListener("click", handleSignOut);
   }
 
+  passwordToggleButtons.forEach((button) => {
+    button.addEventListener("click", handlePasswordToggle);
+  });
+
+  if (checkGenerationTaskButton) {
+    checkGenerationTaskButton.addEventListener("click", checkGenerationTaskAnswer);
+  }
+
+  if (nextGenerationTaskButton) {
+    nextGenerationTaskButton.addEventListener("click", () => {
+      renderGenerationTask(buildGenerationTask(new FormData(generatorForm)));
+      generationTaskAnswer?.focus();
+    });
+  }
+
+  if (generationTaskAnswer) {
+    generationTaskAnswer.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        checkGenerationTaskAnswer();
+      }
+    });
+  }
+
   activateSubscriptionButton.addEventListener("click", async () => {
     trackEvent(EVENTS.SUBSCRIPTION_BUTTON_CLICKED);
     activateSubscriptionButton.disabled = true;
@@ -1378,6 +1603,9 @@
     renderAllStoryLists();
 
     if (supabaseService?.isEnabled?.()) {
+      const hasRecoveryIntent = supabaseService.hasPasswordRecoveryIntent?.();
+      const authUrlError = supabaseService.getAuthErrorFromUrl?.();
+
       try {
         passwordRecoverySession = await supabaseService.getPasswordRecoverySessionFromUrl();
       } catch (error) {
@@ -1385,7 +1613,21 @@
         setAuthNotice("Ссылка восстановления устарела. Запросите новое письмо.", "warning");
       }
 
-      if (!passwordRecoverySession) {
+      if (passwordRecoverySession) {
+        setAuthNotice("Введите новый пароль для аккаунта.", "warning");
+        focusPasswordResetForm();
+      } else if (hasRecoveryIntent) {
+        const isExpiredLink = authUrlError?.errorCode === "otp_expired";
+        setAuthNotice(
+          isExpiredLink
+            ? "Ссылка восстановления устарела или уже была использована. Запросите новое письмо и откройте самую свежую ссылку."
+            : "Не удалось открыть форму восстановления. Запросите новое письмо и попробуйте ещё раз.",
+          "warning"
+        );
+        supabaseService.clearAuthParamsFromUrl?.();
+        await supabaseService.initializeAuth();
+        focusPasswordResetForm();
+      } else {
         await supabaseService.initializeAuth();
         await subscriptionService.initializeSubscription();
         await storyService.initializeUserStories();

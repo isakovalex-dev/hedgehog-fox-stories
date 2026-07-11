@@ -162,6 +162,32 @@
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 
+  function hasPasswordRecoveryIntent() {
+    const params = getAuthParamsFromUrl();
+    const type = params.get("type");
+    return (
+      type === "recovery" ||
+      params.get("auth_action") === "password_reset" ||
+      Boolean(params.get("error") || params.get("error_code")) ||
+      Boolean(params.get("access_token") && !type)
+    );
+  }
+
+  function getAuthErrorFromUrl() {
+    const params = getAuthParamsFromUrl();
+    const error = params.get("error");
+    const errorCode = params.get("error_code");
+    const errorDescription = params.get("error_description");
+
+    if (!error && !errorCode && !errorDescription) return null;
+
+    return {
+      error,
+      errorCode,
+      errorDescription
+    };
+  }
+
   function isSessionExpired(session) {
     if (!session?.expires_at) return false;
     return session.expires_at <= Math.floor(Date.now() / 1000) + 60;
@@ -319,7 +345,7 @@
   }
 
   async function requestPasswordRecovery(email) {
-    const redirectTo = `${window.location.origin}${window.location.pathname}`;
+    const redirectTo = `${window.location.origin}${window.location.pathname}?auth_action=password_reset`;
 
     await request(
       `/auth/v1/recover?redirect_to=${encodeURIComponent(redirectTo)}`,
@@ -336,7 +362,8 @@
     const type = params.get("type");
     const accessToken = params.get("access_token");
 
-    if (type !== "recovery" || !accessToken) return null;
+    if (!accessToken) return null;
+    if (type && type !== "recovery") return null;
 
     const session = normalizeAuthSession({
       access_token: accessToken,
@@ -795,6 +822,8 @@
     signUpWithPassword,
     requestPasswordRecovery,
     getPasswordRecoverySessionFromUrl,
+    hasPasswordRecoveryIntent,
+    getAuthErrorFromUrl,
     updatePassword,
     clearAuthParamsFromUrl,
     signOut,

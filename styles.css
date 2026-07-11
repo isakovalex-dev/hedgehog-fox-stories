@@ -650,6 +650,38 @@ h2 {
   outline: none;
 }
 
+.field .password-field {
+  position: relative;
+  display: block;
+}
+
+.field .password-field input {
+  padding-right: 6.8rem;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.55rem;
+  min-height: 2.1rem;
+  max-width: 6rem;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  color: var(--brown);
+  background: rgba(239, 214, 166, 0.72);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.password-toggle:hover,
+.password-toggle:focus-visible {
+  background: rgba(219, 123, 63, 0.2);
+}
+
 .field textarea {
   resize: vertical;
 }
@@ -696,6 +728,71 @@ h2 {
   color: var(--muted);
   font-size: 1rem;
   font-weight: 800;
+}
+
+.generation-wait-panel {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(111, 154, 103, 0.16);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(255, 255, 255, 0.8) 0 1rem, transparent 1.05rem),
+    linear-gradient(135deg, rgba(207, 234, 241, 0.62), rgba(248, 233, 190, 0.68));
+}
+
+.generation-wait-heading h3 {
+  margin: 0;
+  color: var(--brown);
+  font-size: clamp(1.2rem, 2.2vw, 1.55rem);
+  line-height: 1.2;
+}
+
+.generation-task {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.generation-task p {
+  margin: 0;
+}
+
+.generation-task > p:first-child {
+  color: var(--brown);
+  font-size: 1.08rem;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.generation-task-answer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  align-items: center;
+}
+
+.generation-task-answer input {
+  flex: 1 1 150px;
+  min-width: 0;
+  border: 1px solid rgba(104, 74, 54, 0.14);
+  border-radius: 18px;
+  padding: 0.85rem 1rem;
+  color: var(--ink);
+  background: rgba(255, 253, 247, 0.86);
+  font: inherit;
+  font-weight: 800;
+  outline: none;
+}
+
+.generation-task-answer input:focus {
+  border-color: rgba(111, 154, 103, 0.7);
+  box-shadow: 0 0 0 4px rgba(159, 202, 132, 0.2);
+}
+
+.generation-task-feedback {
+  min-height: 1.35rem;
+  color: var(--grass-dark);
+  font-weight: 900;
 }
 
 .ai-notice {

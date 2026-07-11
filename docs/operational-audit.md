@@ -9,11 +9,12 @@ Completed:
 - public site opens on HTTPS;
 - manual browser checks were reported as passed on 2026-06-26;
 - frontend does not contain real AI, YooKassa, or Supabase service role secrets;
+- Supabase RLS is enabled on `stories`, `story_pages`, `story_likes`, `subscriptions`, and `generation_usage`;
+- Supabase RLS policies exist on `stories`, `story_pages`, `story_likes`, `subscriptions`, and `generation_usage`;
 - `pictures/` and `export_chat_ezhik_lisenok.docx` are intentionally untracked.
 
 Still requires owner-side verification:
 
-- Supabase RLS policies;
 - fresh-account generation limits;
 - Vercel logs after generation;
 - Supabase logs after generation;
@@ -33,6 +34,12 @@ Expected:
 - RLS is enabled for all listed tables;
 - each listed table has ownership policies;
 - `create_generated_story_with_usage` exists.
+
+Verified on 2026-07-11:
+
+- all listed tables returned `rls_enabled = true`;
+- all listed tables returned `audit_status = ok`;
+- policy counts were greater than zero for all listed tables.
 
 If any row returns:
 

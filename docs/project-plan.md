@@ -16,6 +16,7 @@ This file tracks the current implementation plan for "Ежонок и Лисён
 10. Improve account UI - done.
 11. Improve "My Library" - done.
 12. Public launch checklist - done.
+13. Add generation waiting mini tasks - done.
 
 ## Current Next Step
 
@@ -75,6 +76,8 @@ YooKassa production activation is deferred because the project does not yet have
 Account UI now shows login status, storage mode, tariff usage, payment status, and a manual sync refresh action.
 
 My Library now has search, sorting, clearer counts, and empty states with direct actions.
+
+The generation screen now shows child-friendly mini tasks while a story is being generated.
 
 Public launch checklist is documented in `docs/launch-checklist.md`.
 
