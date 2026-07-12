@@ -11,11 +11,11 @@ Completed:
 - frontend does not contain real AI, YooKassa, or Supabase service role secrets;
 - Supabase RLS is enabled on `stories`, `story_pages`, `story_likes`, `subscriptions`, and `generation_usage`;
 - Supabase RLS policies exist on `stories`, `story_pages`, `story_likes`, `subscriptions`, and `generation_usage`;
+- fresh-account generation limits were reported as passed on 2026-07-12;
 - `pictures/` and `export_chat_ezhik_lisenok.docx` are intentionally untracked.
 
 Still requires owner-side verification:
 
-- fresh-account generation limits;
 - Vercel logs after generation;
 - Supabase logs after generation;
 - AI fallback rate after several generations.
@@ -89,6 +89,13 @@ https://ezhik-i-lisenok.ru
 
 11. Generate another story.
 12. Confirm usage increments and the story appears in My Library.
+
+Verified on 2026-07-12:
+
+- first story was generated on a fresh account;
+- second free-tier generation was blocked by the limit;
+- test family tariff was activated;
+- generation worked after tariff activation.
 
 ## Vercel Logs
 
