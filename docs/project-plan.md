@@ -83,6 +83,9 @@ The generation screen now shows child-friendly mini tasks while a story is being
 
 The generation waiting experience now includes three optional mini-games, saved rewards, story-ready/error notices, and keyboard-accessible controls.
 
+The backend now writes safe structured generation logs for Vercel review without
+including authorization tokens, account identifiers, or story content.
+
 The public site now uses a responsive watercolor storybook layout with a new hero, story showcase, parent value block, character cards, mobile navigation, and matching generator/library styling.
 
 Public launch checklist is documented in `docs/launch-checklist.md`.

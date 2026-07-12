@@ -91,6 +91,24 @@ function createHttpError(statusCode, message, details = null) {
   return error;
 }
 
+function getSafeLogError(error) {
+  return {
+    statusCode: Number(error?.statusCode) || 500,
+    name: String(error?.name || "Error").slice(0, 80),
+    message: String(error?.message || "Unknown error").slice(0, 180)
+  };
+}
+
+function logGenerationEvent(event, fields = {}) {
+  console.log(
+    "[generate-story]",
+    JSON.stringify({
+      event,
+      ...fields
+    })
+  );
+}
+
 async function parseSupabaseResponse(response) {
   const rawText = await response.text();
   const data = rawText ? JSON.parse(rawText) : null;
@@ -524,7 +542,9 @@ async function saveGeneratedStory(story, generationAccess) {
     try {
       await deleteStoryRows(storyRow.id, generationAccess);
     } catch (cleanupError) {
-      console.warn("[generate-story] Cannot clean up story after page insert failure", cleanupError);
+      logGenerationEvent("story_cleanup_failed", {
+        error: getSafeLogError(cleanupError)
+      });
     }
 
     throw error;
@@ -537,7 +557,9 @@ async function saveGeneratedStoryAndIncrementUsage(story, generationAccess) {
   } catch (error) {
     if (!canFallbackFromRpcError(error)) throw error;
 
-    console.warn("[generate-story] Atomic RPC is unavailable, using REST fallback", error);
+    logGenerationEvent("persistence_rest_fallback", {
+      error: getSafeLogError(error)
+    });
     const savedStory = await saveGeneratedStory(story, generationAccess);
     const usage = await incrementAuthenticatedGenerationUsage(generationAccess);
 
@@ -942,7 +964,9 @@ async function generateStoryContent(input) {
       aiProvider: "openai-compatible"
     };
   } catch (error) {
-    console.warn("[generate-story] AI generation failed, using mock fallback", error);
+    logGenerationEvent("ai_mock_fallback", {
+      error: getSafeLogError(error)
+    });
     return {
       story: buildMockStory(input),
       mode: "mock-fallback",
@@ -953,6 +977,7 @@ async function generateStoryContent(input) {
 }
 
 async function handler(req, res) {
+  const startedAt = Date.now();
   setCorsHeaders(req, res);
 
   if (req.method === "OPTIONS") {
@@ -996,6 +1021,16 @@ async function handler(req, res) {
 
     const persistenceResult = await saveGeneratedStoryAndIncrementUsage(story, generationAccess);
 
+    logGenerationEvent("generation_succeeded", {
+      mode: generationResult.mode,
+      aiProvider: generationResult.aiProvider,
+      persistenceMode: persistenceResult.storageMode,
+      pageCount: story.pages.length,
+      generationUsage: persistenceResult.usage.generationsUsed,
+      generationLimit: persistenceResult.usage.generationLimit,
+      durationMs: Date.now() - startedAt
+    });
+
     sendJson(req, res, 200, {
       story: persistenceResult.story,
       meta: {
@@ -1017,6 +1052,10 @@ async function handler(req, res) {
       }
     });
   } catch (error) {
+    logGenerationEvent("generation_failed", {
+      error: getSafeLogError(error),
+      durationMs: Date.now() - startedAt
+    });
     sendJson(req, res, error.statusCode || 500, {
       error: "Generation endpoint failed",
       message: error.message || "Unknown error",

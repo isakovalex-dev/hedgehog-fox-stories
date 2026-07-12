@@ -113,6 +113,11 @@ After a test generation, check:
 - AI fallback reason is expected when fallback happens;
 - no secrets are printed in logs.
 
+Successful requests write a safe structured `generation_succeeded` record with the
+generation mode, provider, persistence mode, page count, usage counters, and duration.
+Fallbacks and failures write only a short error name, status code, and message; no
+authorization token, email, user id, story title, lesson, or page text is logged.
+
 ## Supabase Logs
 
 Open:
