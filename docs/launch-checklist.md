@@ -139,7 +139,7 @@ https://ezhik-i-lisenok.ru/terms.html
 - [x] Prepare Vercel and Supabase log review steps.
 - [x] Verify Supabase RLS policies before public traffic.
 - [x] Verify generation limits from a fresh account.
-- [ ] Check Vercel logs after test generation.
+- [x] Check Vercel logs after test generation.
 - [ ] Check Supabase logs after test generation.
 - [ ] Review AI fallback rate after several generations.
 

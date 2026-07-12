@@ -1134,7 +1134,8 @@
       return {
         story: backendResult.story,
         mode: `backend-${backendResult.meta?.mode || "unknown"}`,
-        label: getBackendGenerationLabel(backendResult.meta)
+        label: getBackendGenerationLabel(backendResult.meta),
+        meta: backendResult.meta
       };
     } catch (error) {
       if (!isBackendUnavailableError(error)) {
@@ -1145,7 +1146,8 @@
       return {
         story: buildMockStory(formData),
         mode: "browser-mock-fallback",
-        label: "локальный mock, backend временно недоступен"
+        label: "локальный mock, backend временно недоступен",
+        fallbackReason: error.message || "backend unavailable"
       };
     }
   }
@@ -1197,6 +1199,11 @@
         storyId: savedStory.id,
         pageCount: savedStory.pages.length,
         mood: savedStory.mood
+      });
+      analyticsService.recordGenerationResult({
+        mode: generated.mode,
+        meta: generated.meta,
+        fallbackReason: generated.fallbackReason
       });
       window.HFMiniGames?.storyReady?.(savedStory.id);
     } catch (error) {

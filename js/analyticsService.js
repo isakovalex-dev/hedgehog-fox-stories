@@ -1,6 +1,9 @@
 (function (window) {
   "use strict";
 
+  const GENERATION_DIAGNOSTICS_KEY = "hedgehogFoxGenerationDiagnostics";
+  const MAX_GENERATION_DIAGNOSTICS = 50;
+
   const EVENTS = {
     STORY_OPENED: "story_opened",
     STORY_FINISHED: "story_finished",
@@ -29,6 +32,76 @@
     STORY_OPENED_FROM_GAME: "story_opened_from_game"
   };
 
+  function readGenerationDiagnostics() {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(GENERATION_DIAGNOSTICS_KEY) || "[]");
+      return Array.isArray(saved) ? saved : [];
+    } catch (error) {
+      console.warn("[analyticsService] Cannot read generation diagnostics", error);
+      return [];
+    }
+  }
+
+  function saveGenerationDiagnostics(items) {
+    try {
+      window.localStorage.setItem(
+        GENERATION_DIAGNOSTICS_KEY,
+        JSON.stringify(items.slice(-MAX_GENERATION_DIAGNOSTICS))
+      );
+    } catch (error) {
+      console.warn("[analyticsService] Cannot save generation diagnostics", error);
+    }
+  }
+
+  function normalizeFallbackReason(value) {
+    const reason = String(value || "").trim();
+    return reason ? reason.slice(0, 160) : "";
+  }
+
+  function recordGenerationResult({ mode, meta, fallbackReason } = {}) {
+    const normalizedMode = String(mode || "unknown");
+    const item = {
+      createdAt: new Date().toISOString(),
+      mode: normalizedMode,
+      aiProvider: String(meta?.aiProvider || ""),
+      hasFallback: normalizedMode.includes("fallback"),
+      fallbackReason: normalizeFallbackReason(meta?.aiFallbackReason || fallbackReason)
+    };
+    const items = readGenerationDiagnostics();
+
+    items.push(item);
+    saveGenerationDiagnostics(items);
+    trackEvent("generation_result_recorded", {
+      mode: item.mode,
+      aiProvider: item.aiProvider || undefined,
+      hasFallback: item.hasFallback
+    });
+
+    return item;
+  }
+
+  function getGenerationDiagnostics() {
+    const items = readGenerationDiagnostics();
+    const fallbackCount = items.filter((item) => item.hasFallback).length;
+    const aiCount = items.filter((item) => item.mode === "backend-ai").length;
+    const browserMockCount = items.filter((item) => item.mode === "browser-mock").length;
+    const fallbackModes = items.filter((item) => item.hasFallback);
+
+    return {
+      total: items.length,
+      aiCount,
+      fallbackCount,
+      browserMockCount,
+      fallbackRate: items.length ? Math.round((fallbackCount / items.length) * 1000) / 10 : 0,
+      latestFallbackReasons: fallbackModes.slice(-5).map((item) => ({
+        createdAt: item.createdAt,
+        mode: item.mode,
+        reason: item.fallbackReason || "не указана"
+      })),
+      items
+    };
+  }
+
   function getMetrikaCounterId() {
     return window.HEDGEHOG_FOX_METRIKA_ID || window.YANDEX_METRIKA_COUNTER_ID || null;
   }
@@ -55,6 +128,8 @@
 
   window.HFAnalyticsService = {
     EVENTS,
-    trackEvent
+    trackEvent,
+    recordGenerationResult,
+    getGenerationDiagnostics
   };
 })(window);

@@ -12,11 +12,12 @@ Completed:
 - Supabase RLS is enabled on `stories`, `story_pages`, `story_likes`, `subscriptions`, and `generation_usage`;
 - Supabase RLS policies exist on `stories`, `story_pages`, `story_likes`, `subscriptions`, and `generation_usage`;
 - fresh-account generation limits were reported as passed on 2026-07-12;
+- Vercel logged a successful `POST /api/generate-story` response with status `200` on 2026-07-12; the corresponding CORS `OPTIONS` request returned `204`, with no warnings, errors, or fatal logs in the reviewed window;
+- local generation diagnostics are available for the AI fallback-rate review;
 - `pictures/` and `export_chat_ezhik_lisenok.docx` are intentionally untracked.
 
 Still requires owner-side verification:
 
-- Vercel logs after generation;
 - Supabase logs after generation;
 - AI fallback rate after several generations.
 
@@ -130,6 +131,16 @@ After a test generation, check:
 ## AI Fallback Review
 
 Generate 5-10 test stories with normal child-safe inputs.
+
+After the test, open DevTools Console on the public site and run:
+
+```js
+window.HFAnalyticsService.getGenerationDiagnostics()
+```
+
+The report is stored only in the browser's localStorage and contains no story text,
+email addresses, or API keys. It reports the number of successful AI responses,
+fallbacks, browser mocks, the fallback rate, and the five latest fallback reasons.
 
 Record:
 
