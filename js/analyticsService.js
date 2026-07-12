@@ -19,7 +19,14 @@
     SUBSCRIPTION_ERROR: "subscription_error",
     ABOUT_OPENED: "about_opened",
     ABOUT_READ_STORIES_CLICKED: "about_read_stories_clicked",
-    ABOUT_CREATE_STORY_CLICKED: "about_create_story_clicked"
+    ABOUT_CREATE_STORY_CLICKED: "about_create_story_clicked",
+    GENERATION_WAITING_SCREEN_OPENED: "generation_waiting_screen_opened",
+    MINI_GAME_SELECTED: "mini_game_selected",
+    MINI_GAME_STARTED: "mini_game_started",
+    MINI_GAME_COMPLETED: "mini_game_completed",
+    MINI_GAME_SKIPPED: "mini_game_skipped",
+    STORY_READY_DURING_GAME: "story_ready_during_game",
+    STORY_OPENED_FROM_GAME: "story_opened_from_game"
   };
 
   function getMetrikaCounterId() {

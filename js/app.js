@@ -21,6 +21,9 @@
   const readerTitle = document.querySelector("#readerTitle");
   const readingProgress = document.querySelector("#readingProgress");
   const navTopButton = document.querySelector("#navTopButton");
+  const navMenuButton = document.querySelector("#navMenuButton");
+  const siteNavMenu = document.querySelector("#siteNavMenu");
+  const navLoginButton = document.querySelector("#navLoginButton");
   const navStoriesButton = document.querySelector("#navStoriesButton");
   const navGeneratorButton = document.querySelector("#navGeneratorButton");
   const navLibraryButton = document.querySelector("#navLibraryButton");
@@ -62,6 +65,7 @@
   const signOutButton = document.querySelector("#signOutButton");
   const passwordToggleButtons = document.querySelectorAll("[data-password-toggle]");
   const storiesSection = document.querySelector("#stories");
+  const readingValuesSection = document.querySelector("#why-read");
   const generatorSection = document.querySelector("#generator");
   const librarySection = document.querySelector("#library");
   const aboutSection = document.querySelector("#about");
@@ -152,6 +156,15 @@
     if (!section) return;
     section.scrollIntoView({ behavior: "smooth", block: "start" });
     if (eventName) trackEvent(eventName);
+  }
+
+  function setNavigationMenuOpen(isOpen) {
+    if (!navMenuButton || !siteNavMenu) return;
+
+    navMenuButton.setAttribute("aria-expanded", String(isOpen));
+    navMenuButton.setAttribute("aria-label", isOpen ? "Закрыть меню" : "Открыть меню");
+    siteNavMenu.classList.toggle("open", isOpen);
+    document.body.classList.toggle("menu-open", isOpen);
   }
 
   function focusPasswordResetForm() {
@@ -306,6 +319,7 @@
     if (!generationWaitPanel) return;
 
     generationWaitStartedAt = Date.now();
+    window.HFMiniGames?.open?.(getFormValue(formData, "ageGroup", "5-7"));
     generationWaitPanel.classList.remove("hidden");
     renderGenerationTask(buildGenerationTask(formData));
     updateGenerationWaitTitle();
@@ -829,6 +843,7 @@
     document.body.classList.add("reading");
     hero.classList.add("hidden");
     storiesSection.classList.add("hidden");
+    readingValuesSection?.classList.add("hidden");
     generatorSection.classList.add("hidden");
     librarySection.classList.add("hidden");
     aboutSection.classList.add("hidden");
@@ -890,6 +905,7 @@
     reader.classList.add("hidden");
     hero.classList.remove("hidden");
     storiesSection.classList.remove("hidden");
+    readingValuesSection?.classList.remove("hidden");
     generatorSection.classList.remove("hidden");
     librarySection.classList.remove("hidden");
     aboutSection.classList.remove("hidden");
@@ -1182,10 +1198,12 @@
         pageCount: savedStory.pages.length,
         mood: savedStory.mood
       });
+      window.HFMiniGames?.storyReady?.(savedStory.id);
     } catch (error) {
       console.warn("[app] Cannot save generated story", error);
       updateGenerationStatus(`Не удалось создать историю: ${error.message || "ошибка"}`);
       renderAuthPanel();
+      window.HFMiniGames?.storyError?.();
     } finally {
       stopGenerationWaiting();
     }
@@ -1450,6 +1468,18 @@
 
   generatorForm.addEventListener("submit", handleGeneratorSubmit);
 
+  document.querySelector("#openReadyStoryButton")?.addEventListener("click", () => {
+    const storyId = window.HFMiniGames?.getStoryId?.();
+    if (!storyId) return;
+    trackEvent(EVENTS.STORY_OPENED_FROM_GAME, { storyId });
+    window.HFMiniGames.close();
+    openStory(storyId);
+  });
+
+  document.querySelector("#retryGenerationButton")?.addEventListener("click", () => {
+    generatorForm.requestSubmit();
+  });
+
   if (authForm) {
     authForm.addEventListener("submit", handleAuthSubmit);
   }
@@ -1542,6 +1572,24 @@
     scrollToSection(storiesSection);
   });
 
+  if (navMenuButton) {
+    navMenuButton.addEventListener("click", () => {
+      setNavigationMenuOpen(navMenuButton.getAttribute("aria-expanded") !== "true");
+    });
+  }
+
+  if (siteNavMenu) {
+    siteNavMenu.addEventListener("click", (event) => {
+      if (event.target.closest("a, button")) setNavigationMenuOpen(false);
+    });
+  }
+
+  if (navLoginButton) {
+    navLoginButton.addEventListener("click", () => {
+      scrollToSection(librarySection, EVENTS.LIBRARY_OPENED);
+    });
+  }
+
   navTopButton.addEventListener("click", () => {
     scrollToSection(hero);
   });
@@ -1592,7 +1640,10 @@
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && activeStory) {
       closeReader();
+      return;
     }
+
+    if (event.key === "Escape") setNavigationMenuOpen(false);
   });
 
   async function initializeApp() {

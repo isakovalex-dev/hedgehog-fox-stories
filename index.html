@@ -7,10 +7,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Playfair+Display:wght@700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=13" />
+    <link rel="stylesheet" href="styles.css?v=14" />
   </head>
   <body>
     <div class="progress-shell" aria-hidden="true">
@@ -18,38 +18,52 @@
     </div>
 
     <nav class="site-nav" aria-label="Навигация сайта">
-      <a class="nav-brand" id="navTopButton" href="#top">Ежонок и Лисёнок</a>
-      <div class="nav-links">
-        <a class="nav-link" id="navStoriesButton" href="#stories">Истории</a>
-        <a class="nav-link" id="navGeneratorButton" href="#generator">Создать</a>
-        <a class="nav-link" id="navLibraryButton" href="#library">Моя библиотека</a>
-        <a class="nav-link" id="navAboutButton" href="about.html">Об авторе</a>
+      <a class="nav-brand" id="navTopButton" href="#top">
+        <span>Ежонок и Лисёнок</span>
+        <span class="brand-leaf" aria-hidden="true">❧</span>
+      </a>
+      <button
+        class="nav-menu-button"
+        id="navMenuButton"
+        type="button"
+        aria-controls="siteNavMenu"
+        aria-expanded="false"
+        aria-label="Открыть меню"
+      >
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <div class="nav-menu" id="siteNavMenu">
+        <div class="nav-links">
+          <a class="nav-link" id="navStoriesButton" href="#stories">Истории</a>
+          <a class="nav-link" id="navAboutButton" href="#about">О проекте</a>
+          <a class="nav-link" id="navLibraryButton" href="#library">Библиотека</a>
+          <a class="nav-link" href="#why-read">Для родителей</a>
+        </div>
+        <div class="nav-actions">
+          <button class="nav-action nav-login" id="navLoginButton" type="button">Вход</button>
+          <button class="nav-action nav-subscribe" id="navGeneratorButton" type="button">Создать сказку</button>
+        </div>
       </div>
     </nav>
 
     <main id="app">
       <section class="hero" id="top">
-        <div class="watercolor-sky" aria-hidden="true">
-          <span class="cloud cloud-one"></span>
-          <span class="cloud cloud-two"></span>
-          <span class="sun-wash"></span>
-          <span class="sea-line"></span>
-          <span class="hill hill-one"></span>
-          <span class="hill hill-two"></span>
-          <span class="grass grass-one"></span>
-          <span class="grass grass-two"></span>
-        </div>
-
         <div class="hero-content">
-          <p class="eyebrow">Интерактивная книжка</p>
           <h1>Ежонок и Лисёнок</h1>
-          <p class="subtitle">Добрые истории для детей и родителей</p>
+          <p class="hero-kicker">Добрые истории<br />для детей 5–10 лет</p>
+          <p class="subtitle">
+            Приключения двух друзей, которые познают мир, помогают друг другу и учатся важным вещам.
+          </p>
           <div class="hero-actions" aria-label="Главные действия">
-            <button class="button primary" id="chooseStoryButton">Выбрать историю</button>
-            <button class="button secondary" id="readFirstButton">Читать первую</button>
-            <button class="button secondary" id="openGeneratorButton">Создать историю</button>
-            <button class="button secondary" id="openLibraryButton">Моя библиотека</button>
-            <a class="button secondary" id="openAboutButton" href="about.html">Об авторе</a>
+            <button class="button primary" id="chooseStoryButton">Читать истории</button>
+            <button class="button secondary" id="openGeneratorButton">Создать сказку</button>
+          </div>
+          <div class="hero-legacy-actions hidden" aria-hidden="true">
+            <button id="readFirstButton" type="button">Читать первую</button>
+            <button id="openLibraryButton" type="button">Моя библиотека</button>
+            <a id="openAboutButton" href="#about">О проекте</a>
           </div>
         </div>
 
@@ -63,9 +77,9 @@
       </section>
 
       <section class="stories-section" id="stories">
-        <div class="section-heading">
-          <p class="eyebrow">Выбор истории</p>
-          <h2>Что почитаем сегодня?</h2>
+        <div class="section-heading section-heading-row">
+          <h2><span aria-hidden="true">❧</span> Новые истории <span aria-hidden="true">❧</span></h2>
+          <a class="section-link" href="#filters">Смотреть все <span aria-hidden="true">→</span></a>
         </div>
 
         <div class="filters" id="filters" aria-label="Фильтры историй">
@@ -78,6 +92,34 @@
         </div>
 
         <div class="story-list" id="storyList" aria-live="polite"></div>
+      </section>
+
+      <section class="reading-values" id="why-read" aria-labelledby="readingValuesTitle">
+        <div class="section-heading centered-heading">
+          <h2 id="readingValuesTitle"><span aria-hidden="true">❧</span> Почему читать с нами — важно? <span aria-hidden="true">❧</span></h2>
+        </div>
+        <div class="value-grid">
+          <article class="value-item">
+            <span class="value-mark" aria-hidden="true">◫</span>
+            <h3>Развиваем воображение</h3>
+            <p>Истории помогают детям мечтать и фантазировать.</p>
+          </article>
+          <article class="value-item">
+            <span class="value-mark" aria-hidden="true">❧</span>
+            <h3>Учимся добру и дружбе</h3>
+            <p>Каждая история — о важных ценностях и поддержке.</p>
+          </article>
+          <article class="value-item">
+            <span class="value-mark" aria-hidden="true">⌑</span>
+            <h3>Идеально перед сном</h3>
+            <p>Спокойные и добрые сказки для тёплых вечеров.</p>
+          </article>
+          <article class="value-item">
+            <span class="value-mark" aria-hidden="true">☕</span>
+            <h3>Проводим время вместе</h3>
+            <p>Чтение объединяет и создаёт особые моменты.</p>
+          </article>
+        </div>
       </section>
 
       <section class="generator-section" id="generator">
@@ -357,6 +399,40 @@
       </section>
 
       <section class="about-section" id="about">
+        <div class="home-project">
+          <div class="project-copy">
+            <p class="eyebrow">О проекте</p>
+            <h2>Истории, которые становятся семейными воспоминаниями</h2>
+            <p>
+              «Ежонок и Лисёнок» — это спокойное место для чтения, разговоров и маленьких открытий.
+              Выбирайте готовые истории или придумайте свою сказку специально для ребёнка.
+            </p>
+            <a class="button secondary" href="about.html">Узнать больше</a>
+          </div>
+
+          <div class="characters" aria-labelledby="charactersTitle">
+            <div class="section-heading centered-heading">
+              <h2 id="charactersTitle"><span aria-hidden="true">❧</span> Наши герои <span aria-hidden="true">❧</span></h2>
+            </div>
+            <div class="character-grid">
+              <article class="character-card">
+                <img src="assets/about/sketch-2.jpg" alt="Карандашный портрет Ежонка" loading="lazy" />
+                <div>
+                  <h3>Ежонок</h3>
+                  <p>Добрый, немного застенчивый, но очень чуткий и надёжный друг.</p>
+                </div>
+              </article>
+              <article class="character-card">
+                <img src="assets/about/sketch-3.jpg" alt="Карандашный портрет Лисёнка" loading="lazy" />
+                <div>
+                  <h3>Лисёнок</h3>
+                  <p>Любопытный, смелый и изобретательный. Всегда знает, где начинается приключение.</p>
+                </div>
+              </article>
+            </div>
+          </div>
+        </div>
+
         <div class="about-hero">
           <div class="about-hero-copy">
             <p class="eyebrow">Творческая мастерская</p>
@@ -598,11 +674,52 @@
       </section>
     </main>
 
-    <footer class="site-footer" aria-label="Правовая информация">
-      <a href="requisites.html">Реквизиты</a>
-      <a href="privacy.html">Политика конфиденциальности</a>
-      <a href="terms.html">Условия использования</a>
-      <a href="mailto:isakov.alex@gmail.com">isakov.alex@gmail.com</a>
+    <div class="generation-experience hidden" id="generationExperience" role="dialog" aria-modal="true" aria-labelledby="generationExperienceTitle">
+      <div class="generation-experience__paper">
+        <header class="generation-experience__header">
+          <div>
+            <p class="eyebrow">Новая книжка уже в пути</p>
+            <h2 id="generationExperienceTitle">Мы создаём вашу историю…</h2>
+            <p>Ежик придумывает сюжет, а Лисенок готовит иллюстрации. Это может занять несколько минут.</p>
+          </div>
+          <button class="sound-toggle" id="gameSoundToggle" type="button" aria-pressed="false">Звук выключен</button>
+        </header>
+        <ol class="generation-steps" id="generationSteps" aria-label="Этапы создания истории">
+          <li class="active">Придумываем сюжет</li><li>Пишем историю</li><li>Готовим иллюстрации</li><li>Собираем книжку</li>
+        </ol>
+        <div class="story-ready-notice hidden" id="storyReadyNotice" role="status">
+          <strong id="storyReadyText">История готова!</strong>
+          <div><button class="button primary" id="openReadyStoryButton" type="button">Открыть историю</button><button class="button secondary" id="finishRoundButton" type="button">Закончить раунд</button></div>
+        </div>
+        <div class="generation-error-notice hidden" id="generationErrorNotice" role="alert">
+          <strong>Историю пока не удалось создать.</strong><span> Игру можно продолжить — прогресс сохранён.</span>
+          <button class="button secondary" id="retryGenerationButton" type="button">Попробовать ещё раз</button>
+        </div>
+        <section id="gameSelector" class="game-selector" aria-labelledby="gameSelectorTitle">
+          <h3 id="gameSelectorTitle">Пока история создаётся, выбери маленькую игру</h3>
+          <div class="game-card-grid" id="gameCardGrid"></div>
+          <button class="wait-link" id="justWaitButton" type="button">Можно просто подождать</button>
+        </section>
+        <section class="mini-game-shell hidden" id="miniGameShell" aria-live="polite">
+          <div class="mini-game-toolbar"><button class="button quiet" id="backToGamesButton" type="button">← Другие игры</button><button class="button quiet" id="difficultyButton" type="button">Сложность: 7–8 лет</button></div>
+          <div id="miniGameContent"></div>
+        </section>
+        <aside class="reward-collection" aria-label="Коллекция наград"><strong>Моя коллекция</strong><div id="rewardCollection"></div></aside>
+      </div>
+    </div>
+
+    <footer class="site-footer home-footer" aria-label="Правовая информация">
+      <div class="footer-brand">
+        <strong>Ежонок и Лисёнок</strong>
+        <span>Новые добрые истории — для тихих семейных вечеров.</span>
+      </div>
+      <div class="footer-links">
+        <a href="requisites.html">Реквизиты</a>
+        <a href="privacy.html">Политика конфиденциальности</a>
+        <a href="terms.html">Условия использования</a>
+        <a href="mailto:isakov.alex@gmail.com">Написать автору</a>
+      </div>
+      <small>© Ежонок и Лисёнок, 2026</small>
     </footer>
 
     <script src="js/config.js?v=12"></script>
@@ -611,7 +728,9 @@
     <script src="js/storyService.js?v=12"></script>
     <script src="js/likeService.js?v=12"></script>
     <script src="js/subscriptionService.js?v=12"></script>
-    <script src="js/analyticsService.js?v=12"></script>
-    <script src="js/app.js?v=17"></script>
+    <script src="js/analyticsService.js?v=13"></script>
+    <script src="js/miniGamesData.js?v=1"></script>
+    <script src="js/miniGames.js?v=1"></script>
+    <script src="js/app.js?v=19"></script>
   </body>
 </html>

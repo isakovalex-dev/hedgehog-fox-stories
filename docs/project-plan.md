@@ -17,6 +17,8 @@ This file tracks the current implementation plan for "Ежонок и Лисён
 11. Improve "My Library" - done.
 12. Public launch checklist - done.
 13. Add generation waiting mini tasks - done.
+14. Redesign the public site in the watercolor storybook style - done.
+15. Add a full generation waiting screen with mini-games - done.
 
 ## Current Next Step
 
@@ -78,6 +80,10 @@ Account UI now shows login status, storage mode, tariff usage, payment status, a
 My Library now has search, sorting, clearer counts, and empty states with direct actions.
 
 The generation screen now shows child-friendly mini tasks while a story is being generated.
+
+The generation waiting experience now includes three optional mini-games, saved rewards, story-ready/error notices, and keyboard-accessible controls.
+
+The public site now uses a responsive watercolor storybook layout with a new hero, story showcase, parent value block, character cards, mobile navigation, and matching generator/library styling.
 
 Public launch checklist is documented in `docs/launch-checklist.md`.
 
