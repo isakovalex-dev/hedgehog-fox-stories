@@ -117,6 +117,7 @@ Successful requests write a safe structured `generation_succeeded` record with t
 generation mode, provider, persistence mode, page count, usage counters, and duration.
 Fallbacks and failures write only a short error name, status code, and message; no
 authorization token, email, user id, story title, lesson, or page text is logged.
+The JSON response also omits the user id and filters provider or database error details.
 
 ## Supabase Logs
 

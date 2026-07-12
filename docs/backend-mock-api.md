@@ -2,14 +2,15 @@
 
 ## Purpose
 
-This is the first backend scaffold for story generation. It does not call a real AI API and does not save data to Supabase yet.
+This is the deployed backend endpoint for story generation.
 
-The goal is to prepare the future endpoint contract safely:
+Current behavior:
 
-- keep AI keys out of frontend files;
-- validate generation input on the server;
-- return a story in the same shape that future AI generation should use;
-- keep GitHub Pages frontend behavior unchanged until a real backend is deployed.
+- keeps AI keys only in Vercel environment variables;
+- validates the Supabase access token and the generation limit on the server;
+- calls an OpenAI-compatible AI provider when it is enabled, with a validated mock fallback;
+- saves the story, its pages, and generation usage through the atomic Supabase RPC when available;
+- returns only the data needed by the browser, without a user id or raw provider/Supabase error details.
 
 ## Endpoint
 

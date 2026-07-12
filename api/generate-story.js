@@ -99,6 +99,27 @@ function getSafeLogError(error) {
   };
 }
 
+function getSafeClientErrorDetails(error) {
+  const details = error?.details;
+
+  if (Array.isArray(details)) {
+    return details.slice(0, 5).map((item) => String(item).slice(0, 200));
+  }
+
+  if (!details || typeof details !== "object") return null;
+
+  const safeDetails = {};
+  if (typeof details.status === "string") safeDetails.status = details.status.slice(0, 40);
+  if (Number.isFinite(Number(details.generationsUsed))) {
+    safeDetails.generationsUsed = Number(details.generationsUsed);
+  }
+  if (Number.isFinite(Number(details.generationLimit))) {
+    safeDetails.generationLimit = Number(details.generationLimit);
+  }
+
+  return Object.keys(safeDetails).length ? safeDetails : null;
+}
+
 function logGenerationEvent(event, fields = {}) {
   console.log(
     "[generate-story]",
@@ -317,7 +338,6 @@ async function checkAuthenticatedGenerationLimit(req) {
   return {
     accessToken,
     userId: user.id,
-    userEmail: user.email || "",
     subscription: {
       id: subscription.id,
       status,
@@ -586,6 +606,49 @@ function sendJson(req, res, statusCode, payload) {
   res.statusCode = statusCode;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.end(JSON.stringify(payload));
+}
+
+function buildGenerationSuccessMeta(generationResult, persistenceResult, subscription) {
+  return {
+    mode: generationResult.mode,
+    aiProvider: generationResult.aiProvider,
+    aiFallbackReason: generationResult.aiFallbackReason || null,
+    persistenceMode: persistenceResult.storageMode,
+    savedToDatabase: true,
+    authChecked: true,
+    usageLimitChecked: true,
+    usageIncremented: true,
+    subscription,
+    usage: persistenceResult.usage
+  };
+}
+
+function sendGenerationSuccess(req, res, generationResult, persistenceResult, subscription, durationMs) {
+  const story = generationResult.story;
+  const meta = buildGenerationSuccessMeta(generationResult, persistenceResult, subscription);
+
+  logGenerationEvent("generation_succeeded", {
+    mode: meta.mode,
+    aiProvider: meta.aiProvider,
+    persistenceMode: meta.persistenceMode,
+    pageCount: story.pages.length,
+    generationUsage: meta.usage.generationsUsed,
+    generationLimit: meta.usage.generationLimit,
+    durationMs
+  });
+  sendJson(req, res, 200, { story: persistenceResult.story, meta });
+}
+
+function sendGenerationFailure(req, res, error, durationMs) {
+  logGenerationEvent("generation_failed", {
+    error: getSafeLogError(error),
+    durationMs
+  });
+  sendJson(req, res, error.statusCode || 500, {
+    error: "Generation endpoint failed",
+    message: error.message || "Unknown error",
+    details: getSafeClientErrorDetails(error)
+  });
 }
 
 function readStreamBody(req) {
@@ -1021,46 +1084,16 @@ async function handler(req, res) {
 
     const persistenceResult = await saveGeneratedStoryAndIncrementUsage(story, generationAccess);
 
-    logGenerationEvent("generation_succeeded", {
-      mode: generationResult.mode,
-      aiProvider: generationResult.aiProvider,
-      persistenceMode: persistenceResult.storageMode,
-      pageCount: story.pages.length,
-      generationUsage: persistenceResult.usage.generationsUsed,
-      generationLimit: persistenceResult.usage.generationLimit,
-      durationMs: Date.now() - startedAt
-    });
-
-    sendJson(req, res, 200, {
-      story: persistenceResult.story,
-      meta: {
-        mode: generationResult.mode,
-        aiProvider: generationResult.aiProvider,
-        aiFallbackReason: generationResult.aiFallbackReason || null,
-        persistenceMode: persistenceResult.storageMode,
-        savedToDatabase: true,
-        authChecked: true,
-        usageLimitChecked: true,
-        usageIncremented: true,
-        userId: generationAccess.userId,
-        subscription: generationAccess.subscription,
-        usage: persistenceResult.usage,
-        nextBackendSteps: [
-          "run create_generated_story_with_usage SQL in Supabase",
-          "remove REST fallback after RPC is verified in production"
-        ]
-      }
-    });
+    sendGenerationSuccess(
+      req,
+      res,
+      generationResult,
+      persistenceResult,
+      generationAccess.subscription,
+      Date.now() - startedAt
+    );
   } catch (error) {
-    logGenerationEvent("generation_failed", {
-      error: getSafeLogError(error),
-      durationMs: Date.now() - startedAt
-    });
-    sendJson(req, res, error.statusCode || 500, {
-      error: "Generation endpoint failed",
-      message: error.message || "Unknown error",
-      details: error.details || null
-    });
+    sendGenerationFailure(req, res, error, Date.now() - startedAt);
   }
 }
 
