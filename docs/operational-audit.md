@@ -12,14 +12,15 @@ Completed:
 - Supabase RLS is enabled on `stories`, `story_pages`, `story_likes`, `subscriptions`, and `generation_usage`;
 - Supabase RLS policies exist on `stories`, `story_pages`, `story_likes`, `subscriptions`, and `generation_usage`;
 - fresh-account generation limits were reported as passed on 2026-07-12;
-- Vercel logged a successful `POST /api/generate-story` response with status `200` on 2026-07-12; the corresponding CORS `OPTIONS` request returned `204`, with no warnings, errors, or fatal logs in the reviewed window;
+- Vercel logged a successful `POST /api/generate-story` response with status `200` on 2026-07-13; the corresponding CORS `OPTIONS` request returned `204`, with no warnings, errors, or fatal logs in the reviewed window;
+- Supabase API Gateway logged a successful `POST /rest/v1/rpc/create_generated_story_with_usage` response with status `200` on 2026-07-13;
 - local generation diagnostics are available for the AI fallback-rate review;
 - `pictures/` and `export_chat_ezhik_lisenok.docx` are intentionally untracked.
 
-Still requires owner-side verification:
+Deferred optional review:
 
-- Supabase logs after generation;
-- AI fallback rate after several generations.
+- AI fallback rate after several generations. This does not block normal operation,
+  but should be reviewed before broader promotion or after provider changes.
 
 ## Supabase RLS Audit
 
@@ -133,6 +134,13 @@ After a test generation, check:
 - Database has no RLS denial for the expected user flow;
 - `stories`, `story_pages`, and `generation_usage` writes succeed;
 - `story_likes` actions do not create duplicate unique constraint errors during normal use.
+
+Verified on 2026-07-13:
+
+- Supabase API Gateway recorded `POST /rest/v1/rpc/create_generated_story_with_usage`;
+- the request returned `200` with level `success`;
+- the successful RPC call confirms the generated story and its usage update reached
+  the atomic persistence path.
 
 ## AI Fallback Review
 

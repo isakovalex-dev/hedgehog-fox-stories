@@ -19,10 +19,13 @@ This file tracks the current implementation plan for "Ежонок и Лисён
 13. Add generation waiting mini tasks - done.
 14. Redesign the public site in the watercolor storybook style - done.
 15. Add a full generation waiting screen with mini-games - done.
+16. Run the operational and security audit - done; AI fallback-rate review is deferred.
 
 ## Current Next Step
 
-Run the operational/security audit before broader public sharing.
+Periodically review the AI fallback rate after 5-10 normal child-safe generations.
+This is deferred and does not block normal operation. The next product milestone is
+paid-launch preparation after the legal payment setup is ready.
 
 Chosen provider for the first test:
 
@@ -85,6 +88,10 @@ The generation waiting experience now includes three optional mini-games, saved 
 
 The backend now writes safe structured generation logs for Vercel review without
 including authorization tokens, account identifiers, or story content.
+
+The current production verification recorded a successful AI generation in Vercel and
+a successful `POST /rest/v1/rpc/create_generated_story_with_usage` request with status
+`200` in Supabase API Gateway on 2026-07-13.
 
 The public site now uses a responsive watercolor storybook layout with a new hero, story showcase, parent value block, character cards, mobile navigation, and matching generator/library styling.
 

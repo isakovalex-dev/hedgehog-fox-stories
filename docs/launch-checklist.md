@@ -140,8 +140,8 @@ https://ezhik-i-lisenok.ru/terms.html
 - [x] Verify Supabase RLS policies before public traffic.
 - [x] Verify generation limits from a fresh account.
 - [x] Check Vercel logs after test generation.
-- [ ] Check Supabase logs after test generation.
-- [ ] Review AI fallback rate after several generations.
+- [x] Check Supabase logs after test generation.
+- [ ] Review AI fallback rate after several generations (deferred; not required for normal operation).
 
 ## Current Blockers
 

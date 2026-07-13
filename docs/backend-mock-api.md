@@ -30,19 +30,22 @@ Target runtime:
 Vercel Node serverless function
 ```
 
-Current deployed mock backend:
+Deployed backend API:
 
 ```text
 https://hedgehog-fox-stories.vercel.app/api/generate-story
 ```
 
-No `package.json`, npm dependencies, build step, real AI API, payment API, or service role key is required for this scaffold.
+The project intentionally has no `package.json`, npm dependencies, or build step. AI
+credentials stay in Vercel environment variables; payment activation remains deferred
+until the legal payment setup is ready.
 
-## AI adapter scaffold
+## AI adapter and fallback
 
-The backend includes an OpenAI-compatible adapter, but it is disabled by default.
+The backend includes an OpenAI-compatible adapter. It uses validated mock generation
+when the AI integration is disabled or the provider cannot return a safe, valid story.
 
-Vercel environment variables for later:
+Vercel environment variables:
 
 ```text
 AI_GENERATION_ENABLED=false
@@ -51,9 +54,11 @@ AI_API_KEY=
 AI_MODEL=
 ```
 
-When `AI_GENERATION_ENABLED` is not exactly `true`, the endpoint keeps using mock generation.
+When `AI_GENERATION_ENABLED` is not exactly `true`, the endpoint uses mock generation.
+The current production deployment has been verified with AI generation enabled. The
+provider configuration and API key must never be committed to this repository.
 
-When real AI is enabled later:
+When AI generation is enabled:
 
 - the backend calls `POST {AI_API_BASE_URL}/chat/completions`;
 - the frontend still does not see the API key;
@@ -149,13 +154,8 @@ Authenticated backend checks:
 - the frontend does not save or increment Supabase usage again for `backend mock` responses;
 - browser mock fallback still increments local usage on the frontend.
 
-## Next steps
+## Operational next steps
 
-1. Deploy the static site and backend function together on a platform that supports `/api/*`, or keep GitHub Pages for the site and deploy the backend separately.
-2. Add Supabase JWT verification from the `Authorization` header.
-3. Move generation limit checks from frontend-only logic to backend logic.
-4. Call an OpenAI-compatible API with a server-side environment variable.
-5. Validate the AI JSON response.
-6. Save `stories` and `story_pages`.
-7. Replace mock text generation with validated OpenAI-compatible API output.
-8. Wrap story persistence and usage increment in an atomic backend operation.
+1. Periodically review the AI fallback rate after 5-10 normal child-safe generations.
+2. Before enabling payments, complete the legal payment setup and the YooKassa
+   production checklist in `docs/launch-checklist.md`.
