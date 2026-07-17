@@ -1,8 +1,22 @@
 # Illustration Scenes
 
-## Why use a scene library first
+## Current illustration behavior
 
-The first AI generation version should not create 5 new images for every story.
+Generated stories are now illustrated immediately with the existing approved
+watercolor library. The backend returns a `sceneTag` for every page, and the
+frontend deterministically selects a matching file from `assets/slides-web/`.
+The paired PNG in `assets/slides/` is used if the preferred JPG asset cannot
+be loaded.
+
+This means that a page is no longer text-only, while the visual language stays
+consistent with the site and no extra image-service key, cost, or child-content
+review path is introduced.
+
+## Why the scene library comes first
+
+The current text provider, DeepSeek, is used through its chat-completions API;
+it does not create the image files for this project. Creating five brand-new
+images per story would also make generation materially slower and more expensive.
 
 Reasons:
 
@@ -62,9 +76,11 @@ If the tag is unknown:
 - keep the story readable even without an image;
 - log the missing tag for future improvement.
 
-## Future image generation
+## Future: unique AI illustrations
 
-Later, image generation can be added for paid users or selected stories.
+The first unique-image implementation is now prepared as one cover per story.
+It stays disabled until the private Storage SQL and Vercel environment variables
+in `docs/image-generation-setup.md` are configured.
 
 Requirements before that step:
 
@@ -74,3 +90,9 @@ Requirements before that step:
 - content safety checks;
 - caching generated images;
 - storage through Supabase Storage or another asset storage layer.
+
+The implementation uses a separate image provider, never the browser. It saves
+a private `storage://story-illustrations/...` reference in
+`story_pages.image_url`; the client exchanges it for a short-lived signed URL
+only for the authenticated owner. The image API key and Supabase Storage secret
+must remain in Vercel environment variables.

@@ -98,6 +98,7 @@
     friendship: ["sunny_meadow", "sea_bench", "forest_day", "warm_kitchen", "starry_sky"],
     bravery: ["autumn_path", "rainy_forest", "small_bridge", "forest_night", "campfire_evening"]
   };
+  const ILLUSTRATION_GENERATION_TIMEOUT_MS = 150000;
 
   let activeFilter = "all";
   let activeStory = null;
@@ -621,9 +622,27 @@
 
   function renderStoryArt(story) {
     const sceneTag = getStorySceneTag(story);
+    const firstPage = Array.isArray(story.pages) ? story.pages[0] : null;
+    const libraryIllustration =
+      story.source === "user" &&
+      story.useIllustrations !== false &&
+      !story.imageUrl &&
+      !firstPage?.imageUrl
+        ? storyService.getSceneIllustrationUrls(sceneTag, 1)
+        : null;
 
     if (story.imageUrl) {
       return `<img src="${escapeAttribute(story.imageUrl)}" alt="" loading="lazy" />`;
+    }
+
+    if (firstPage?.imageUrl || libraryIllustration?.imageUrl) {
+      const imageUrl = firstPage?.imageUrl || libraryIllustration.imageUrl;
+      const fallbackUrl = libraryIllustration?.fallbackImageUrl || "";
+      const fallbackHandler = fallbackUrl
+        ? `this.onerror=null; this.src='${escapeAttribute(fallbackUrl)}';`
+        : "this.remove();";
+
+      return `<img src="${escapeAttribute(imageUrl)}" alt="" loading="lazy" onerror="${fallbackHandler}" />`;
     }
 
     if (story.source === "user" && story.useIllustrations !== false) {
@@ -643,7 +662,7 @@
     return `
       <article class="story-card" style="--wash-color: ${top}88;">
         <div
-          class="story-art ${story.imageUrl ? "has-image" : ""}"
+          class="story-art ${story.imageUrl || (story.source === "user" && story.useIllustrations !== false) ? "has-image" : ""}"
           style="--art-top: ${top}; --art-mid: ${mid}; --art-bottom: ${bottom};"
           role="img"
           aria-label="Иллюстрация к истории ${escapeAttribute(story.title)}"
@@ -1062,6 +1081,10 @@
     return Boolean(appConfig.GENERATION_API_ENABLED && appConfig.GENERATION_API_URL);
   }
 
+  function canUseIllustrationApi() {
+    return Boolean(appConfig.ILLUSTRATION_API_ENABLED && appConfig.ILLUSTRATION_API_URL);
+  }
+
   function isBackendUnavailableError(error) {
     return Boolean(error?.isBackendUnavailable);
   }
@@ -1114,6 +1137,40 @@
       }
 
       throw error;
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  }
+
+  async function requestStoryIllustration(storyId) {
+    if (!canUseIllustrationApi() || !storyId) {
+      return { illustrated: false, reason: "disabled" };
+    }
+
+    const session = await supabaseService?.ensureFreshSession?.();
+    const accessToken = session?.access_token || "";
+    if (!accessToken) return { illustrated: false, reason: "signed_out" };
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), ILLUSTRATION_GENERATION_TIMEOUT_MS);
+
+    try {
+      const response = await window.fetch(appConfig.ILLUSTRATION_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({ storyId }),
+        signal: controller.signal
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.message || "Не удалось создать иллюстрацию");
+      }
+
+      return payload || { illustrated: false, reason: "empty_response" };
     } finally {
       window.clearTimeout(timeoutId);
     }
@@ -1183,11 +1240,27 @@
         await subscriptionService.incrementGenerationUsage();
       }
 
+      let illustrationResult = null;
+      if (isBackendGenerated && savedStory.useIllustrations !== false) {
+        updateGenerationStatus("Рисую акварельную обложку...");
+        try {
+          illustrationResult = await requestStoryIllustration(savedStory.id);
+          if (illustrationResult?.illustrated) {
+            await storyService.initializeUserStories();
+            savedStory = storyService.getStoryById(savedStory.id) || savedStory;
+          }
+        } catch (illustrationError) {
+          console.warn("[app] Cannot generate story illustration", illustrationError);
+        }
+      }
+
       const storageState = storyService.getUserStoriesStorageState();
       hideSubscriptionScreen();
       updateGenerationStatus(
         storageState.mode === "supabase"
-          ? `История создана: ${generated.label}. Сохранена в Supabase.`
+          ? illustrationResult?.illustrated
+            ? `История создана: ${generated.label}. Обложка готова и сохранена в Supabase.`
+            : `История создана: ${generated.label}. Сохранена в Supabase.`
           : `История создана: ${generated.label}. Сохранена локально.`
       );
       renderSubscriptionPanel();

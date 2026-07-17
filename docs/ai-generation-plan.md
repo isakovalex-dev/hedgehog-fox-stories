@@ -4,7 +4,12 @@
 
 The generator should create short, calm, child-safe stories for children aged 5-10. The permanent heroes are always Hedgehog and Little Fox.
 
-The first backend version should generate text only. Images should use a prepared scene library through `sceneTag`; per-page image generation can be added later.
+The first backend version generates text and uses a prepared scene library
+through `sceneTag`. A prepared optional second step creates one unique private
+cover per authenticated generated story through OpenAI Images; it is disabled
+until the Vercel secrets and Supabase Storage setup in
+`docs/image-generation-setup.md` are complete. Per-page image generation can
+be added later after cost and consistency review.
 
 ## Story constraints
 

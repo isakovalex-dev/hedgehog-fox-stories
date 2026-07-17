@@ -2,6 +2,8 @@
   "use strict";
 
   const SESSION_KEY = "hedgehogFoxSupabaseSession";
+  const STORAGE_REFERENCE_PREFIX = "storage://";
+  const SIGNED_IMAGE_URL_TTL_SECONDS = 60 * 60;
   const config = window.HFConfig || {};
   const storage = window.HFStorageService;
   const listeners = [];
@@ -624,15 +626,17 @@
     return setSubscriptionStatus("active");
   }
 
-  function getClientStoryFromRows(storyRow, pageRows) {
+  async function getClientStoryFromRows(storyRow, pageRows) {
     const sortedPages = [...pageRows].sort((a, b) => Number(a.page_number) - Number(b.page_number));
-    const pages = sortedPages.map((pageRow, index) => ({
-      pageNumber: Number(pageRow.page_number || index + 1),
-      text: pageRow.text || "",
-      sceneTag: pageRow.scene_tag || "forest_day",
-      imageUrl: pageRow.image_url || "",
-      imagePrompt: pageRow.image_prompt || ""
-    }));
+    const pages = await Promise.all(
+      sortedPages.map(async (pageRow, index) => ({
+        pageNumber: Number(pageRow.page_number || index + 1),
+        text: pageRow.text || "",
+        sceneTag: pageRow.scene_tag || "forest_day",
+        imageUrl: await resolveStoryImageUrl(pageRow.image_url || ""),
+        imagePrompt: pageRow.image_prompt || ""
+      }))
+    );
     const ageGroup = storyRow.age_group || "5-7";
     const moodTag = getMoodTag(storyRow.mood);
 
@@ -676,6 +680,51 @@
     );
   }
 
+  function parseStorageReference(value) {
+    const source = String(value || "");
+    if (!source.startsWith(STORAGE_REFERENCE_PREFIX)) return null;
+
+    const reference = source.slice(STORAGE_REFERENCE_PREFIX.length);
+    const separatorIndex = reference.indexOf("/");
+    if (separatorIndex <= 0 || separatorIndex === reference.length - 1) return null;
+
+    return {
+      bucket: reference.slice(0, separatorIndex),
+      objectPath: reference.slice(separatorIndex + 1)
+    };
+  }
+
+  function encodeStoragePath(objectPath) {
+    return String(objectPath || "")
+      .split("/")
+      .map((segment) => encodeURIComponent(segment))
+      .join("/");
+  }
+
+  async function resolveStoryImageUrl(imageUrl) {
+    const reference = parseStorageReference(imageUrl);
+    if (!reference) return imageUrl || "";
+
+    try {
+      const payload = await rest(
+        `/storage/v1/object/sign/${encodeURIComponent(reference.bucket)}/${encodeStoragePath(reference.objectPath)}`,
+        {
+          method: "POST",
+          body: JSON.stringify({ expiresIn: SIGNED_IMAGE_URL_TTL_SECONDS })
+        }
+      );
+      const signedPath = payload?.signedURL || payload?.signedUrl || "";
+
+      if (!signedPath) return "";
+      if (/^https?:\/\//i.test(signedPath)) return signedPath;
+
+      return `${getBaseUrl()}/storage/v1${signedPath.startsWith("/") ? signedPath : `/${signedPath}`}`;
+    } catch (error) {
+      console.warn("[supabaseService] Cannot sign story illustration", error);
+      return "";
+    }
+  }
+
   async function fetchUserStories() {
     const storyRows = await rest("/rest/v1/stories?select=*&order=created_at.desc", { method: "GET" });
     const pagesByStoryId = await Promise.all(
@@ -686,7 +735,9 @@
     );
     const pagesMap = new Map(pagesByStoryId);
 
-    return storyRows.map((storyRow) => getClientStoryFromRows(storyRow, pagesMap.get(storyRow.id) || []));
+    return Promise.all(
+      storyRows.map((storyRow) => getClientStoryFromRows(storyRow, pagesMap.get(storyRow.id) || []))
+    );
   }
 
   async function insertStoryRow(story, userId) {

@@ -7,6 +7,26 @@
   const DEFAULT_SCENE_TAG = "forest_day";
   const supabaseService = window.HFSupabaseService;
 
+  // User stories reuse the approved watercolor artwork until a separate image API
+  // is connected. This keeps every generated page illustrated without exposing a key.
+  const sceneIllustrationSets = {
+    sea_bench: "sea-bench",
+    river_bank: "sea-bench",
+    hill_clouds: "lost-cloud",
+    forest_day: "rustling-grass",
+    sunny_meadow: "hedgehog-bravery",
+    mushroom_glade: "hedgehog-bravery",
+    forest_night: "star-for-friend",
+    starry_sky: "star-for-friend",
+    cozy_house: "warm-wind-map",
+    warm_kitchen: "warm-wind-map",
+    rainy_forest: "rustling-grass",
+    autumn_path: "rustling-grass",
+    winter_forest: "lost-cloud",
+    small_bridge: "hedgehog-bravery",
+    campfire_evening: "star-for-friend"
+  };
+
   let remoteUserStories = [];
   let storageMode = "local";
   let lastStorageError = "";
@@ -366,6 +386,20 @@
     return `assets/slides/${storyId}-${slideIndex + 1}.png`;
   }
 
+  function getSceneIllustrationStoryId(sceneTag) {
+    return sceneIllustrationSets[sceneTag] || sceneIllustrationSets[DEFAULT_SCENE_TAG];
+  }
+
+  function getSceneIllustrationUrls(sceneTag, pageNumber) {
+    const storyId = getSceneIllustrationStoryId(sceneTag);
+    const slideIndex = Math.max(0, (Number(pageNumber) || 1) - 1) % 5;
+
+    return {
+      imageUrl: getSlideImageUrl(storyId, slideIndex),
+      fallbackImageUrl: getSlideFallbackImageUrl(storyId, slideIndex)
+    };
+  }
+
   function prepareStoryForReader(story) {
     const normalizedStory = normalizeStory(story, story.source || "built-in");
     const isBuiltInStory = normalizedStory.source === "built-in";
@@ -375,16 +409,23 @@
       readerPages: normalizedStory.slides.map((text, index) => {
         const page = normalizedStory.pages[index] || {};
         const sceneTag = page.sceneTag || normalizedStory.sceneTag || DEFAULT_SCENE_TAG;
+        const sceneIllustration = getSceneIllustrationUrls(sceneTag, index + 1);
+        const pageImageUrl = page.imageUrl || (isBuiltInStory ? getSlideImageUrl(normalizedStory.id, index) : "");
+        const useLibraryIllustration =
+          !pageImageUrl && !isBuiltInStory && normalizedStory.useIllustrations !== false;
 
         return {
           pageNumber: index + 1,
           text,
           sceneTag,
           imagePrompt: page.imagePrompt || "",
-          imageUrl: page.imageUrl || (isBuiltInStory ? getSlideImageUrl(normalizedStory.id, index) : ""),
-          fallbackImageUrl: isBuiltInStory ? getSlideFallbackImageUrl(normalizedStory.id, index) : "",
-          useSceneIllustration:
-            !page.imageUrl && !isBuiltInStory && normalizedStory.useIllustrations !== false
+          imageUrl: pageImageUrl || (useLibraryIllustration ? sceneIllustration.imageUrl : ""),
+          fallbackImageUrl: isBuiltInStory
+            ? getSlideFallbackImageUrl(normalizedStory.id, index)
+            : useLibraryIllustration
+              ? sceneIllustration.fallbackImageUrl
+              : "",
+          useSceneIllustration: !pageImageUrl && !useLibraryIllustration && !isBuiltInStory
         };
       })
     };
@@ -399,6 +440,7 @@
     saveUserStory,
     deleteUserStory,
     getUserStoriesStorageState,
+    getSceneIllustrationUrls,
     prepareStoryForReader
   };
 })(window);

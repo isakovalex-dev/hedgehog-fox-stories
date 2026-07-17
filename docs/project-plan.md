@@ -21,12 +21,17 @@ This file tracks the current implementation plan for "Ежонок и Лисён
 15. Add a full generation waiting screen with mini-games - done.
 16. Run the operational and security audit - done; AI fallback-rate review is deferred.
 17. Prepare YooKassa webhook idempotency - done in code; Supabase SQL execution is pending.
+18. Automatically illustrate generated stories with the approved watercolor library - done.
+19. Prepare one unique AI cover per generated story - done in code; Supabase Storage SQL and Vercel secrets are pending.
+20. Generate unique AI illustrations for every individual story page - deferred until cover costs, latency, and character consistency are reviewed.
 
 ## Current Next Step
 
-Complete the YooKassa preactivation work: execute the protected payment-events SQL
-in Supabase, choose the family tariff price, and wait for YooKassa approval. AI
-fallback-rate review remains deferred and does not block normal operation.
+Configure the prepared private AI-cover flow: run the Storage SQL in Supabase,
+add the OpenAI and Supabase server secrets in Vercel, then deploy and create one
+test story while signed in. The YooKassa preactivation SQL, family tariff price,
+and YooKassa approval remain separate pending work. AI fallback-rate review is
+deferred and does not block normal operation.
 
 Chosen provider for the first test:
 
