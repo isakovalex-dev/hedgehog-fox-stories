@@ -132,9 +132,9 @@ async function createYooKassaPayment(user) {
       return_url: YOOKASSA_RETURN_URL
     },
     description: "Семейный тариф Ежонок и Лисёнок",
+    save_payment_method: false,
     metadata: {
       userId: user.id,
-      userEmail: user.email || "",
       plan: "family",
       subscriptionStatus: "active"
     }
@@ -162,8 +162,7 @@ async function createYooKassaPayment(user) {
     plan: "family",
     providerPaymentId: payment.id,
     status: payment.status,
-    amount: payment.amount,
-    userId: user.id
+    amount: payment.amount
   };
 }
 
@@ -184,8 +183,7 @@ async function getCheckoutPayload(user) {
     return {
       checkoutUrl: PAYMENT_CHECKOUT_URL,
       provider: "manual",
-      plan: "family",
-      userId: user.id
+      plan: "family"
     };
   }
 
@@ -229,7 +227,7 @@ async function handler(req, res) {
     sendJson(req, res, error.statusCode || 500, {
       error: "Checkout creation failed",
       message: error.message || "Unknown error",
-      details: error.details || null
+      details: null
     });
   }
 }

@@ -98,6 +98,7 @@ Payments are intentionally deferred until the owner is ready for legal payment a
 - [ ] Submit the requisites page to YooKassa.
 - [ ] Enable `PAYMENTS_ENABLED=true` only after YooKassa approval.
 - [ ] Confirm Vercel has production YooKassa credentials.
+- [ ] Run the protected YooKassa payment-events SQL in Supabase.
 - [ ] Configure YooKassa webhook:
 
 ```text
@@ -107,7 +108,8 @@ https://hedgehog-fox-stories.vercel.app/api/payment-webhook
 - [ ] Test `payment.succeeded` webhook.
 - [ ] Confirm paid subscription appears in Supabase.
 - [ ] Confirm paid tariff appears in account UI.
-- [ ] Add webhook idempotency before real traffic.
+- [x] Prepare webhook idempotency code and SQL before real traffic.
+- [ ] Execute and verify webhook idempotency in Supabase before real traffic.
 - [ ] Add refund and cancellation handling before real traffic.
 
 ## Legal And Trust Pages

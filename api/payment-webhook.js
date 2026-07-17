@@ -7,8 +7,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL || "https://ynidvdesfolavhngubqv.s
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const YOOKASSA_SHOP_ID = process.env.YOOKASSA_SHOP_ID || "";
 const YOOKASSA_SECRET_KEY = process.env.YOOKASSA_SECRET_KEY || "";
-
-const FAMILY_GENERATION_LIMIT = 20;
+const YOOKASSA_FAMILY_PRICE_RUB = process.env.YOOKASSA_FAMILY_PRICE_RUB || "";
 
 function sendJson(res, statusCode, payload) {
   res.statusCode = statusCode;
@@ -21,6 +20,24 @@ function createHttpError(statusCode, message, details = null) {
   error.statusCode = statusCode;
   error.details = details;
   return error;
+}
+
+function getSafeLogError(error) {
+  return {
+    statusCode: Number(error?.statusCode) || 500,
+    name: String(error?.name || "Error").slice(0, 80),
+    message: String(error?.message || "Unknown error").slice(0, 180)
+  };
+}
+
+function logPaymentEvent(event, fields = {}) {
+  console.log(
+    "[payment-webhook]",
+    JSON.stringify({
+      event,
+      ...fields
+    })
+  );
 }
 
 async function parseResponse(response) {
@@ -101,6 +118,16 @@ function getYooKassaAuthHeader() {
   return `Basic ${Buffer.from(`${YOOKASSA_SHOP_ID}:${YOOKASSA_SECRET_KEY}`).toString("base64")}`;
 }
 
+function getYooKassaFamilyPrice() {
+  const normalizedPrice = String(YOOKASSA_FAMILY_PRICE_RUB).trim().replace(",", ".");
+
+  if (!/^\d+(\.\d{2})$/.test(normalizedPrice)) {
+    throw createHttpError(500, "YOOKASSA_FAMILY_PRICE_RUB must use format 299.00");
+  }
+
+  return normalizedPrice;
+}
+
 async function getVerifiedYooKassaPayment(paymentId) {
   if (!paymentId) {
     throw createHttpError(400, "YooKassa payment id is missing");
@@ -123,44 +150,30 @@ async function getVerifiedYooKassaPayment(paymentId) {
     });
   }
 
+  if (String(payment?.recipient?.account_id || "") !== String(YOOKASSA_SHOP_ID)) {
+    throw createHttpError(400, "YooKassa payment belongs to another shop");
+  }
+
+  if (payment?.metadata?.plan !== "family" || !payment?.metadata?.userId) {
+    throw createHttpError(400, "YooKassa payment metadata is invalid");
+  }
+
+  if (
+    String(payment?.amount?.currency || "") !== "RUB" ||
+    String(payment?.amount?.value || "") !== getYooKassaFamilyPrice()
+  ) {
+    throw createHttpError(400, "YooKassa payment amount is invalid");
+  }
+
   return payment;
 }
 
-function addDays(date, days) {
-  const result = new Date(date);
-  result.setUTCDate(result.getUTCDate() + days);
-  return result;
-}
-
-async function activateFamilySubscription(payment) {
+async function applyVerifiedYooKassaPayment(payment) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     throw createHttpError(500, "Supabase service role config is missing");
   }
 
-  const userId = payment?.metadata?.userId || "";
-  const plan = payment?.metadata?.plan || "";
-
-  if (!userId) {
-    throw createHttpError(400, "Payment metadata userId is missing");
-  }
-
-  if (plan !== "family") {
-    throw createHttpError(400, "Payment metadata plan is not supported", { plan });
-  }
-
-  const now = new Date();
-  const subscriptionRow = {
-    user_id: userId,
-    status: "active",
-    provider: "yookassa",
-    provider_subscription_id: payment.id,
-    generation_limit: FAMILY_GENERATION_LIMIT,
-    current_period_start: now.toISOString(),
-    current_period_end: addDays(now, 30).toISOString(),
-    updated_at: now.toISOString()
-  };
-
-  const response = await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/subscriptions?select=*`, {
+  const response = await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/rpc/apply_yookassa_payment`, {
     method: "POST",
     headers: {
       apikey: SUPABASE_SERVICE_ROLE_KEY,
@@ -168,11 +181,18 @@ async function activateFamilySubscription(payment) {
       "Content-Type": "application/json",
       Prefer: "return=representation"
     },
-    body: JSON.stringify(subscriptionRow)
+    body: JSON.stringify({
+      p_provider_payment_id: payment.id,
+      p_user_id: payment.metadata.userId,
+      p_plan: payment.metadata.plan,
+      p_amount: payment.amount.value,
+      p_currency: payment.amount.currency,
+      p_paid_at: payment.captured_at || new Date().toISOString()
+    })
   });
-  const rows = await parseResponse(response);
+  const payload = await parseResponse(response);
 
-  return Array.isArray(rows) ? rows[0] : rows;
+  return Array.isArray(payload) ? payload[0] : payload;
 }
 
 async function handleYooKassaWebhook(payload) {
@@ -199,20 +219,15 @@ async function handleYooKassaWebhook(payload) {
   }
 
   const verifiedPayment = await getVerifiedYooKassaPayment(paymentObject.id);
-  const subscription = await activateFamilySubscription(verifiedPayment);
+  const result = await applyVerifiedYooKassaPayment(verifiedPayment);
 
   return {
     received: true,
-    subscriptionUpdated: true,
+    subscriptionUpdated: result?.subscription_updated === true,
+    alreadyProcessed: result?.already_processed === true,
     meta: {
       provider: "yookassa",
-      eventType,
-      paymentId: verifiedPayment.id,
-      paymentStatus: verifiedPayment.status,
-      userId: verifiedPayment.metadata?.userId || null,
-      plan: verifiedPayment.metadata?.plan || null,
-      subscriptionId: subscription?.id || null,
-      generationLimit: subscription?.generation_limit || FAMILY_GENERATION_LIMIT
+      eventType
     }
   };
 }
@@ -234,6 +249,8 @@ async function handleManualWebhook(req, payload) {
 }
 
 async function handler(req, res) {
+  const startedAt = Date.now();
+
   if (req.method !== "POST") {
     sendJson(res, 405, {
       error: "Method not allowed",
@@ -255,6 +272,13 @@ async function handler(req, res) {
 
     if (PAYMENT_PROVIDER === "yookassa") {
       const result = await handleYooKassaWebhook(payload);
+      logPaymentEvent("webhook_processed", {
+        provider: "yookassa",
+        eventType: payload?.event || "unknown",
+        subscriptionUpdated: result.subscriptionUpdated === true,
+        alreadyProcessed: result.alreadyProcessed === true,
+        durationMs: Date.now() - startedAt
+      });
       sendJson(res, 200, result);
       return;
     }
@@ -267,10 +291,15 @@ async function handler(req, res) {
 
     throw createHttpError(501, `Payment provider is not implemented: ${PAYMENT_PROVIDER}`);
   } catch (error) {
+    logPaymentEvent("webhook_failed", {
+      provider: PAYMENT_PROVIDER || "unknown",
+      error: getSafeLogError(error),
+      durationMs: Date.now() - startedAt
+    });
     sendJson(res, error.statusCode || 500, {
       error: "Payment webhook failed",
       message: error.message || "Unknown error",
-      details: error.details || null
+      details: null
     });
   }
 }

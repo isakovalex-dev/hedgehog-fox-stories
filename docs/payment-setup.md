@@ -18,7 +18,9 @@ api/create-checkout.js
 api/payment-webhook.js
 ```
 
-No real payment provider is connected yet. The site must not collect money until provider credentials, webhook verification, and subscription updates are implemented and tested.
+No real payment provider is connected yet. The site must not collect money until the
+YooKassa contract is approved, the Supabase payment SQL is installed, and the final
+checkout flow is tested.
 
 YooKassa is the selected provider for the MVP.
 
@@ -32,6 +34,10 @@ PAYMENT_PROVIDER=
 PAYMENT_CHECKOUT_URL=
 PAYMENT_WEBHOOK_SECRET=
 ```
+
+`PAYMENT_WEBHOOK_SECRET` is used only by the optional `manual` provider. YooKassa
+webhooks are verified by retrieving the payment from the YooKassa API with the
+server-side shop credentials.
 
 YooKassa production mode:
 
@@ -50,6 +56,8 @@ Important:
 - `SUPABASE_SERVICE_ROLE_KEY` must be stored only in Vercel backend environment variables.
 - Do not put `SUPABASE_SERVICE_ROLE_KEY`, `YOOKASSA_SECRET_KEY`, or any payment secret into frontend JavaScript.
 - After changing Vercel environment variables, redeploy the backend project.
+- Keep `PAYMENTS_ENABLED=false` until the YooKassa application is approved and the
+  database setup below has been executed.
 
 Optional manual checkout mode for a temporary external payment link:
 
@@ -88,8 +96,7 @@ Response for manual mode:
   "checkout": {
     "checkoutUrl": "https://example.com/checkout",
     "provider": "manual",
-    "plan": "family",
-    "userId": "..."
+    "plan": "family"
   },
   "meta": {
     "paymentsEnabled": true,
@@ -112,8 +119,7 @@ Response for YooKassa mode:
     "amount": {
       "value": "299.00",
       "currency": "RUB"
-    },
-    "userId": "..."
+    }
   },
   "meta": {
     "paymentsEnabled": true,
@@ -149,8 +155,23 @@ Current YooKassa behavior:
 - verifies the payment by requesting the current payment object from YooKassa API;
 - requires `status: succeeded` and `paid: true`;
 - reads `metadata.userId` and `metadata.plan`;
-- creates an active `family` subscription row in Supabase;
+- verifies the recipient shop, plan metadata, currency, and configured price before
+  changing access;
+- calls an atomic Supabase RPC that records the payment event and activates the
+  family period once;
+- ignores repeated delivery of the same provider payment without extending access;
 - returns HTTP 200 to YooKassa after successful processing.
+
+Before enabling YooKassa mode, run this SQL once in Supabase SQL Editor:
+
+```text
+docs/supabase-yookassa-payment-setup.sql
+```
+
+The SQL creates `payment_events` with RLS enabled and no browser policies. It also
+creates `apply_yookassa_payment`, a `security invoker` RPC executable only by
+`service_role`. It records a successful YooKassa payment before changing the
+subscription and usage period, so repeated webhooks cannot grant the same access twice.
 
 Manual webhook behavior:
 
@@ -162,22 +183,26 @@ Manual webhook behavior:
 
 ## YooKassa setup checklist
 
-1. In Vercel, add or edit the environment variables listed above.
-2. Redeploy the Vercel backend project.
-3. In YooKassa dashboard, add webhook URL:
+1. Wait for YooKassa approval and sign the contract.
+2. Run `docs/supabase-yookassa-payment-setup.sql` in Supabase SQL Editor.
+3. In Vercel, add or edit the environment variables listed above, then redeploy the backend project.
+4. In YooKassa dashboard, add webhook URL:
 
 ```text
 https://hedgehog-fox-stories.vercel.app/api/payment-webhook
 ```
 
-4. Enable the `payment.succeeded` event.
-5. On the public site, sign in and click the subscription payment button.
-6. Complete a test payment.
-7. Return to the site and verify that the account shows the family tariff.
+5. Enable the `payment.succeeded` event.
+6. On the public site, sign in and click the subscription payment button.
+7. Complete a test payment.
+8. Confirm that one `payment_events` row and one family subscription period were created.
+9. Send the same test webhook again and confirm it returns `alreadyProcessed: true`.
+10. Return to the site and verify that the account shows the family tariff.
 
 ## Next production step
 
-1. Add idempotency for repeated YooKassa webhooks.
+1. Add authoritative subscription RLS rules before public paid traffic, so browser
+   requests cannot change a paid tariff or a generation counter directly.
 2. Add subscription expiration handling.
 3. Add cancellation/refund event handling.
 4. Add account UI for payment status and tariff management.

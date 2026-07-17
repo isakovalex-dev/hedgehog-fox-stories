@@ -98,6 +98,37 @@ Notes:
 - `status` can be `free`, `trial`, `active`, `expired`, `cancelled`, or provider-specific states mapped to app states.
 - `provider` can be `yookassa` later.
 
+## payment_events
+
+Stores a server-side audit record for each successful payment event.
+
+Fields:
+
+- `provider`
+- `provider_payment_id`
+- `event_type`
+- `payment_status`
+- `user_id`
+- `plan`
+- `amount`
+- `currency`
+- `paid_at`
+- `created_at`
+
+Constraints and access rules:
+
+- unique `(provider, provider_payment_id)` prevents a repeated YooKassa webhook from
+  extending the same tariff twice;
+- RLS is enabled;
+- browser roles have no access to payment events;
+- only the backend service role executes the payment RPC.
+
+SQL file:
+
+```text
+docs/supabase-yookassa-payment-setup.sql
+```
+
 ## generation_usage
 
 Stores generation usage per billing period.

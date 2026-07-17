@@ -20,12 +20,13 @@ This file tracks the current implementation plan for "Ежонок и Лисён
 14. Redesign the public site in the watercolor storybook style - done.
 15. Add a full generation waiting screen with mini-games - done.
 16. Run the operational and security audit - done; AI fallback-rate review is deferred.
+17. Prepare YooKassa webhook idempotency - done in code; Supabase SQL execution is pending.
 
 ## Current Next Step
 
-Periodically review the AI fallback rate after 5-10 normal child-safe generations.
-This is deferred and does not block normal operation. The next product milestone is
-paid-launch preparation after the legal payment setup is ready.
+Complete the YooKassa preactivation work: execute the protected payment-events SQL
+in Supabase, choose the family tariff price, and wait for YooKassa approval. AI
+fallback-rate review remains deferred and does not block normal operation.
 
 Chosen provider for the first test:
 
