@@ -46,10 +46,17 @@ the current Secret key (\`sb_secret_...\`). The backend also supports the older
 
 ## Consistent illustration style
 
-The backend sends \`assets/stories/sea-bench.png\` from the public site to the
-OpenAI Image Edits endpoint as a visual reference. It keeps the existing
-watercolor paper, palette, pencil contour, and hero designs while the prompt
-replaces the scene with the exact event of the current story page.
+The backend sends four existing illustrations to the OpenAI Image Edits endpoint
+as one visual reference set:
+
+- \`assets/stories/sea-bench.png\` for the recurring heroes and light coastal palette;
+- \`assets/stories/rustling-grass.png\` for evening watercolor texture;
+- \`assets/stories/hedgehog-bravery.png\` for forest foliage and the heroes' proportions;
+- \`assets/stories/star-for-friend.png\` for delicate night colors and paper edges.
+
+Together they preserve the existing watercolor paper, palette, pencil contour,
+botanical detail, and hero designs while the prompt replaces every reference
+scene with the exact event of the current story page.
 
 The default reference URL is:
 
@@ -67,6 +74,16 @@ ILLUSTRATION_STYLE_REFERENCE_URL=https://ezhik-i-lisenok.ru/assets/stories/sea-b
 Leave it unset to use the default above. This reference is public artwork from
 the project; it is sent only from the Vercel backend to OpenAI, never from the
 visitor's browser.
+
+## Style reference reliability
+
+The Vercel Function bundles `assets/stories/*.png` and reads the four style
+references locally before calling OpenAI. This prevents a temporary GitHub Pages
+network failure from interrupting one page of a multi-page illustration run.
+
+If an old deployment does not contain the bundled files, the function retries
+the corresponding public URL once as a fallback. The optional
+`ILLUSTRATION_STYLE_REFERENCE_URL` still overrides the first, primary reference.
 
 ## Verification
 

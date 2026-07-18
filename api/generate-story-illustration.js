@@ -1,5 +1,8 @@
 "use strict";
 
+const fs = require("node:fs/promises");
+const path = require("node:path");
+
 const DEFAULT_ORIGIN = "https://ezhik-i-lisenok.ru";
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ynidvdesfolavhngubqv.supabase.co";
 const SUPABASE_ANON_KEY =
@@ -19,6 +22,28 @@ const IMAGE_BUCKET = "story-illustrations";
 const STORAGE_REFERENCE_PREFIX = "storage://" + IMAGE_BUCKET + "/";
 const MAX_STORY_ID_LENGTH = 80;
 const MAX_STYLE_REFERENCE_BYTES = 5 * 1024 * 1024;
+const STYLE_REFERENCE_FILES = [
+  {
+    filename: "sea-bench.png",
+    relativePath: path.join("assets", "stories", "sea-bench.png"),
+    url: STYLE_REFERENCE_URL
+  },
+  {
+    filename: "rustling-grass.png",
+    relativePath: path.join("assets", "stories", "rustling-grass.png"),
+    url: DEFAULT_ORIGIN + "/assets/stories/rustling-grass.png"
+  },
+  {
+    filename: "hedgehog-bravery.png",
+    relativePath: path.join("assets", "stories", "hedgehog-bravery.png"),
+    url: DEFAULT_ORIGIN + "/assets/stories/hedgehog-bravery.png"
+  },
+  {
+    filename: "star-for-friend.png",
+    relativePath: path.join("assets", "stories", "star-for-friend.png"),
+    url: DEFAULT_ORIGIN + "/assets/stories/star-for-friend.png"
+  }
+];
 const LOCAL_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/;
 const ILLUSTRATION_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const ILLUSTRATION_RATE_LIMIT_MAX_REQUESTS = 12;
@@ -170,10 +195,11 @@ function buildIllustrationPrompt(story, page) {
     "Create one original landscape watercolor illustration for the exact event described below.",
     "The Russian page text is the source of truth. Depict only its concrete action, place, characters and important objects.",
     "Do not illustrate another page, a general story theme, a moral, or an invented adventure. Do not add unrelated animals, props, weather or actions.",
-    "The supplied image is a visual reference only: preserve its warm cream paper, delicate transparent watercolor washes, fine pencil contour, muted sage-blue-honey palette, and the recognizable designs of the hedgehog and fox.",
-    "Replace the reference scene completely with the exact scene from this page. Do not copy its bench, sea, clouds, pose, composition, or any object unless this page explicitly requires it.",
+    "The four supplied images are one authoritative design sheet, not scene content to copy. Use all of them to match the existing printed storybook: warm off-white paper, airy transparent watercolor washes, fine pencil hatching, softly feathered painted edges, detailed natural foliage, muted sage-green, honey and sky-blue palette.",
+    "Keep the same recurring character design in every new illustration: a small round brown hedgehog with short dark spines, a pale face, tiny black oval eyes and rosy cheeks; and a slender amber fox with a white chest, black paws and a long fluffy tail with a white tip. Keep their modest childlike scale and gentle expressions.",
+    "Replace every reference scene completely with the exact scene from this page. Do not copy a bench, sea, clouds, stump, night sky, pose, composition, animal, or prop from the references unless this page explicitly requires it.",
     "Two recurring heroes: a small brown hedgehog with soft rounded spines and a kind amber fox with a white chest and a fluffy tail.",
-    "Gentle hand-painted watercolor and pencil texture on warm cream paper, soft natural light, muted sage green, sky blue and honey colors. It must look like another illustration from the same printed storybook.",
+    "Gentle hand-painted watercolor and pencil texture on warm cream paper, soft natural light, delicate botanical details and plenty of breathing room around the painted scene. It must look like another illustration from the same printed storybook, never a 3D render, glossy digital cartoon, thick outlined mascot, toy-like character, or photorealistic image.",
     "Keep the heroes visually consistent across pages. If the page text names one hero only, do not force the other into the foreground.",
     "Composition: safe children's storybook scene, no text, no letters, no logos, no frames.",
     pageText ? "EXACT PAGE TEXT IN RUSSIAN: " + pageText : "",
@@ -236,38 +262,97 @@ async function fetchStoryAndPage(storyId, pageNumber, accessToken) {
   return { story, page };
 }
 
-async function loadStyleReference() {
-  const response = await fetch(STYLE_REFERENCE_URL, { method: "GET" });
+async function readLocalStyleReference(reference) {
+  const candidatePaths = [
+    path.join(process.cwd(), reference.relativePath),
+    path.join(__dirname, "..", reference.relativePath)
+  ];
 
-  if (!response.ok) {
-    throw createHttpError(502, "Could not load the illustration style reference");
+  for (const candidatePath of candidatePaths) {
+    try {
+      const bytes = await fs.readFile(candidatePath);
+
+      if (!bytes.byteLength || bytes.byteLength > MAX_STYLE_REFERENCE_BYTES) {
+        throw createHttpError(502, "Illustration style reference has an invalid size");
+      }
+
+      return {
+        blob: new Blob([bytes], { type: "image/png" }),
+        filename: reference.filename,
+        source: "bundled_asset"
+      };
+    } catch (error) {
+      if (error?.statusCode) throw error;
+      if (error?.code !== "ENOENT") {
+        throw createHttpError(502, "Could not read the illustration style reference");
+      }
+    }
   }
 
-  const contentType = String(response.headers.get("content-type") || "").split(";")[0];
-  const contentLength = Number(response.headers.get("content-length") || 0);
+  return null;
+}
 
-  if (!contentType.startsWith("image/")) {
-    throw createHttpError(502, "Illustration style reference is not an image");
+function wait(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function fetchStyleReference(reference) {
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      const response = await fetch(reference.url, { method: "GET" });
+
+      if (!response.ok) {
+        throw createHttpError(502, "Could not load the illustration style reference");
+      }
+
+      const contentType = String(response.headers.get("content-type") || "").split(";")[0];
+      const contentLength = Number(response.headers.get("content-length") || 0);
+
+      if (!contentType.startsWith("image/")) {
+        throw createHttpError(502, "Illustration style reference is not an image");
+      }
+
+      if (contentLength > MAX_STYLE_REFERENCE_BYTES) {
+        throw createHttpError(502, "Illustration style reference is too large");
+      }
+
+      const bytes = await response.arrayBuffer();
+
+      if (!bytes.byteLength || bytes.byteLength > MAX_STYLE_REFERENCE_BYTES) {
+        throw createHttpError(502, "Illustration style reference has an invalid size");
+      }
+
+      return {
+        blob: new Blob([bytes], { type: contentType }),
+        filename: reference.filename,
+        source: "remote_fallback"
+      };
+    } catch (error) {
+      lastError = error;
+      if (attempt < 2) await wait(250);
+    }
   }
 
-  if (contentLength > MAX_STYLE_REFERENCE_BYTES) {
-    throw createHttpError(502, "Illustration style reference is too large");
-  }
+  throw lastError || createHttpError(502, "Could not load the illustration style reference");
+}
 
-  const bytes = await response.arrayBuffer();
+async function loadStyleReference(reference) {
+  return (await readLocalStyleReference(reference)) || fetchStyleReference(reference);
+}
 
-  if (!bytes.byteLength || bytes.byteLength > MAX_STYLE_REFERENCE_BYTES) {
-    throw createHttpError(502, "Illustration style reference has an invalid size");
-  }
-
-  return new Blob([bytes], { type: contentType });
+async function loadStyleReferences() {
+  return Promise.all(STYLE_REFERENCE_FILES.map((reference) => loadStyleReference(reference)));
 }
 
 async function createImage(prompt) {
-  const styleReference = await loadStyleReference();
+  const styleReferences = await loadStyleReferences();
   const formData = new FormData();
   formData.append("model", IMAGE_MODEL);
-  formData.append("image", styleReference, "ezhik-lisenok-style-reference.png");
+  for (const styleReference of styleReferences) {
+    formData.append("image", styleReference.blob, styleReference.filename);
+  }
   formData.append("prompt", prompt);
   formData.append("size", IMAGE_SIZE);
   formData.append("quality", IMAGE_QUALITY);
@@ -289,7 +374,12 @@ async function createImage(prompt) {
     throw createHttpError(502, "Image provider response is missing image data");
   }
 
-  return Buffer.from(imageBase64, "base64");
+  return {
+    imageBytes: Buffer.from(imageBase64, "base64"),
+    styleReferenceCount: styleReferences.length,
+    styleReferenceFiles: styleReferences.map((reference) => reference.filename),
+    styleReferenceSources: styleReferences.map((reference) => reference.source)
+  };
 }
 
 function getObjectPath(userId, storyId, pageNumber, force) {
@@ -418,17 +508,20 @@ async function handler(req, res) {
     enforceIllustrationRateLimit(user.id);
 
     const prompt = buildIllustrationPrompt(story, page);
-    const imageBytes = await createImage(prompt);
+    const imageResult = await createImage(prompt);
     const objectPath = getObjectPath(user.id, story.id, pageNumber, force);
     const storageReference = getStorageReference(objectPath);
 
-    await uploadImage(objectPath, imageBytes);
+    await uploadImage(objectPath, imageResult.imageBytes);
     await saveImageReference(page.id, storageReference);
 
     logIllustrationEvent("illustration_succeeded", {
       model: IMAGE_MODEL,
       generationMode: "style_reference_edit",
       styleReferenceUrl: STYLE_REFERENCE_URL,
+      styleReferenceCount: imageResult.styleReferenceCount,
+      styleReferenceFiles: imageResult.styleReferenceFiles,
+      styleReferenceSources: imageResult.styleReferenceSources,
       size: IMAGE_SIZE,
       quality: IMAGE_QUALITY,
       pageNumber,

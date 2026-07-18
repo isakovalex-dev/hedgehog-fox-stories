@@ -1516,7 +1516,12 @@
       }
 
       if (result.failed) {
-        if (status) status.textContent = "Часть иллюстраций не удалось обновить. Можно повторить позже.";
+        openStory(story.id, { fromRoute: true });
+        const refreshedStatus = document.querySelector("#readerIllustrationStatus");
+        if (refreshedStatus) {
+          refreshedStatus.textContent =
+            "Часть иллюстраций обновлена. Для оставшихся можно повторить перерисовку позже.";
+        }
         return;
       }
 
