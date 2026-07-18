@@ -802,12 +802,13 @@ function buildMockStory(input) {
   const pages = Array.from({ length: input.pageCount }, (_, index) => {
     const pageNumber = index + 1;
     const sceneTag = scenes[index % scenes.length] || "forest_day";
+    const text = getMockPageText({ ...input, pageNumber });
 
     return {
       pageNumber,
-      text: getMockPageText({ ...input, pageNumber }),
+      text,
       sceneTag,
-      imagePrompt: `Нежная акварельная сцена: Ежонок и Лисёнок, ${input.topic}, ${MOOD_CONFIG[input.mood].label}, страница ${pageNumber}`
+      imagePrompt: buildPageImagePrompt(text, sceneTag)
     };
   });
 
@@ -819,6 +820,17 @@ function buildMockStory(input) {
     lesson: input.lesson,
     pages
   };
+}
+
+function buildPageImagePrompt(pageText, sceneTag) {
+  const concreteEvent = cleanText(pageText, "", MAX_IMAGE_PROMPT_LENGTH - 52);
+  const sceneHint = ALLOWED_SCENE_TAGS.includes(sceneTag) ? ` Сцена: ${sceneTag}.` : "";
+
+  return cleanText(
+    `Точный кадр этой страницы: ${concreteEvent}.${sceneHint} Покажи только описанное действие, героев и важные детали.`,
+    "",
+    MAX_IMAGE_PROMPT_LENGTH
+  );
 }
 
 function validateGeneratedStory(story) {
@@ -878,7 +890,11 @@ function normalizeGeneratedStory(rawStory, input) {
     const pageNumber = index + 1;
     const text = cleanText(rawPage?.text, "", MAX_PAGE_TEXT_LENGTH);
     const sceneTag = ALLOWED_SCENE_TAGS.includes(rawPage?.sceneTag) ? rawPage.sceneTag : "forest_day";
-    const imagePrompt = cleanText(rawPage?.imagePrompt, "", MAX_IMAGE_PROMPT_LENGTH);
+    const imagePrompt = cleanText(
+      rawPage?.imagePrompt,
+      buildPageImagePrompt(text, sceneTag),
+      MAX_IMAGE_PROMPT_LENGTH
+    );
 
     if (!text) {
       throw createHttpError(502, `AI response page ${pageNumber} text is missing`);
@@ -920,6 +936,9 @@ function getAiSystemPrompt() {
     "Тон: добрый, тёплый, без страшных, взрослых, опасных и манипулятивных тем.",
     "Верни только JSON без markdown и без пояснений.",
     "Каждая страница должна быть короткой.",
+    "Для каждой страницы обязательно верни imagePrompt на русском языке длиной 80-240 символов.",
+    "imagePrompt - это точное визуальное ТЗ только для текста этой страницы: кто в кадре, где находится, что именно происходит и какая деталь важна.",
+    "Не пиши общие фразы вроде 'добрая акварельная сцена', не добавляй события или предметы, которых нет в text.",
     `sceneTag выбирай только из списка: ${ALLOWED_SCENE_TAGS.join(", ")}.`
   ].join(" ");
 }
@@ -937,7 +956,7 @@ function getAiUserPrompt(input) {
           pageNumber: 1,
           text: "Текст страницы",
           sceneTag: "forest_day",
-          imagePrompt: "Описание будущей акварельной иллюстрации"
+          imagePrompt: "Точный кадр этой страницы: герои, место, действие и важная деталь строго из text"
         }
       ]
     },

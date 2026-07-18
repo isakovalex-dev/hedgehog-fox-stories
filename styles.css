@@ -1912,6 +1912,17 @@ body.about-page {
   margin-top: 1.5rem;
 }
 
+.reader-illustration-actions {
+  margin-top: 1.5rem;
+}
+
+.reader-illustration-status {
+  min-height: 1.4rem;
+  margin: 0.7rem auto 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
 @media (max-width: 860px) {
   .site-nav {
     align-items: flex-start;

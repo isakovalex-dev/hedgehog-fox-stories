@@ -873,8 +873,9 @@
     const deleteButton = options.canDelete
       ? `<button class="button quiet" data-delete-story="${escapeAttribute(story.id)}" type="button">Удалить</button>`
       : "";
+    const hasIllustrations = Array.isArray(story.pages) && story.pages.some((page) => page?.imageUrl);
     const illustrateButton = options.canDelete && story.storage === "supabase" && story.useIllustrations !== false
-      ? `<button class="button secondary" data-illustrate-story="${escapeAttribute(story.id)}" type="button">Нарисовать иллюстрации</button>`
+      ? `<button class="button secondary" data-illustrate-story="${escapeAttribute(story.id)}" data-force-illustrations="${hasIllustrations}" type="button">${hasIllustrations ? "Перерисовать иллюстрации" : "Нарисовать иллюстрации"}</button>`
       : "";
 
     return `
@@ -1082,6 +1083,24 @@
     return "";
   }
 
+  function renderReaderIllustrationAction(story) {
+    if (
+      story?.source !== "user" ||
+      story?.storage !== "supabase" ||
+      story?.useIllustrations === false ||
+      !canUseIllustrationApi()
+    ) {
+      return "";
+    }
+
+    return `
+      <div class="reader-illustration-actions">
+        <button class="button secondary" type="button" data-regenerate-illustrations="${escapeAttribute(story.id)}">Перерисовать иллюстрации по тексту</button>
+        <p class="reader-illustration-status" id="readerIllustrationStatus" role="status"></p>
+      </div>
+    `;
+  }
+
   function openStory(storyId, options = {}) {
     const story = storyService.getStoryById(storyId);
     if (!story) {
@@ -1138,6 +1157,7 @@
           <span class="slide-kicker">Конец истории</span>
           <p class="slide-text">Спасибо, что читали вместе с Ежонком и Лисёнком.</p>
           <div class="end-like">${renderLikeButton(activeStory)}</div>
+          ${renderReaderIllustrationAction(activeStory)}
           <div class="end-actions">
             <button class="button secondary" id="backToStoriesEnd">Вернуться к историям</button>
             <button class="button primary" id="readAnother">Читать другую</button>
@@ -1384,7 +1404,7 @@
     }
   }
 
-  async function requestStoryIllustration(storyId, pageNumber) {
+  async function requestStoryIllustration(storyId, pageNumber, options = {}) {
     if (!canUseIllustrationApi() || !storyId || !pageNumber) {
       return { illustrated: false, reason: "disabled" };
     }
@@ -1403,7 +1423,7 @@
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`
         },
-        body: JSON.stringify({ storyId, pageNumber }),
+        body: JSON.stringify({ storyId, pageNumber, force: options.force === true }),
         signal: controller.signal
       });
       const payload = await response.json().catch(() => null);
@@ -1418,16 +1438,17 @@
     }
   }
 
-  async function requestStoryIllustrations(story) {
+  async function requestStoryIllustrations(story, options = {}) {
     const pages = Array.isArray(story?.pages) ? story.pages : [];
     const result = { illustrated: false, completed: 0, failed: 0, total: pages.length };
+    const actionLabel = options.force ? "Перерисовываю" : "Рисую";
 
     for (let index = 0; index < pages.length; index += 1) {
       const pageNumber = Number(pages[index]?.pageNumber || index + 1);
-      updateGenerationStatus(`Рисую иллюстрацию ${index + 1} из ${pages.length}...`);
+      updateGenerationStatus(`${actionLabel} иллюстрацию ${index + 1} из ${pages.length}...`);
 
       try {
-        const pageResult = await requestStoryIllustration(story.id, pageNumber);
+        const pageResult = await requestStoryIllustration(story.id, pageNumber, options);
         if (pageResult?.illustrated) {
           result.illustrated = true;
           result.completed += 1;
@@ -1640,10 +1661,13 @@
       if (!story) return;
 
       illustrateButton.disabled = true;
-      libraryStatus.textContent = "Готовим иллюстрации к страницам истории...";
+      const force = illustrateButton.dataset.forceIllustrations === "true";
+      libraryStatus.textContent = force
+        ? "Перерисовываем иллюстрации строго по тексту страниц..."
+        : "Готовим иллюстрации к страницам истории...";
 
       try {
-        const result = await requestStoryIllustrations(story);
+        const result = await requestStoryIllustrations(story, { force });
         await storyService.initializeUserStories();
         renderAllStoryLists();
         libraryStatus.textContent = result.illustrated
@@ -1951,6 +1975,40 @@
 
     if (event.target.id === "backToStoriesEnd" || event.target.id === "readAnother") {
       closeReader();
+      return;
+    }
+
+    const regenerateButton = event.target.closest("[data-regenerate-illustrations]");
+    if (regenerateButton) {
+      const story = storyService.getStoryById(regenerateButton.dataset.regenerateIllustrations);
+      const status = document.querySelector("#readerIllustrationStatus");
+      if (!story) return;
+
+      regenerateButton.disabled = true;
+      regenerateButton.textContent = "Перерисовываем...";
+      if (status) status.textContent = "Перерисовываем страницы по точному тексту сказки...";
+
+      requestStoryIllustrations(story, { force: true })
+        .then(async (result) => {
+          await storyService.initializeUserStories();
+          renderAllStoryLists();
+
+          if (result.failed) {
+            if (status) status.textContent = "Часть иллюстраций не удалось обновить. Можно повторить позже.";
+            return;
+          }
+
+          if (status) status.textContent = "Иллюстрации обновлены. Открываем новую версию сказки...";
+          openStory(story.id, { fromRoute: true });
+        })
+        .catch((error) => {
+          console.warn("[app] Cannot regenerate story illustrations", error);
+          if (status) status.textContent = `Не удалось обновить иллюстрации: ${error.message || "ошибка"}`;
+        })
+        .finally(() => {
+          regenerateButton.disabled = false;
+          regenerateButton.textContent = "Перерисовать иллюстрации по тексту";
+        });
       return;
     }
 

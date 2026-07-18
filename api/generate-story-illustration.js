@@ -161,18 +161,18 @@ function buildIllustrationPrompt(story, page) {
   const sceneDescription = cleanPromptText(page?.image_prompt, 360);
   const pageText = cleanPromptText(page?.text, 1400);
   const mood = cleanPromptText(story?.mood, 80);
-  const lesson = cleanPromptText(story?.lesson, 180);
 
   return [
-    "Original watercolor illustration for a calm Russian children's storybook.",
+    "Create one original landscape watercolor illustration for the exact event described below.",
+    "The Russian page text is the source of truth. Depict only its concrete action, place, characters and important objects.",
+    "Do not illustrate another page, a general story theme, a moral, or an invented adventure. Do not add unrelated animals, props, weather or actions.",
     "Two recurring heroes: a small brown hedgehog with soft rounded spines and a kind amber fox with a white chest and a fluffy tail.",
     "Gentle hand-painted watercolor and pencil texture on warm cream paper, soft natural light, muted sage green, sky blue and honey colors.",
-    "Illustrate only the concrete event of this exact page. Keep the heroes visually consistent across pages.",
-    "Composition: landscape book illustration with the two friends clearly visible when the text places them in the scene, safe nature setting, no text, no letters, no logos, no frames.",
+    "Keep the heroes visually consistent across pages. If the page text names one hero only, do not force the other into the foreground.",
+    "Composition: safe children's storybook scene, no text, no letters, no logos, no frames.",
+    pageText ? "EXACT PAGE TEXT IN RUSSIAN: " + pageText : "",
+    sceneDescription ? "CONCISE VISUAL BRIEF FOR THIS SAME PAGE: " + sceneDescription : "",
     mood ? "Mood: " + mood + "." : "",
-    lesson ? "Story lesson: " + lesson + "." : "",
-    pageText ? "Page text in Russian: " + pageText + "." : "",
-    sceneDescription ? "Art direction for this page: " + sceneDescription + "." : ""
   ]
     .filter(Boolean)
     .join(" ");
@@ -254,8 +254,9 @@ async function createImage(prompt) {
   return Buffer.from(imageBase64, "base64");
 }
 
-function getObjectPath(userId, storyId, pageNumber) {
-  return userId + "/" + storyId + "/page-" + pageNumber + ".webp";
+function getObjectPath(userId, storyId, pageNumber, force) {
+  const versionSuffix = force ? "-" + Date.now() : "";
+  return userId + "/" + storyId + "/page-" + pageNumber + versionSuffix + ".webp";
 }
 
 function getStorageReference(objectPath) {
@@ -281,9 +282,13 @@ function enforceIllustrationRateLimit(userId) {
 }
 
 function hasCurrentPageIllustration(imageUrl, pageNumber) {
-  const expectedSuffix = "/page-" + pageNumber + ".webp";
-  return String(imageUrl || "").startsWith(STORAGE_REFERENCE_PREFIX) &&
-    String(imageUrl || "").endsWith(expectedSuffix);
+  const expectedPathPart = "/page-" + pageNumber;
+  const value = String(imageUrl || "");
+  return (
+    value.startsWith(STORAGE_REFERENCE_PREFIX) &&
+    value.includes(expectedPathPart) &&
+    value.endsWith(".webp")
+  );
 }
 
 async function uploadImage(objectPath, imageBytes) {
@@ -348,10 +353,11 @@ async function handler(req, res) {
     const body = await getRequestBody(req);
     const storyId = validateStoryId(body.storyId);
     const pageNumber = validatePageNumber(body.pageNumber);
+    const force = body.force === true;
     const { user, accessToken } = await getAuthenticatedUser(req);
     const { story, page } = await fetchStoryAndPage(storyId, pageNumber, accessToken);
 
-    if (hasCurrentPageIllustration(page.image_url, pageNumber)) {
+    if (!force && hasCurrentPageIllustration(page.image_url, pageNumber)) {
       sendJson(req, res, 200, { illustrated: true, alreadyExists: true, pageNumber });
       return;
     }
@@ -365,7 +371,7 @@ async function handler(req, res) {
 
     const prompt = buildIllustrationPrompt(story, page);
     const imageBytes = await createImage(prompt);
-    const objectPath = getObjectPath(user.id, story.id, pageNumber);
+    const objectPath = getObjectPath(user.id, story.id, pageNumber, force);
     const storageReference = getStorageReference(objectPath);
 
     await uploadImage(objectPath, imageBytes);
@@ -376,9 +382,17 @@ async function handler(req, res) {
       size: IMAGE_SIZE,
       quality: IMAGE_QUALITY,
       pageNumber,
+      force,
+      pageTextLength: cleanPromptText(page.text, 1400).length,
+      visualBriefLength: cleanPromptText(page.image_prompt, 360).length,
       durationMs: Date.now() - startedAt
     });
-    sendJson(req, res, 200, { illustrated: true, alreadyExists: false, pageNumber });
+    sendJson(req, res, 200, {
+      illustrated: true,
+      alreadyExists: false,
+      regenerated: force,
+      pageNumber
+    });
   } catch (error) {
     logIllustrationEvent("illustration_failed", {
       error: getSafeLogError(error),
