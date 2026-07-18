@@ -44,6 +44,30 @@ the current Secret key (\`sb_secret_...\`). The backend also supports the older
 \`SUPABASE_SERVICE_ROLE_KEY\` name during a transition, but new setup should use
 \`SUPABASE_SECRET_KEY\`.
 
+## Consistent illustration style
+
+The backend sends \`assets/stories/sea-bench.png\` from the public site to the
+OpenAI Image Edits endpoint as a visual reference. It keeps the existing
+watercolor paper, palette, pencil contour, and hero designs while the prompt
+replaces the scene with the exact event of the current story page.
+
+The default reference URL is:
+
+\`\`\`text
+https://ezhik-i-lisenok.ru/assets/stories/sea-bench.png
+\`\`\`
+
+You can replace it without a code change by adding this optional Vercel
+variable in Production and Preview:
+
+\`\`\`text
+ILLUSTRATION_STYLE_REFERENCE_URL=https://ezhik-i-lisenok.ru/assets/stories/sea-bench.png
+\`\`\`
+
+Leave it unset to use the default above. This reference is public artwork from
+the project; it is sent only from the Vercel backend to OpenAI, never from the
+visitor's browser.
+
 ## Verification
 
 1. Sign in on \`https://ezhik-i-lisenok.ru\`.

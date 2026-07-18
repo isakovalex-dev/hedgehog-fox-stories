@@ -12,9 +12,13 @@ const OPENAI_IMAGE_API_KEY = process.env.OPENAI_IMAGE_API_KEY || "";
 const IMAGE_MODEL = process.env.IMAGE_MODEL || "gpt-image-1";
 const IMAGE_SIZE = process.env.IMAGE_SIZE || "1536x1024";
 const IMAGE_QUALITY = process.env.IMAGE_QUALITY || "low";
+const STYLE_REFERENCE_URL =
+  process.env.ILLUSTRATION_STYLE_REFERENCE_URL ||
+  DEFAULT_ORIGIN + "/assets/stories/sea-bench.png";
 const IMAGE_BUCKET = "story-illustrations";
 const STORAGE_REFERENCE_PREFIX = "storage://" + IMAGE_BUCKET + "/";
 const MAX_STORY_ID_LENGTH = 80;
+const MAX_STYLE_REFERENCE_BYTES = 5 * 1024 * 1024;
 const LOCAL_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/;
 const ILLUSTRATION_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const ILLUSTRATION_RATE_LIMIT_MAX_REQUESTS = 12;
@@ -166,8 +170,10 @@ function buildIllustrationPrompt(story, page) {
     "Create one original landscape watercolor illustration for the exact event described below.",
     "The Russian page text is the source of truth. Depict only its concrete action, place, characters and important objects.",
     "Do not illustrate another page, a general story theme, a moral, or an invented adventure. Do not add unrelated animals, props, weather or actions.",
+    "The supplied image is a visual reference only: preserve its warm cream paper, delicate transparent watercolor washes, fine pencil contour, muted sage-blue-honey palette, and the recognizable designs of the hedgehog and fox.",
+    "Replace the reference scene completely with the exact scene from this page. Do not copy its bench, sea, clouds, pose, composition, or any object unless this page explicitly requires it.",
     "Two recurring heroes: a small brown hedgehog with soft rounded spines and a kind amber fox with a white chest and a fluffy tail.",
-    "Gentle hand-painted watercolor and pencil texture on warm cream paper, soft natural light, muted sage green, sky blue and honey colors.",
+    "Gentle hand-painted watercolor and pencil texture on warm cream paper, soft natural light, muted sage green, sky blue and honey colors. It must look like another illustration from the same printed storybook.",
     "Keep the heroes visually consistent across pages. If the page text names one hero only, do not force the other into the foreground.",
     "Composition: safe children's storybook scene, no text, no letters, no logos, no frames.",
     pageText ? "EXACT PAGE TEXT IN RUSSIAN: " + pageText : "",
@@ -176,10 +182,6 @@ function buildIllustrationPrompt(story, page) {
   ]
     .filter(Boolean)
     .join(" ");
-}
-
-function isImageGenerationReady() {
-  return getMissingImageGenerationConfig().length === 0;
 }
 
 function getMissingImageGenerationConfig() {
@@ -234,23 +236,53 @@ async function fetchStoryAndPage(storyId, pageNumber, accessToken) {
   return { story, page };
 }
 
+async function loadStyleReference() {
+  const response = await fetch(STYLE_REFERENCE_URL, { method: "GET" });
+
+  if (!response.ok) {
+    throw createHttpError(502, "Could not load the illustration style reference");
+  }
+
+  const contentType = String(response.headers.get("content-type") || "").split(";")[0];
+  const contentLength = Number(response.headers.get("content-length") || 0);
+
+  if (!contentType.startsWith("image/")) {
+    throw createHttpError(502, "Illustration style reference is not an image");
+  }
+
+  if (contentLength > MAX_STYLE_REFERENCE_BYTES) {
+    throw createHttpError(502, "Illustration style reference is too large");
+  }
+
+  const bytes = await response.arrayBuffer();
+
+  if (!bytes.byteLength || bytes.byteLength > MAX_STYLE_REFERENCE_BYTES) {
+    throw createHttpError(502, "Illustration style reference has an invalid size");
+  }
+
+  return new Blob([bytes], { type: contentType });
+}
+
 async function createImage(prompt) {
-  const response = await fetch("https://api.openai.com/v1/images/generations", {
+  const styleReference = await loadStyleReference();
+  const formData = new FormData();
+  formData.append("model", IMAGE_MODEL);
+  formData.append("image", styleReference, "ezhik-lisenok-style-reference.png");
+  formData.append("prompt", prompt);
+  formData.append("size", IMAGE_SIZE);
+  formData.append("quality", IMAGE_QUALITY);
+  formData.append("output_format", "webp");
+  formData.append("input_fidelity", "high");
+  formData.append("moderation", "auto");
+
+  const response = await fetch("https://api.openai.com/v1/images/edits", {
     method: "POST",
     headers: {
-      Authorization: "Bearer " + OPENAI_IMAGE_API_KEY,
-      "Content-Type": "application/json"
+      Authorization: "Bearer " + OPENAI_IMAGE_API_KEY
     },
-    body: JSON.stringify({
-      model: IMAGE_MODEL,
-      prompt,
-      size: IMAGE_SIZE,
-      quality: IMAGE_QUALITY,
-      output_format: "webp",
-      moderation: "auto"
-    })
+    body: formData
   });
-  const payload = await parseJsonResponse(response, "Image generation request failed");
+  const payload = await parseJsonResponse(response, "Image editing request failed");
   const imageBase64 = payload?.data?.[0]?.b64_json;
 
   if (!imageBase64) {
@@ -395,6 +427,8 @@ async function handler(req, res) {
 
     logIllustrationEvent("illustration_succeeded", {
       model: IMAGE_MODEL,
+      generationMode: "style_reference_edit",
+      styleReferenceUrl: STYLE_REFERENCE_URL,
       size: IMAGE_SIZE,
       quality: IMAGE_QUALITY,
       pageNumber,
