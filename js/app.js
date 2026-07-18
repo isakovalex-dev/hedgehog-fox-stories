@@ -36,6 +36,7 @@
   const openAboutButton = document.querySelector("#openAboutButton");
   const backToStoriesTop = document.querySelector("#backToStoriesTop");
   const readerLike = document.querySelector("#readerLike");
+  const readerIllustrationAction = document.querySelector("#readerIllustrationAction");
   const generatorForm = document.querySelector("#generatorForm");
   const generationStatus = document.querySelector("#generationStatus");
   const generationWaitPanel = document.querySelector("#generationWaitPanel");
@@ -1083,15 +1084,25 @@
     return "";
   }
 
+  function canRegenerateStoryIllustrations(story) {
+    return Boolean(
+      story?.source === "user" &&
+      story?.storage === "supabase" &&
+      story?.useIllustrations !== false &&
+      canUseIllustrationApi()
+    );
+  }
+
   function renderReaderIllustrationAction(story) {
-    if (
-      story?.source !== "user" ||
-      story?.storage !== "supabase" ||
-      story?.useIllustrations === false ||
-      !canUseIllustrationApi()
-    ) {
-      return "";
-    }
+    if (!readerIllustrationAction) return;
+
+    readerIllustrationAction.innerHTML = canRegenerateStoryIllustrations(story)
+      ? `<button class="button quiet reader-illustration-button" type="button" data-regenerate-illustrations="${escapeAttribute(story.id)}" aria-label="Перерисовать иллюстрации по тексту сказки">Перерисовать</button>`
+      : "";
+  }
+
+  function renderReaderIllustrationEndAction(story) {
+    if (!canRegenerateStoryIllustrations(story)) return "";
 
     return `
       <div class="reader-illustration-actions">
@@ -1114,6 +1125,7 @@
     setReaderTitle(activeStory.title, true);
     updateDocumentMeta(activeStory);
     renderReaderLike();
+    renderReaderIllustrationAction(activeStory);
     document.body.classList.add("reading");
     hero.classList.add("hidden");
     storiesSection.classList.add("hidden");
@@ -1157,7 +1169,7 @@
           <span class="slide-kicker">Конец истории</span>
           <p class="slide-text">Спасибо, что читали вместе с Ежонком и Лисёнком.</p>
           <div class="end-like">${renderLikeButton(activeStory)}</div>
-          ${renderReaderIllustrationAction(activeStory)}
+          ${renderReaderIllustrationEndAction(activeStory)}
           <div class="end-actions">
             <button class="button secondary" id="backToStoriesEnd">Вернуться к историям</button>
             <button class="button primary" id="readAnother">Читать другую</button>
@@ -1183,6 +1195,7 @@
     activeStory = null;
     activeStoryFinishedTracked = false;
     renderReaderLike();
+    renderReaderIllustrationAction(null);
     navigateTo({ name: "stories", filter: activeFilter }, { focus: true });
   }
 
@@ -1462,6 +1475,41 @@
     }
 
     return result;
+  }
+
+  async function regenerateStoryIllustrations(storyId, button) {
+    const story = storyService.getStoryById(storyId);
+    const status = document.querySelector("#readerIllustrationStatus");
+    if (!story) return;
+
+    button.disabled = true;
+    button.textContent = "Перерисовываем...";
+    if (status) status.textContent = "Перерисовываем страницы по точному тексту сказки...";
+
+    try {
+      const result = await requestStoryIllustrations(story, { force: true });
+      await storyService.initializeUserStories();
+      renderAllStoryLists();
+
+      if (!result.illustrated) {
+        if (status) status.textContent = "Иллюстрации пока не созданы. Проверьте подключение OpenAI Images в Vercel.";
+        return;
+      }
+
+      if (result.failed) {
+        if (status) status.textContent = "Часть иллюстраций не удалось обновить. Можно повторить позже.";
+        return;
+      }
+
+      if (status) status.textContent = "Иллюстрации обновлены. Открываем новую версию сказки...";
+      openStory(story.id, { fromRoute: true });
+    } catch (error) {
+      console.warn("[app] Cannot regenerate story illustrations", error);
+      if (status) status.textContent = `Не удалось обновить иллюстрации: ${error.message || "ошибка"}`;
+    } finally {
+      button.disabled = false;
+      button.textContent = "Перерисовать";
+    }
   }
 
   async function generateStory(formData) {
@@ -1966,6 +2014,14 @@
     });
   }
 
+  if (readerIllustrationAction) {
+    readerIllustrationAction.addEventListener("click", (event) => {
+      const regenerateButton = event.target.closest("[data-regenerate-illustrations]");
+      if (!regenerateButton) return;
+      void regenerateStoryIllustrations(regenerateButton.dataset.regenerateIllustrations, regenerateButton);
+    });
+  }
+
   slides.addEventListener("click", (event) => {
     const likeButton = event.target.closest("[data-like]");
     if (likeButton) {
@@ -1980,35 +2036,7 @@
 
     const regenerateButton = event.target.closest("[data-regenerate-illustrations]");
     if (regenerateButton) {
-      const story = storyService.getStoryById(regenerateButton.dataset.regenerateIllustrations);
-      const status = document.querySelector("#readerIllustrationStatus");
-      if (!story) return;
-
-      regenerateButton.disabled = true;
-      regenerateButton.textContent = "Перерисовываем...";
-      if (status) status.textContent = "Перерисовываем страницы по точному тексту сказки...";
-
-      requestStoryIllustrations(story, { force: true })
-        .then(async (result) => {
-          await storyService.initializeUserStories();
-          renderAllStoryLists();
-
-          if (result.failed) {
-            if (status) status.textContent = "Часть иллюстраций не удалось обновить. Можно повторить позже.";
-            return;
-          }
-
-          if (status) status.textContent = "Иллюстрации обновлены. Открываем новую версию сказки...";
-          openStory(story.id, { fromRoute: true });
-        })
-        .catch((error) => {
-          console.warn("[app] Cannot regenerate story illustrations", error);
-          if (status) status.textContent = `Не удалось обновить иллюстрации: ${error.message || "ошибка"}`;
-        })
-        .finally(() => {
-          regenerateButton.disabled = false;
-          regenerateButton.textContent = "Перерисовать иллюстрации по тексту";
-        });
+      void regenerateStoryIllustrations(regenerateButton.dataset.regenerateIllustrations, regenerateButton);
       return;
     }
 

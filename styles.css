@@ -1675,6 +1675,20 @@ body.about-page {
   flex: 0 0 auto;
 }
 
+.reader-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.reader-illustration-button {
+  min-height: 2.75rem;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.84rem;
+  box-shadow: none;
+}
+
 .reader-like .like-button {
   min-height: 2.75rem;
   min-width: 8rem;
@@ -2088,6 +2102,11 @@ body.about-page {
   .reader-topbar {
     top: 0.7rem;
     width: calc(100% - 1rem);
+  }
+
+  .reader-illustration-button {
+    min-width: 0;
+    padding-inline: 0.6rem;
   }
 
   .reader-topbar span {
