@@ -398,7 +398,7 @@
     }
 
     if (accountPaymentText) {
-      accountPaymentText.textContent = "YooKassa отложена";
+      accountPaymentText.textContent = "YooKassa подключается";
     }
   }
 
@@ -553,7 +553,7 @@
     if (subscriptionWarning) {
       subscriptionWarning.classList.remove("hidden");
       subscriptionWarning.textContent =
-        "Лимит бесплатных историй исчерпан. Чтобы создавать больше историй, активируйте mock-подписку.";
+        "Лимит бесплатных историй исчерпан. Семейный тариф: 299 ₽ за 30 дней, до 20 историй.";
     }
     updateGenerationStatus("Лимит бесплатных историй исчерпан.");
     renderSubscriptionPanel();
@@ -1607,12 +1607,12 @@
   activateSubscriptionButton.addEventListener("click", async () => {
     trackEvent(EVENTS.SUBSCRIPTION_BUTTON_CLICKED);
     activateSubscriptionButton.disabled = true;
-    updateGenerationStatus("Активирую mock-подписку...");
+    updateGenerationStatus("Активирую тестовый доступ...");
 
     try {
       await subscriptionService.activateMockSubscription();
       hideSubscriptionScreen();
-      updateGenerationStatus("Mock-подписка активна. Это тестовая подписка для проверки работы MVP.");
+      updateGenerationStatus("Тестовый доступ активен. Это демонстрационный режим до подключения оплаты YooKassa.");
       renderSubscriptionPanel();
       renderLibrary();
     } catch (error) {

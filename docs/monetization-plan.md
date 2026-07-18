@@ -8,7 +8,7 @@ The first production-ready plan set should stay simple:
 | --- | --- | --- | --- | --- |
 | `free` | Бесплатный | 1 AI story | 30 days | no payment |
 | `trial` | Пробный | 3 AI stories | 7 days | optional later |
-| `active` | Семейный | 20 AI stories | 30 days | paid later |
+| `active` | Семейный | 20 AI stories | 30 days | 299 RUB, YooKassa pending approval |
 | `expired` | Истёк | 0 AI stories | until renewed | blocked generation |
 
 Current code already uses these generation limits:
@@ -41,6 +41,7 @@ Suggested limit:
 
 - 20 generated AI stories per month.
 - user-facing name: `Семейный`.
+- fixed price: `299 ₽` for 30 calendar days, without automatic renewal;
 - saved stories remain available after the monthly limit is reached.
 
 This is better than a real unlimited plan because AI generation has real variable costs. A hard monthly limit protects the service from abuse, keeps pricing predictable, and makes support easier.

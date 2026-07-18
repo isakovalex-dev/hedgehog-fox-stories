@@ -29,9 +29,10 @@ This file tracks the current implementation plan for "Ежонок и Лисён
 
 Configure the prepared private AI-cover flow: run the Storage SQL in Supabase,
 add the OpenAI and Supabase server secrets in Vercel, then deploy and create one
-test story while signed in. The YooKassa preactivation SQL, family tariff price,
-and YooKassa approval remain separate pending work. AI fallback-rate review is
-deferred and does not block normal operation.
+test story while signed in. The YooKassa preactivation SQL and YooKassa approval
+remain separate pending work. The fixed Family tariff of 299 ₽ for 30 days is
+published on the site. AI fallback-rate review is deferred and does not block
+normal operation.
 
 Chosen provider for the first test:
 

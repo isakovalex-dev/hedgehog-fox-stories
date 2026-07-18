@@ -2571,6 +2571,100 @@ h2 {
   font-size: clamp(1.9rem, 3vw, 2.7rem);
 }
 
+.pricing-section {
+  width: min(920px, calc(100% - 2.5rem));
+  margin: clamp(2rem, 5vw, 4.5rem) auto;
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  border: 1px solid var(--line-soft);
+  background: rgba(185, 211, 212, 0.2);
+  scroll-margin-top: 78px;
+}
+
+.pricing-section .section-heading {
+  margin-bottom: 1.25rem;
+}
+
+.pricing-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 0.9fr) auto;
+  gap: clamp(1rem, 3vw, 2rem);
+  align-items: center;
+  padding: clamp(1.15rem, 3vw, 1.75rem);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(252, 250, 243, 0.78);
+}
+
+.pricing-card h3 {
+  margin: 0.15rem 0 0;
+  color: var(--brown);
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: clamp(2.35rem, 5vw, 3.5rem);
+  font-weight: 600;
+  line-height: 0.95;
+}
+
+.pricing-card h3 span {
+  display: block;
+  margin-top: 0.5rem;
+  color: var(--muted);
+  font-family: "Nunito", Arial, sans-serif;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.pricing-lead,
+.pricing-note,
+.pricing-card-action p {
+  margin: 0.7rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.pricing-features {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--brown);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.pricing-features li {
+  display: grid;
+  grid-template-columns: 1.15rem minmax(0, 1fr);
+  gap: 0.5rem;
+}
+
+.pricing-features li::before {
+  content: "✓";
+  color: var(--olive);
+  font-weight: 900;
+}
+
+.pricing-card-action {
+  min-width: 190px;
+}
+
+.pricing-card-action .button {
+  width: 100%;
+  justify-content: center;
+}
+
+.pricing-note {
+  max-width: 680px;
+  margin: 1rem auto 0;
+  text-align: center;
+}
+
+.subscription-price {
+  color: var(--brown) !important;
+}
+
 .value-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -3069,6 +3163,18 @@ body:not(.about-page) .about-section > :not(.home-project) {
 
   .value-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pricing-section {
+    width: calc(100% - 2rem);
+  }
+
+  .pricing-card {
+    grid-template-columns: 1fr;
+  }
+
+  .pricing-card-action {
+    width: 100%;
   }
 
   .generator-shell,

@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=14" />
+    <link rel="stylesheet" href="styles.css?v=15" />
   </head>
   <body>
     <div class="progress-shell" aria-hidden="true">
@@ -38,6 +38,7 @@
         <div class="nav-links">
           <a class="nav-link" id="navStoriesButton" href="#stories">Истории</a>
           <a class="nav-link" id="navAboutButton" href="#about">О проекте</a>
+          <a class="nav-link" href="#pricing">Тарифы</a>
           <a class="nav-link" id="navLibraryButton" href="#library">Библиотека</a>
           <a class="nav-link" href="#why-read">Для родителей</a>
         </div>
@@ -120,6 +121,32 @@
             <p>Чтение объединяет и создаёт особые моменты.</p>
           </article>
         </div>
+      </section>
+
+      <section class="pricing-section" id="pricing" aria-labelledby="pricingTitle">
+        <div class="section-heading centered-heading">
+          <p class="eyebrow">Тарифы</p>
+          <h2 id="pricingTitle"><span aria-hidden="true">❧</span> Семейные истории без неожиданностей <span aria-hidden="true">❧</span></h2>
+        </div>
+        <article class="pricing-card">
+          <div class="pricing-card-copy">
+            <p class="eyebrow">Семейный</p>
+            <h3>299 ₽ <span>за 30 дней</span></h3>
+            <p class="pricing-lead">До 20 новых AI-историй для ваших семейных вечеров.</p>
+          </div>
+          <ul class="pricing-features">
+            <li>Персональные сказки про Ежонка и Лисёнка</li>
+            <li>Сохранение историй в личной библиотеке</li>
+            <li>Акварельные иллюстрации к историям</li>
+          </ul>
+          <div class="pricing-card-action">
+            <a class="button primary" href="#generator">Создать историю</a>
+            <p>Разовый платёж за 30 дней доступа. Автоматических списаний нет.</p>
+          </div>
+        </article>
+        <p class="pricing-note">
+          Подключение оплаты через YooKassa проходит проверку. До её завершения доступен бесплатный режим.
+        </p>
       </section>
 
       <section class="generator-section" id="generator">
@@ -226,11 +253,12 @@
             <p class="subscription-period" id="subscriptionPeriodText">Период будет создан при первой синхронизации.</p>
             <p class="subscription-warning hidden" id="subscriptionWarning"></p>
             <p class="subscription-fallback hidden" id="subscriptionFallbackNotice"></p>
+            <p class="subscription-price"><strong>Семейный: 299 ₽ за 30 дней.</strong> До 20 новых историй.</p>
             <p>
-              Оплата через YooKassa отложена до оформления статуса самозанятого.
+              YooKassa проходит проверку. Для демонстрации личного кабинета доступен временный тестовый доступ.
             </p>
-            <button class="button primary" id="activateSubscriptionButton" type="button">
-              Активировать тестовый тариф
+            <button class="button secondary" id="activateSubscriptionButton" type="button">
+              Активировать тестовый доступ
             </button>
           </aside>
         </div>

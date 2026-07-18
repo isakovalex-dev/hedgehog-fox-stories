@@ -93,8 +93,8 @@ Manual browser checks were reported as passed on 2026-06-26.
 
 Payments are intentionally deferred until the owner is ready for legal payment acceptance.
 
-- [ ] Register as self-employed or choose another legal payment setup.
-- [ ] Add public requisites page with real legal details.
+- [x] Confirm self-employed status for payment acceptance.
+- [x] Publish public requisites, INN, contact, and fixed tariff details.
 - [ ] Submit the requisites page to YooKassa.
 - [ ] Enable `PAYMENTS_ENABLED=true` only after YooKassa approval.
 - [ ] Confirm Vercel has production YooKassa credentials.
