@@ -153,28 +153,6 @@
     return getLocalSubscriptionState();
   }
 
-  async function setSubscriptionState(status) {
-    const nextStatus = normalizeStatus(status);
-
-    if (canUseSupabaseSubscription()) {
-      try {
-        const bundle = await supabaseService.setSubscriptionStatus(nextStatus);
-        remoteSubscription = bundle.subscription;
-        remoteUsage = bundle.usage;
-        storageMode = "supabase";
-        lastError = "";
-        return getSubscriptionState();
-      } catch (error) {
-        console.warn("[subscriptionService] Cannot update Supabase subscription, using local fallback", error);
-        storageMode = "local_fallback";
-        lastError = error.message || "Supabase недоступен";
-        trackEvent("subscription_error", { action: "setSubscriptionState", error: lastError });
-      }
-    }
-
-    return setLocalSubscriptionState(nextStatus);
-  }
-
   function getGenerationUsage() {
     if (storageMode === "supabase" && remoteUsage) {
       return {
@@ -258,25 +236,9 @@
     return canGenerate;
   }
 
-  async function incrementGenerationUsage() {
+  async function incrementLocalGenerationUsage() {
     const usage = getGenerationUsage();
     const nextGenerationsUsed = usage.generationsUsed + 1;
-
-    if (storageMode === "supabase" && remoteUsage?.id && canUseSupabaseSubscription()) {
-      try {
-        remoteUsage = await supabaseService.incrementGenerationUsage(remoteUsage.id, nextGenerationsUsed);
-        trackEvent("generation_usage_incremented", {
-          generationsUsed: remoteUsage.generationsUsed,
-          generationLimit: remoteUsage.generationLimit
-        });
-        return getGenerationUsage();
-      } catch (error) {
-        console.warn("[subscriptionService] Cannot increment Supabase usage, using local fallback", error);
-        storageMode = "local_fallback";
-        lastError = error.message || "Supabase недоступен";
-        trackEvent("subscription_error", { action: "incrementGenerationUsage", error: lastError });
-      }
-    }
 
     const nextUsage = setLocalGenerationUsage({
       ...usage,
@@ -291,48 +253,11 @@
     return nextUsage;
   }
 
-  async function activateMockSubscription() {
-    if (canUseSupabaseSubscription()) {
-      try {
-        const bundle = await supabaseService.activateMockSubscription();
-        remoteSubscription = bundle.subscription;
-        remoteUsage = bundle.usage;
-        storageMode = "supabase";
-        lastError = "";
-        trackEvent("mock_subscription_activated", {
-          status: remoteSubscription.status,
-          generationLimit: remoteUsage.generationLimit
-        });
-        return getSubscriptionState();
-      } catch (error) {
-        console.warn("[subscriptionService] Cannot activate Supabase mock subscription, using local fallback", error);
-        storageMode = "local_fallback";
-        lastError = error.message || "Supabase недоступен";
-        trackEvent("subscription_error", { action: "activateMockSubscription", error: lastError });
-      }
-    }
-
-    const subscription = setLocalSubscriptionState("active");
-    const usage = getLocalGenerationUsage();
-    setLocalGenerationUsage({
-      ...usage,
-      generationLimit: getGenerationLimit("active")
-    });
-    trackEvent("mock_subscription_activated", {
-      status: subscription.status,
-      generationLimit: getGenerationLimit("active")
-    });
-
-    return subscription;
-  }
-
   window.HFSubscriptionService = {
     getSubscriptionState,
-    setSubscriptionState,
     getGenerationUsage,
     canGenerateStory,
-    incrementGenerationUsage,
-    activateMockSubscription,
+    incrementLocalGenerationUsage,
     initializeSubscription,
     getStorageState
   };

@@ -3,22 +3,46 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ежонок и Лисёнок</title>
+    <base href="/" />
+    <title>Добрые сказки для детей 5–10 лет — Ежонок и Лисёнок</title>
+    <meta
+      name="description"
+      content="Добрые сказки для детей 5–10 лет про Ежонка и Лисёнка: читайте готовые истории и создавайте семейные сказки для тихих вечеров."
+    />
+    <link rel="canonical" href="https://ezhik-i-lisenok.ru/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="ru_RU" />
+    <meta property="og:title" content="Добрые сказки для детей 5–10 лет — Ежонок и Лисёнок" />
+    <meta
+      property="og:description"
+      content="Читайте добрые истории про Ежонка и Лисёнка и создавайте новые сказки для семейных вечеров."
+    />
+    <meta property="og:url" content="https://ezhik-i-lisenok.ru/" />
+    <meta property="og:image" content="https://ezhik-i-lisenok.ru/assets/hero-friends.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Добрые сказки для детей 5–10 лет — Ежонок и Лисёнок" />
+    <meta name="twitter:description" content="Добрые истории и семейные сказки про Ежонка и Лисёнка." />
+    <meta name="twitter:image" content="https://ezhik-i-lisenok.ru/assets/hero-friends.png" />
+    <meta name="robots" content="index,follow" />
+    <meta name="theme-color" content="#fffaf0" />
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="manifest.webmanifest" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=16" />
+    <link rel="stylesheet" href="styles.css?v=18" />
   </head>
   <body>
+    <a class="skip-link" href="#mainContent">Перейти к содержанию</a>
     <div class="progress-shell" aria-hidden="true">
       <div class="reading-progress" id="readingProgress"></div>
     </div>
 
     <nav class="site-nav" aria-label="Навигация сайта">
-      <a class="nav-brand" id="navTopButton" href="#top">
+      <a class="nav-brand" id="navTopButton" href="/">
         <span>Ежонок и Лисёнок</span>
         <span class="brand-leaf" aria-hidden="true">❧</span>
       </a>
@@ -36,11 +60,11 @@
       </button>
       <div class="nav-menu" id="siteNavMenu">
         <div class="nav-links">
-          <a class="nav-link" id="navStoriesButton" href="#stories">Истории</a>
-          <a class="nav-link" id="navAboutButton" href="#about">О проекте</a>
-          <a class="nav-link" href="#pricing">Тарифы</a>
-          <a class="nav-link" id="navLibraryButton" href="#library">Библиотека</a>
-          <a class="nav-link" href="#why-read">Для родителей</a>
+          <a class="nav-link" id="navStoriesButton" href="/stories">Истории</a>
+          <a class="nav-link" id="navAboutButton" href="/#about">О проекте</a>
+          <a class="nav-link" href="/#pricing">Тарифы</a>
+          <a class="nav-link" id="navLibraryButton" href="/library">Библиотека</a>
+          <a class="nav-link" href="/#why-read">Для родителей</a>
         </div>
         <div class="nav-actions">
           <button class="nav-action nav-login" id="navLoginButton" type="button">Вход</button>
@@ -49,11 +73,11 @@
       </div>
     </nav>
 
-    <main id="app">
+    <main id="mainContent" tabindex="-1">
       <section class="hero" id="top">
         <div class="hero-content">
-          <h1>Ежонок и Лисёнок</h1>
-          <p class="hero-kicker">Добрые истории<br />для детей 5–10 лет</p>
+          <p class="hero-brand">Ежонок и Лисёнок</p>
+          <h1>Добрые сказки<br />для детей 5–10 лет</h1>
           <p class="subtitle">
             Приключения двух друзей, которые познают мир, помогают друг другу и учатся важным вещам.
           </p>
@@ -69,27 +93,38 @@
         </div>
 
         <div class="hero-friends">
-          <img
-            class="hero-illustration"
-            src="assets/hero-friends.png"
-            alt="Ежонок и Лисёнок сидят на скамейке у моря и смотрят на облака"
-          />
+          <picture>
+            <source
+              type="image/avif"
+              srcset="assets/optimized/hero-friends-480.avif 480w, assets/optimized/hero-friends-768.avif 768w, assets/optimized/hero-friends-1200.avif 1200w"
+              sizes="(max-width: 720px) 92vw, (max-width: 1100px) 52vw, 820px"
+            />
+            <img
+              class="hero-illustration"
+              src="assets/hero-friends.png"
+              alt="Ежонок и Лисёнок сидят на скамейке у моря и смотрят на облака"
+              width="1448"
+              height="1086"
+              fetchpriority="high"
+              decoding="async"
+            />
+          </picture>
         </div>
       </section>
 
       <section class="stories-section" id="stories">
         <div class="section-heading section-heading-row">
           <h2><span aria-hidden="true">❧</span> Новые истории <span aria-hidden="true">❧</span></h2>
-          <a class="section-link" href="#filters">Смотреть все <span aria-hidden="true">→</span></a>
+          <a class="section-link" href="/stories">Все истории <span aria-hidden="true">→</span></a>
         </div>
 
         <div class="filters" id="filters" aria-label="Фильтры историй">
-          <button class="filter-button active" data-filter="all">Все</button>
-          <button class="filter-button" data-filter="5-7">5–7 лет</button>
-          <button class="filter-button" data-filter="8-10">8–10 лет</button>
-          <button class="filter-button" data-filter="bedtime">Перед сном</button>
-          <button class="filter-button" data-filter="friendship">Про дружбу</button>
-          <button class="filter-button" data-filter="bravery">Про смелость</button>
+          <button class="filter-button active" data-filter="all" aria-pressed="true">Все</button>
+          <button class="filter-button" data-filter="5-7" aria-pressed="false">5–7 лет</button>
+          <button class="filter-button" data-filter="8-10" aria-pressed="false">8–10 лет</button>
+          <button class="filter-button" data-filter="bedtime" aria-pressed="false">Перед сном</button>
+          <button class="filter-button" data-filter="friendship" aria-pressed="false">Про дружбу</button>
+          <button class="filter-button" data-filter="bravery" aria-pressed="false">Про смелость</button>
         </div>
 
         <div class="story-list" id="storyList" aria-live="polite"></div>
@@ -140,13 +175,11 @@
             <li>Акварельные иллюстрации к историям</li>
           </ul>
           <div class="pricing-card-action">
-            <a class="button primary" href="#generator">Создать историю</a>
+            <a class="button primary" href="/create">Создать историю</a>
             <p>Разовый платёж за 30 дней доступа. Автоматических списаний нет.</p>
           </div>
         </article>
-        <p class="pricing-note">
-          Подключение оплаты через YooKassa проходит проверку. До её завершения доступен бесплатный режим.
-        </p>
+        <p class="pricing-note">Бесплатный режим включает 1 новую историю за 30 дней.</p>
       </section>
 
       <section class="generator-section" id="generator">
@@ -156,7 +189,7 @@
         </div>
 
         <div class="generator-shell">
-          <form class="generator-form" id="generatorForm">
+          <form class="generator-form" id="generatorForm" novalidate>
             <label class="field">
               <span>Тема истории</span>
               <input
@@ -254,12 +287,7 @@
             <p class="subscription-warning hidden" id="subscriptionWarning"></p>
             <p class="subscription-fallback hidden" id="subscriptionFallbackNotice"></p>
             <p class="subscription-price"><strong>Семейный: 299 ₽ за 30 дней.</strong> До 20 новых историй.</p>
-            <p>
-              YooKassa проходит проверку. Для демонстрации личного кабинета доступен временный тестовый доступ.
-            </p>
-            <button class="button secondary" id="activateSubscriptionButton" type="button">
-              Активировать тестовый доступ
-            </button>
+            <p>Оплата станет доступна после завершения подключения платёжного сервиса.</p>
           </aside>
         </div>
       </section>
@@ -308,6 +336,13 @@
                 placeholder="you@example.com"
                 required
               />
+            </label>
+            <label class="consent-field">
+              <input id="authAdultConsent" name="adultConsent" type="checkbox" />
+              <span>
+                Я взрослый или родитель и принимаю <a href="terms.html">условия использования</a> и
+                <a href="privacy.html">политику конфиденциальности</a>.
+              </span>
             </label>
             <label class="field">
               <span>Пароль</span>
@@ -444,14 +479,14 @@
             </div>
             <div class="character-grid">
               <article class="character-card">
-                <img src="assets/about/sketch-2.jpg" alt="Карандашный портрет Ежонка" loading="lazy" />
+                <img src="assets/about/sketch-2.jpg" alt="Карандашный портрет Ежонка" loading="lazy" width="1086" height="1448" />
                 <div>
                   <h3>Ежонок</h3>
                   <p>Добрый, немного застенчивый, но очень чуткий и надёжный друг.</p>
                 </div>
               </article>
               <article class="character-card">
-                <img src="assets/about/sketch-3.jpg" alt="Карандашный портрет Лисёнка" loading="lazy" />
+                <img src="assets/about/sketch-3.jpg" alt="Карандашный портрет Лисёнка" loading="lazy" width="1086" height="1448" />
                 <div>
                   <h3>Лисёнок</h3>
                   <p>Любопытный, смелый и изобретательный. Всегда знает, где начинается приключение.</p>
@@ -480,6 +515,8 @@
               class="note-sketch"
               src="assets/about/sketch-1.jpg"
               alt="Авторский акварельный скетч Ежонка и Лисёнка"
+              width="1448"
+              height="1086"
             />
             <p>А давай они будут друзьями?</p>
             <span class="paperclip" aria-hidden="true"></span>
@@ -607,11 +644,11 @@
           <aside class="sketch-card" aria-label="Наброски Ежонка и Лисёнка">
             <div class="sketch-row real-sketch-row">
               <figure class="sketch-thumb">
-                <img src="assets/about/sketch-2.jpg" alt="Авторский набросок Ежонка" loading="lazy" />
+                <img src="assets/about/sketch-2.jpg" alt="Авторский набросок Ежонка" loading="lazy" width="1086" height="1448" />
                 <figcaption>набросок Ежонка</figcaption>
               </figure>
               <figure class="sketch-thumb">
-                <img src="assets/about/sketch-3.jpg" alt="Авторский набросок Лисёнка" loading="lazy" />
+                <img src="assets/about/sketch-3.jpg" alt="Авторский набросок Лисёнка" loading="lazy" width="1086" height="1448" />
                 <figcaption>набросок Лисёнка</figcaption>
               </figure>
             </div>
@@ -642,12 +679,12 @@
 
           <div class="draft-grid">
             <article class="draft-card">
-              <img class="draft-image" src="assets/about/sketch-4.jpg" alt="Первый черновик сцены" loading="lazy" />
+              <img class="draft-image" src="assets/about/sketch-4.jpg" alt="Первый черновик сцены" loading="lazy" width="1448" height="1086" />
               <span class="draft-label">первый черновик</span>
               <p>Лисёнок сказал: если облако потерялось, ему просто нужно показать дорогу домой.</p>
             </article>
             <article class="draft-card">
-              <img class="draft-image" src="assets/about/sketch-5.jpg" alt="Набросок героя" loading="lazy" />
+              <img class="draft-image" src="assets/about/sketch-5.jpg" alt="Набросок героя" loading="lazy" width="1448" height="1086" />
               <span class="draft-label">набросок героя</span>
               <p>
                 Ежонок хотел быть храбрым. Но сначала он решил быть честным: признался, что ему немного
@@ -655,12 +692,12 @@
               </p>
             </article>
             <article class="draft-card">
-              <img class="draft-image" src="assets/about/sketch-6.jpg" alt="Идея для новой истории" loading="lazy" />
+              <img class="draft-image" src="assets/about/sketch-6.jpg" alt="Идея для новой истории" loading="lazy" width="1448" height="1086" />
               <span class="draft-label">идея для новой истории</span>
               <p>Добавить здесь тёплый финал. Чтобы после истории хотелось улыбнуться.</p>
             </article>
             <article class="draft-card">
-              <img class="draft-image" src="assets/about/sketch-7.jpg" alt="Заметка на полях" loading="lazy" />
+              <img class="draft-image" src="assets/about/sketch-7.jpg" alt="Заметка на полях" loading="lazy" width="1448" height="1086" />
               <span class="draft-label">заметка на полях</span>
               <p>Пусть герои говорят просто — так, как говорят дети.</p>
             </article>
@@ -681,7 +718,7 @@
               историю, устроиться поудобнее и провести несколько тёплых минут вместе.
             </p>
             <figure class="future-sketch">
-              <img src="assets/about/sketch-8.jpg" alt="Авторский скетч будущей сцены" loading="lazy" />
+              <img src="assets/about/sketch-8.jpg" alt="Авторский скетч будущей сцены" loading="lazy" width="1086" height="1448" />
               <figcaption>черновик будущей сцены</figcaption>
             </figure>
             <div class="about-actions">
@@ -695,7 +732,7 @@
       <section class="reader hidden" id="reader" aria-live="polite">
         <div class="reader-topbar">
           <button class="back-link" id="backToStoriesTop">← К историям</button>
-          <span id="readerTitle">История</span>
+          <h2 id="readerTitle" tabindex="-1">История</h2>
           <div class="reader-like" id="readerLike"></div>
         </div>
         <div class="slides" id="slides"></div>

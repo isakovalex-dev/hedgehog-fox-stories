@@ -49,6 +49,9 @@ const AI_GENERATION_ENABLED = process.env.AI_GENERATION_ENABLED === "true";
 const AI_API_BASE_URL = process.env.AI_API_BASE_URL || "";
 const AI_API_KEY = process.env.AI_API_KEY || "";
 const AI_MODEL = process.env.AI_MODEL || "";
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const RATE_LIMIT_MAX_REQUESTS = 6;
+const generationRequestTimes = new Map();
 const LOCAL_ORIGINS = new Set([
   "http://localhost:8000",
   "http://localhost:8001",
@@ -310,14 +313,45 @@ async function ensureGenerationUsageRow(userId, accessToken, status) {
   return existingRow;
 }
 
+function enforceGenerationRateLimit(userId) {
+  const now = Date.now();
+  const requestTimes = (generationRequestTimes.get(userId) || []).filter(
+    (time) => now - time < RATE_LIMIT_WINDOW_MS
+  );
+
+  if (requestTimes.length >= RATE_LIMIT_MAX_REQUESTS) {
+    const retryAfterSeconds = Math.max(1, Math.ceil((RATE_LIMIT_WINDOW_MS - (now - requestTimes[0])) / 1000));
+    throw createHttpError(429, `Слишком много попыток. Повторите через ${retryAfterSeconds} сек.`, {
+      retryAfterSeconds
+    });
+  }
+
+  requestTimes.push(now);
+  generationRequestTimes.set(userId, requestTimes);
+}
+
 async function checkAuthenticatedGenerationLimit(req) {
   const accessToken = getBearerToken(req);
   const user = await getAuthenticatedUser(accessToken);
-  const subscription = await ensureSubscriptionRow(user.id, accessToken);
-  const status = subscription.status || "free";
-  const usage = await ensureGenerationUsageRow(user.id, accessToken, status);
-  const generationsUsed = Number(usage.generations_used || 0);
-  const generationLimit = Number(usage.generation_limit || getGenerationLimit(status));
+  const rows = await supabaseRequest(
+    "/rest/v1/rpc/get_generation_access",
+    {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({})
+    },
+    accessToken
+  );
+  const payload = Array.isArray(rows) ? rows[0] : rows;
+  const subscription = payload?.subscription;
+  const usage = payload?.usage;
+  const status = subscription?.status || "free";
+  const generationsUsed = Number(usage?.generations_used || 0);
+  const generationLimit = Number(usage?.generation_limit || getGenerationLimit(status));
+
+  if (!subscription?.id || !usage?.id) {
+    throw createHttpError(500, "Generation access is not configured correctly");
+  }
 
   if (status === "expired" || generationLimit <= 0) {
     throw createHttpError(403, "Генерация недоступна для текущего тарифа.", {
@@ -572,23 +606,7 @@ async function saveGeneratedStory(story, generationAccess) {
 }
 
 async function saveGeneratedStoryAndIncrementUsage(story, generationAccess) {
-  try {
-    return await saveGeneratedStoryWithUsageRpc(story, generationAccess);
-  } catch (error) {
-    if (!canFallbackFromRpcError(error)) throw error;
-
-    logGenerationEvent("persistence_rest_fallback", {
-      error: getSafeLogError(error)
-    });
-    const savedStory = await saveGeneratedStory(story, generationAccess);
-    const usage = await incrementAuthenticatedGenerationUsage(generationAccess);
-
-    return {
-      story: savedStory,
-      usage,
-      storageMode: "rest-fallback"
-    };
-  }
+  return saveGeneratedStoryWithUsageRpc(story, generationAccess);
 }
 
 
@@ -1069,6 +1087,8 @@ async function handler(req, res) {
       });
       return;
     }
+
+    enforceGenerationRateLimit(generationAccess.userId);
 
     const generationResult = await generateStoryContent(requestValidation.value);
     const story = generationResult.story;

@@ -9,8 +9,8 @@ create or replace function public.create_generated_story_with_usage(
 )
 returns jsonb
 language plpgsql
-security invoker
-set search_path = public
+security definer
+set search_path = public, pg_temp
 as $$
 declare
   v_user_id uuid := auth.uid();

@@ -42,7 +42,7 @@ create index if not exists generation_usage_user_period_idx
   on public.generation_usage (user_id, period_start, period_end);
 ```
 
-## RLS policies
+## Legacy RLS policies
 
 ```sql
 alter table public.subscriptions enable row level security;
@@ -58,11 +58,6 @@ on public.subscriptions
 for insert
 with check (auth.uid() = user_id);
 
-create policy "Users can update own subscriptions"
-on public.subscriptions
-for update
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
 
 create policy "Users can read own generation usage"
 on public.generation_usage
@@ -74,12 +69,9 @@ on public.generation_usage
 for insert
 with check (auth.uid() = user_id);
 
-create policy "Users can update own generation usage"
-on public.generation_usage
-for update
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
 ```
+
+These broad insert and update policies were suitable only for the early mock. Do not use them in production: they allow a browser user to change their own tariff or counter. Run `docs/supabase-production-hardening.sql` instead. It replaces browser writes with protected RPC functions.
 
 ## Free limit
 
@@ -88,7 +80,7 @@ For `free` users:
 - `generation_limit = 1`;
 - `generations_used` starts at `0`;
 - after one successful story save, `generations_used` becomes `1`;
-- the second generation attempt is blocked until the user activates the mock subscription or a new period is created.
+- the second generation attempt is blocked until a paid plan is activated by the payment webhook or a new period begins.
 
 The frontend increments usage only after the generated story is successfully saved.
 
@@ -110,8 +102,8 @@ For `active` users:
 
 - `generation_limit = 20`;
 - the current MVP uses a 30-day period;
-- activating the mock subscription updates `subscriptions.status = 'active'`;
-- the current `generation_usage` row is created or updated with `generation_limit = 20`.
+- a verified payment webhook updates `subscriptions.status = 'active'`;
+- the protected access RPC creates or updates `generation_usage` with `generation_limit = 20`.
 
 User-facing name: `Семейный`.
 
@@ -173,7 +165,7 @@ Current intermediate state:
 - backend mock generation saves `stories` and `story_pages`;
 - backend mock generation increments Supabase `generation_usage` only after story save succeeds;
 - backend can call `create_generated_story_with_usage` RPC to save the story and increment usage in one transaction;
-- if the RPC is not installed yet, backend uses the existing REST fallback;
+- the backend requires the protected RPC; it does not use a REST write fallback in production;
 - frontend refreshes the Supabase library after backend generation instead of saving the same story again;
 - browser mock fallback still increments local usage on the frontend.
 

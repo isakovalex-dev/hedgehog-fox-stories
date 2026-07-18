@@ -16,6 +16,9 @@ const IMAGE_BUCKET = "story-illustrations";
 const STORAGE_REFERENCE_PREFIX = "storage://" + IMAGE_BUCKET + "/";
 const MAX_STORY_ID_LENGTH = 80;
 const LOCAL_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/;
+const ILLUSTRATION_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const ILLUSTRATION_RATE_LIMIT_MAX_REQUESTS = 12;
+const illustrationRequestTimes = new Map();
 
 function createHttpError(statusCode, message, details = null) {
   const error = new Error(message);
@@ -259,6 +262,24 @@ function getStorageReference(objectPath) {
   return STORAGE_REFERENCE_PREFIX + objectPath;
 }
 
+function enforceIllustrationRateLimit(userId) {
+  const now = Date.now();
+  const requestTimes = (illustrationRequestTimes.get(userId) || []).filter(
+    (time) => now - time < ILLUSTRATION_RATE_LIMIT_WINDOW_MS
+  );
+
+  if (requestTimes.length >= ILLUSTRATION_RATE_LIMIT_MAX_REQUESTS) {
+    const retryAfterSeconds = Math.max(
+      1,
+      Math.ceil((ILLUSTRATION_RATE_LIMIT_WINDOW_MS - (now - requestTimes[0])) / 1000)
+    );
+    throw createHttpError(429, `Слишком много запросов на иллюстрации. Повторите через ${retryAfterSeconds} сек.`);
+  }
+
+  requestTimes.push(now);
+  illustrationRequestTimes.set(userId, requestTimes);
+}
+
 function hasCurrentPageIllustration(imageUrl, pageNumber) {
   const expectedSuffix = "/page-" + pageNumber + ".webp";
   return String(imageUrl || "").startsWith(STORAGE_REFERENCE_PREFIX) &&
@@ -339,6 +360,8 @@ async function handler(req, res) {
       sendJson(req, res, 200, { illustrated: false, reason: "not_configured", pageNumber });
       return;
     }
+
+    enforceIllustrationRateLimit(user.id);
 
     const prompt = buildIllustrationPrompt(story, page);
     const imageBytes = await createImage(prompt);

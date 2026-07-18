@@ -1,0 +1,17 @@
+{
+  "name": "Ежонок и Лисёнок",
+  "short_name": "Ежонок и Лисёнок",
+  "lang": "ru",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#fffaf0",
+  "theme_color": "#fffaf0",
+  "icons": [
+    {
+      "src": "/assets/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

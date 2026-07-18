@@ -18,7 +18,8 @@
   const filters = document.querySelector("#filters");
   const reader = document.querySelector("#reader");
   const slides = document.querySelector("#slides");
-  const readerTitle = document.querySelector("#readerTitle");
+  let readerTitle = document.querySelector("#readerTitle");
+  const mainContent = document.querySelector("#mainContent");
   const readingProgress = document.querySelector("#readingProgress");
   const navTopButton = document.querySelector("#navTopButton");
   const navMenuButton = document.querySelector("#navMenuButton");
@@ -50,9 +51,9 @@
   const subscriptionPeriodText = document.querySelector("#subscriptionPeriodText");
   const subscriptionWarning = document.querySelector("#subscriptionWarning");
   const subscriptionFallbackNotice = document.querySelector("#subscriptionFallbackNotice");
-  const activateSubscriptionButton = document.querySelector("#activateSubscriptionButton");
   const authPanel = document.querySelector("#authPanel");
   const authForm = document.querySelector("#authForm");
+  const authAdultConsent = document.querySelector("#authAdultConsent");
   const passwordResetForm = document.querySelector("#passwordResetForm");
   const cancelPasswordResetButton = document.querySelector("#cancelPasswordResetButton");
   const authStatus = document.querySelector("#authStatus");
@@ -70,6 +71,7 @@
   const librarySection = document.querySelector("#library");
   const aboutSection = document.querySelector("#about");
   const hero = document.querySelector(".hero");
+  let heroTitle = document.querySelector(".hero h1");
 
   const moodLabels = {
     bedtime: "перед сном",
@@ -111,6 +113,202 @@
   let generationWaitStartedAt = 0;
   let librarySearchQuery = "";
   let librarySortMode = "newest";
+  let activeRoute = "home";
+
+  const PUBLIC_SITE_ORIGIN = "https://ezhik-i-lisenok.ru";
+  const DEFAULT_DOCUMENT_TITLE = "Добрые сказки для детей 5–10 лет — Ежонок и Лисёнок";
+
+  function setReaderTitle(text, useH1 = false) {
+    const requiredTag = useH1 ? "H1" : "H2";
+
+    if (readerTitle.tagName !== requiredTag) {
+      const replacement = document.createElement(requiredTag.toLowerCase());
+      replacement.id = "readerTitle";
+      replacement.tabIndex = -1;
+      readerTitle.replaceWith(replacement);
+      readerTitle = replacement;
+    }
+
+    readerTitle.textContent = text;
+  }
+
+  function setHeroTitleLevel(useH1 = true) {
+    const requiredTag = useH1 ? "H1" : "H2";
+
+    if (heroTitle.tagName === requiredTag) return;
+
+    const replacement = document.createElement(requiredTag.toLowerCase());
+    replacement.innerHTML = heroTitle.innerHTML;
+    heroTitle.replaceWith(replacement);
+    heroTitle = replacement;
+  }
+
+  function getRouteFromLocation() {
+    let path = decodeURIComponent(window.location.pathname || "/").replace(/\/+$/, "") || "/";
+    let search = new URLSearchParams(window.location.search);
+    const fallbackRoute = search.get("route");
+
+    if (path === "/" && fallbackRoute) {
+      try {
+        const fallbackUrl = new URL(fallbackRoute, window.location.origin);
+        path = fallbackUrl.pathname.replace(/\/+$/, "") || "/";
+        search = fallbackUrl.searchParams;
+        window.history.replaceState({}, "", `${path}${fallbackUrl.search}`);
+      } catch (error) {
+        console.warn("[app] Cannot restore the requested route", error);
+      }
+    }
+
+    if (path === "/create") return { name: "create" };
+    if (path === "/library") return { name: "library" };
+    if (path === "/stories") return { name: "stories", filter: search.get("filter") || "all" };
+    if (path.startsWith("/stories/")) return { name: "story", storyId: path.slice("/stories/".length) };
+    return { name: "home", filter: search.get("filter") || "all" };
+  }
+
+  function getRouteUrl(route) {
+    if (route.name === "create") return "/create";
+    if (route.name === "library") return "/library";
+    if (route.name === "story") return `/stories/${encodeURIComponent(route.storyId)}`;
+    if (route.name === "stories") {
+      return route.filter && route.filter !== "all" ? `/stories?filter=${encodeURIComponent(route.filter)}` : "/stories";
+    }
+    return route.filter && route.filter !== "all" ? `/?filter=${encodeURIComponent(route.filter)}` : "/";
+  }
+
+  function setMetaContent(selector, content) {
+    const element = document.querySelector(selector);
+    if (!element) return;
+    if (element.tagName === "LINK") {
+      element.setAttribute("href", content);
+      return;
+    }
+    element.setAttribute("content", content);
+  }
+
+  function updateDocumentMeta(story = null, route = null) {
+    if (!story) {
+      const routeMeta = {
+        create: {
+          title: "Создать сказку — Ежонок и Лисёнок",
+          description: "Создайте добрую персональную сказку про Ежонка и Лисёнка для семейного чтения.",
+          url: `${PUBLIC_SITE_ORIGIN}/create`
+        },
+        stories: {
+          title: "Все истории — Ежонок и Лисёнок",
+          description: "Читайте добрые истории про Ежонка и Лисёнка для детей 5–10 лет.",
+          url: `${PUBLIC_SITE_ORIGIN}/stories`
+        },
+        library: {
+          title: "Моя библиотека — Ежонок и Лисёнок",
+          description: "Личная библиотека созданных сказок.",
+          url: `${PUBLIC_SITE_ORIGIN}/library`,
+          noIndex: true
+        },
+        home: {
+          title: DEFAULT_DOCUMENT_TITLE,
+          description: "Добрые сказки для детей 5–10 лет про Ежонка и Лисёнка: читайте готовые истории и создавайте семейные сказки для тихих вечеров.",
+          url: `${PUBLIC_SITE_ORIGIN}/`
+        }
+      };
+      const meta = routeMeta[route?.name] || routeMeta.home;
+      document.title = meta.title;
+      setMetaContent('meta[name="description"]', meta.description);
+      setMetaContent('link[rel="canonical"]', meta.url);
+      setMetaContent('meta[property="og:title"]', meta.title);
+      setMetaContent('meta[property="og:description"]', meta.description);
+      setMetaContent('meta[property="og:url"]', meta.url);
+      setMetaContent('meta[name="twitter:title"]', meta.title);
+      setMetaContent('meta[name="twitter:description"]', meta.description);
+      setMetaContent('meta[name="robots"]', meta.noIndex ? "noindex,nofollow" : "index,follow");
+      return;
+    }
+
+    const title = `${story.title} — Ежонок и Лисёнок`;
+    const description = String(story.description || "Добрая история про Ежонка и Лисёнка.").slice(0, 160);
+    const url = `${PUBLIC_SITE_ORIGIN}/stories/${encodeURIComponent(story.id)}`;
+    document.title = title;
+    setMetaContent('meta[name="description"]', description);
+    setMetaContent('link[rel="canonical"]', url);
+    setMetaContent('meta[property="og:title"]', title);
+    setMetaContent('meta[property="og:description"]', description);
+    setMetaContent('meta[property="og:url"]', url);
+    setMetaContent('meta[name="twitter:title"]', title);
+    setMetaContent('meta[name="twitter:description"]', description);
+    setMetaContent('meta[name="robots"]', "noindex,nofollow");
+  }
+
+  function setSectionVisibility(section, isVisible) {
+    if (!section) return;
+    section.classList.toggle("hidden", !isVisible);
+  }
+
+  function navigateTo(route, options = {}) {
+    const url = getRouteUrl(route);
+    const currentUrl = `${window.location.pathname}${window.location.search}`;
+    const method = options.replace ? "replaceState" : "pushState";
+
+    if (currentUrl !== url) {
+      window.history[method]({ route }, "", url);
+    }
+
+    applyRoute({ focus: options.focus !== false });
+  }
+
+  function renderReaderUnavailable() {
+    activeStory = null;
+    setHeroTitleLevel(false);
+    document.body.classList.add("reading");
+    reader.classList.remove("hidden");
+    setReaderTitle("История недоступна", true);
+    slides.innerHTML = `
+      <article class="slide end-slide">
+        <div class="slide-card">
+          <p class="slide-kicker">Библиотека историй</p>
+          <p class="slide-text">Эта ссылка ведёт к личной истории, которая недоступна в текущем аккаунте, или к несуществующей сказке.</p>
+          <div class="end-actions"><a class="button primary" href="/stories">Все истории</a></div>
+        </div>
+      </article>
+    `;
+    updateDocumentMeta(null, { name: "stories" });
+    window.setTimeout(() => readerTitle.focus({ preventScroll: true }), 0);
+  }
+
+  function applyRoute(options = {}) {
+    const route = getRouteFromLocation();
+    activeRoute = route.name;
+
+    if (route.filter && route.filter !== activeFilter) {
+      setFilter(route.filter, { updateUrl: false });
+    }
+
+    if (route.name === "story") {
+      openStory(route.storyId, { fromRoute: true });
+      return;
+    }
+
+    document.body.classList.remove("reading");
+    reader.classList.add("hidden");
+    setHeroTitleLevel(true);
+    setReaderTitle("История", false);
+    activeStory = null;
+    readingProgress.style.width = "0%";
+    setSectionVisibility(hero, route.name === "home");
+    setSectionVisibility(storiesSection, route.name === "home" || route.name === "stories");
+    setSectionVisibility(readingValuesSection, route.name === "home");
+    setSectionVisibility(document.querySelector("#pricing"), route.name === "home");
+    setSectionVisibility(generatorSection, route.name === "create");
+    setSectionVisibility(librarySection, route.name === "library");
+    setSectionVisibility(aboutSection, route.name === "home");
+    updateDocumentMeta(null, route);
+
+    if (options.focus) {
+      window.setTimeout(() => {
+        mainContent?.focus({ preventScroll: true });
+        mainContent?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 0);
+    }
+  }
 
   const generationWaitMessages = [
     "Ежонок собирает слова...",
@@ -186,7 +384,8 @@
   }
 
   function openAboutSection() {
-    scrollToSection(aboutSection, EVENTS.ABOUT_OPENED);
+    navigateTo({ name: "home" }, { focus: false });
+    window.setTimeout(() => scrollToSection(aboutSection, EVENTS.ABOUT_OPENED), 0);
   }
 
   function getTariffLabel(status) {
@@ -214,7 +413,11 @@
     const subscription = subscriptionService.getSubscriptionState();
     const usage = subscriptionService.getGenerationUsage();
 
-    return `Тариф: ${getTariffLabel(subscription.status)}. Использовано: ${usage.generationsUsed} из ${usage.generationLimit}.`;
+    return `Тариф: ${getTariffLabel(subscription.status)}. Использовано: ${usage.generationsUsed} из ${usage.generationLimit} ${getUsageLimitWord(usage.generationLimit)}.`;
+  }
+
+  function getUsageLimitWord(limit) {
+    return Number(limit) === 1 ? "истории" : "историй";
   }
 
   function updateGenerationStatus(message = "") {
@@ -398,7 +601,7 @@
     }
 
     if (accountPaymentText) {
-      accountPaymentText.textContent = "YooKassa подключается";
+      accountPaymentText.textContent = "Пока недоступны";
     }
   }
 
@@ -583,11 +786,13 @@
     }
 
     if (subscriptionUsageText) {
-      subscriptionUsageText.textContent = `Использовано: ${usage.generationsUsed} из ${usage.generationLimit} историй.`;
+      subscriptionUsageText.textContent = `Использовано: ${usage.generationsUsed} из ${usage.generationLimit} ${getUsageLimitWord(usage.generationLimit)}.`;
     }
 
     if (subscriptionPeriodText) {
-      subscriptionPeriodText.textContent = periodText ? `Период до: ${periodText}.` : "Период будет создан при первой синхронизации.";
+      subscriptionPeriodText.textContent = periodText
+        ? `Период до: ${periodText}${periodText.endsWith(".") ? "" : "."}`
+        : "Период будет создан при первой синхронизации.";
     }
 
     if (subscriptionFallbackNotice) {
@@ -632,7 +837,17 @@
         : null;
 
     if (story.imageUrl) {
-      return `<img src="${escapeAttribute(story.imageUrl)}" alt="" loading="lazy" />`;
+      const builtInAsset = String(story.imageUrl).match(/^assets\/stories\/([a-z0-9-]+)\.png$/i);
+      if (builtInAsset) {
+        const assetName = builtInAsset[1];
+        return `
+          <picture>
+            <source type="image/avif" srcset="assets/optimized/${assetName}-480.avif 480w, assets/optimized/${assetName}-768.avif 768w, assets/optimized/${assetName}-1200.avif 1200w" sizes="(max-width: 720px) 86vw, (max-width: 1100px) 44vw, 430px" />
+            <img src="${escapeAttribute(story.imageUrl)}" alt="" loading="lazy" decoding="async" width="1536" height="1024" />
+          </picture>
+        `;
+      }
+      return `<img src="${escapeAttribute(story.imageUrl)}" alt="" loading="lazy" decoding="async" width="1536" height="1024" />`;
     }
 
     if (firstPage?.imageUrl || libraryIllustration?.imageUrl) {
@@ -642,7 +857,7 @@
         ? `this.onerror=null; this.src='${escapeAttribute(fallbackUrl)}';`
         : "this.remove();";
 
-      return `<img src="${escapeAttribute(imageUrl)}" alt="" loading="lazy" onerror="${fallbackHandler}" />`;
+      return `<img src="${escapeAttribute(imageUrl)}" alt="" loading="lazy" decoding="async" width="1536" height="1024" onerror="${fallbackHandler}" />`;
     }
 
     if (story.source === "user" && story.useIllustrations !== false) {
@@ -663,7 +878,7 @@
       : "";
 
     return `
-      <article class="story-card" style="--wash-color: ${top}88;">
+      <article class="story-card" style="--wash-color: ${top}88;" data-story-card="${escapeAttribute(story.id)}">
         <div
           class="story-art ${story.imageUrl || (story.source === "user" && story.useIllustrations !== false) ? "has-image" : ""}"
           style="--art-top: ${top}; --art-mid: ${mid}; --art-bottom: ${bottom};"
@@ -673,7 +888,7 @@
           ${renderStoryArt(story)}
         </div>
         <div class="story-content">
-          <h3>${escapeHtml(story.title)}</h3>
+          <h3><a class="story-title-link" href="/stories/${encodeURIComponent(story.id)}" data-read="${escapeAttribute(story.id)}">${escapeHtml(story.title)}</a></h3>
           <div class="story-meta">
             <span class="pill">${escapeHtml(story.age)} лет</span>
             <span class="pill">${escapeHtml(story.time)}</span>
@@ -799,12 +1014,19 @@
     renderSubscriptionPanel();
   }
 
-  function setFilter(filter) {
+  function setFilter(filter, options = {}) {
     activeFilter = filter;
     document.querySelectorAll(".filter-button").forEach((button) => {
-      button.classList.toggle("active", button.dataset.filter === filter);
+      const isActive = button.dataset.filter === filter;
+      button.classList.toggle("active", isActive);
+      button.setAttribute("aria-pressed", String(isActive));
     });
     renderStories();
+
+    if (options.updateUrl !== false && activeRoute !== "story") {
+      const route = activeRoute === "stories" ? { name: "stories", filter } : { name: "home", filter };
+      window.history.replaceState({ route }, "", getRouteUrl(route));
+    }
   }
 
   async function handleStoryLike(storyId) {
@@ -828,6 +1050,7 @@
 
   function renderPageIllustration(page, storyTitle) {
     if (page.imageUrl) {
+      const isBuiltInSlide = /^assets\/slides-web\//.test(page.imageUrl);
       const fallbackHandler = page.fallbackImageUrl
         ? `this.onerror=null; this.src='${escapeAttribute(page.fallbackImageUrl)}';`
         : "this.remove();";
@@ -837,6 +1060,10 @@
           class="reader-illustration"
           src="${escapeAttribute(page.imageUrl)}"
           alt="Иллюстрация к истории ${escapeAttribute(storyTitle)}, страница ${page.pageNumber}"
+          width="${isBuiltInSlide ? "1200" : "1536"}"
+          height="${isBuiltInSlide ? "900" : "1024"}"
+          loading="lazy"
+          decoding="async"
           onerror="${fallbackHandler}"
         />
       `;
@@ -855,13 +1082,18 @@
     return "";
   }
 
-  function openStory(storyId) {
+  function openStory(storyId, options = {}) {
     const story = storyService.getStoryById(storyId);
-    if (!story) return;
+    if (!story) {
+      if (options.fromRoute) renderReaderUnavailable();
+      return;
+    }
 
     activeStory = storyService.prepareStoryForReader(story);
     activeStoryFinishedTracked = false;
-    readerTitle.textContent = activeStory.title;
+    setHeroTitleLevel(false);
+    setReaderTitle(activeStory.title, true);
+    updateDocumentMeta(activeStory);
     renderReaderLike();
     document.body.classList.add("reading");
     hero.classList.add("hidden");
@@ -885,11 +1117,14 @@
           >
             <div class="slide-scene" aria-hidden="true"></div>
             <div class="slide-card${illustrationClass}">
-              <span class="slide-kicker">${page.pageNumber} из ${activeStory.readerPages.length}</span>
+              <span class="slide-kicker">Страница ${page.pageNumber} из ${activeStory.readerPages.length}</span>
               ${illustration}
               <p class="slide-text">${escapeHtml(page.text)}</p>
             </div>
-            <div class="slide-hint">Листай дальше</div>
+            <div class="slide-navigation" aria-label="Навигация по страницам">
+              <button class="button quiet" type="button" data-reader-previous="${page.pageNumber - 1}" ${page.pageNumber === 1 ? "disabled" : ""}>Предыдущая</button>
+              <button class="button primary" type="button" data-reader-next="${page.pageNumber + 1}">Следующая</button>
+            </div>
           </article>
         `;
       })
@@ -913,6 +1148,10 @@
 
     slides.scrollTop = 0;
     updateProgress();
+    window.setTimeout(() => readerTitle.focus({ preventScroll: true }), 0);
+    if (!options.fromRoute) {
+      navigateTo({ name: "story", storyId: activeStory.id }, { focus: false });
+    }
     trackEvent(EVENTS.STORY_OPENED, {
       storyId: activeStory.id,
       title: activeStory.title,
@@ -924,16 +1163,15 @@
     activeStory = null;
     activeStoryFinishedTracked = false;
     renderReaderLike();
-    document.body.classList.remove("reading");
-    reader.classList.add("hidden");
-    hero.classList.remove("hidden");
-    storiesSection.classList.remove("hidden");
-    readingValuesSection?.classList.remove("hidden");
-    generatorSection.classList.remove("hidden");
-    librarySection.classList.remove("hidden");
-    aboutSection.classList.remove("hidden");
-    readingProgress.style.width = "0%";
-    storiesSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    navigateTo({ name: "stories", filter: activeFilter }, { focus: true });
+  }
+
+  function scrollToReaderPage(pageNumber) {
+    const pageIndex = Math.max(0, Number(pageNumber || 1) - 1);
+    const target = slides.querySelectorAll(".slide")[pageIndex];
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    target.querySelector(".slide-text")?.focus?.({ preventScroll: true });
   }
 
   function updateProgress() {
@@ -1224,6 +1462,10 @@
         meta: backendResult.meta
       };
     } catch (error) {
+      if (supabaseService?.isAuthenticated?.()) {
+        throw new Error("Сервис генерации временно недоступен. История не была сохранена, чтобы не обойти лимит тарифа. Попробуйте ещё раз немного позже.");
+      }
+
       if (!isBackendUnavailableError(error)) {
         throw error;
       }
@@ -1238,8 +1480,25 @@
     }
   }
 
+  function validateGeneratorForm() {
+    const requiredFields = Array.from(generatorForm.querySelectorAll("[required]"));
+    const invalidField = requiredFields.find((field) => !String(field.value || "").trim());
+
+    requiredFields.forEach((field) => field.removeAttribute("aria-invalid"));
+
+    if (!invalidField) return true;
+
+    const label = invalidField.closest("label")?.querySelector("span")?.textContent?.trim() || "обязательное поле";
+    invalidField.setAttribute("aria-invalid", "true");
+    updateGenerationStatus(`Заполните поле «${label}», чтобы создать историю.`);
+    invalidField.focus();
+    return false;
+  }
+
   async function handleGeneratorSubmit(event) {
     event.preventDefault();
+
+    if (!validateGeneratorForm()) return;
 
     if (!subscriptionService.canGenerateStory()) {
       showSubscriptionScreen();
@@ -1266,7 +1525,7 @@
         savedStory = storyService.getStoryById(story.id) || story;
       } else {
         savedStory = await storyService.saveUserStory(story);
-        await subscriptionService.incrementGenerationUsage();
+        await subscriptionService.incrementLocalGenerationUsage();
       }
 
       let illustrationResult = null;
@@ -1330,13 +1589,20 @@
     const readButton = event.target.closest("[data-read]");
     if (readButton) {
       openStory(readButton.dataset.read);
+      return;
+    }
+
+    const storyCard = event.target.closest("[data-story-card]");
+    if (storyCard && !event.target.closest("button, a, input, select, textarea")) {
+      openStory(storyCard.dataset.storyCard);
     }
   }
 
   async function handleLibraryClick(event) {
     const createStoryButton = event.target.closest("[data-library-create-story]");
     if (createStoryButton) {
-      scrollToSection(generatorSection, EVENTS.GENERATOR_OPENED);
+      navigateTo({ name: "create" });
+      trackEvent(EVENTS.GENERATOR_OPENED);
       return;
     }
 
@@ -1431,6 +1697,12 @@
 
     if (action !== "recover" && !password) {
       setAuthNotice("Введите email и пароль.", "warning");
+      renderAuthPanel();
+      return;
+    }
+
+    if (action === "signup" && !authAdultConsent?.checked) {
+      setAuthNotice("Подтвердите, что аккаунт создаёт взрослый или родитель, и примите условия сайта.", "warning");
       renderAuthPanel();
       return;
     }
@@ -1662,26 +1934,6 @@
     });
   }
 
-  activateSubscriptionButton.addEventListener("click", async () => {
-    trackEvent(EVENTS.SUBSCRIPTION_BUTTON_CLICKED);
-    activateSubscriptionButton.disabled = true;
-    updateGenerationStatus("Активирую тестовый доступ...");
-
-    try {
-      await subscriptionService.activateMockSubscription();
-      hideSubscriptionScreen();
-      updateGenerationStatus("Тестовый доступ активен. Это демонстрационный режим до подключения оплаты YooKassa.");
-      renderSubscriptionPanel();
-      renderLibrary();
-    } catch (error) {
-      console.warn("[app] Cannot activate mock subscription", error);
-      updateGenerationStatus(`Не удалось активировать mock-подписку: ${error.message || "ошибка"}`);
-      renderSubscriptionPanel();
-    } finally {
-      activateSubscriptionButton.disabled = false;
-    }
-  });
-
   if (readerLike) {
     readerLike.addEventListener("click", (event) => {
       const likeButton = event.target.closest("[data-like]");
@@ -1699,7 +1951,17 @@
 
     if (event.target.id === "backToStoriesEnd" || event.target.id === "readAnother") {
       closeReader();
+      return;
     }
+
+    const previousButton = event.target.closest("[data-reader-previous]");
+    if (previousButton) {
+      scrollToReaderPage(previousButton.dataset.readerPrevious);
+      return;
+    }
+
+    const nextButton = event.target.closest("[data-reader-next]");
+    if (nextButton) scrollToReaderPage(nextButton.dataset.readerNext);
   });
 
   slides.addEventListener("scroll", updateProgress);
@@ -1707,7 +1969,7 @@
   backToStoriesTop.addEventListener("click", closeReader);
 
   chooseStoryButton.addEventListener("click", () => {
-    scrollToSection(storiesSection);
+    navigateTo({ name: "stories", filter: activeFilter });
   });
 
   if (navMenuButton) {
@@ -1723,28 +1985,39 @@
   }
 
   if (navLoginButton) {
-    navLoginButton.addEventListener("click", () => {
-      scrollToSection(librarySection, EVENTS.LIBRARY_OPENED);
+    navLoginButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      navigateTo({ name: "library" });
+      window.setTimeout(() => document.querySelector("#authEmail")?.focus({ preventScroll: true }), 0);
     });
   }
 
-  navTopButton.addEventListener("click", () => {
-    scrollToSection(hero);
+  navTopButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    navigateTo({ name: "home" });
   });
 
-  navStoriesButton.addEventListener("click", () => {
-    scrollToSection(storiesSection);
+  navStoriesButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    navigateTo({ name: "stories", filter: activeFilter });
   });
 
-  navGeneratorButton.addEventListener("click", () => {
-    scrollToSection(generatorSection, EVENTS.GENERATOR_OPENED);
+  navGeneratorButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    navigateTo({ name: "create" });
+    trackEvent(EVENTS.GENERATOR_OPENED);
   });
 
-  navLibraryButton.addEventListener("click", () => {
-    scrollToSection(librarySection, EVENTS.LIBRARY_OPENED);
+  navLibraryButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    navigateTo({ name: "library" });
+    trackEvent(EVENTS.LIBRARY_OPENED);
   });
 
-  navAboutButton.addEventListener("click", openAboutSection);
+  navAboutButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    openAboutSection();
+  });
 
   readFirstButton.addEventListener("click", () => {
     const [firstStory] = storyService.getAllStories();
@@ -1752,11 +2025,13 @@
   });
 
   openGeneratorButton.addEventListener("click", () => {
-    scrollToSection(generatorSection, EVENTS.GENERATOR_OPENED);
+    navigateTo({ name: "create" });
+    trackEvent(EVENTS.GENERATOR_OPENED);
   });
 
   openLibraryButton.addEventListener("click", () => {
-    scrollToSection(librarySection, EVENTS.LIBRARY_OPENED);
+    navigateTo({ name: "library" });
+    trackEvent(EVENTS.LIBRARY_OPENED);
   });
 
   openAboutButton.addEventListener("click", openAboutSection);
@@ -1764,14 +2039,14 @@
   document.querySelectorAll("[data-about-read-stories]").forEach((button) => {
     button.addEventListener("click", () => {
       trackEvent(EVENTS.ABOUT_READ_STORIES_CLICKED);
-      scrollToSection(storiesSection);
+      navigateTo({ name: "stories", filter: activeFilter });
     });
   });
 
   document.querySelectorAll("[data-about-create-story]").forEach((button) => {
     button.addEventListener("click", () => {
       trackEvent(EVENTS.ABOUT_CREATE_STORY_CLICKED);
-      scrollToSection(generatorSection);
+      navigateTo({ name: "create" });
     });
   });
 
@@ -1783,6 +2058,8 @@
 
     if (event.key === "Escape") setNavigationMenuOpen(false);
   });
+
+  window.addEventListener("popstate", () => applyRoute({ focus: true }));
 
   async function initializeApp() {
     updateGenerationStatus();
@@ -1826,6 +2103,12 @@
       renderSubscriptionPanel();
       renderAuthPanel();
       renderAllStoryLists();
+    }
+
+    if (passwordRecoverySession || supabaseService?.hasPasswordRecoveryIntent?.()) {
+      navigateTo({ name: "library" }, { replace: true, focus: false });
+    } else {
+      applyRoute({ focus: false });
     }
   }
 

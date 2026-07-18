@@ -469,31 +469,6 @@
     };
   }
 
-  function getSubscriptionRowPayload(userId, status = "free") {
-    const now = new Date();
-    return {
-      user_id: userId,
-      status,
-      provider: "mock",
-      provider_subscription_id: null,
-      current_period_start: now.toISOString(),
-      current_period_end: addDays(now, 30).toISOString(),
-      updated_at: now.toISOString()
-    };
-  }
-
-  function getGenerationUsageRowPayload(userId, status = "free") {
-    const now = new Date();
-    return {
-      user_id: userId,
-      period_start: now.toISOString(),
-      period_end: addDays(now, 30).toISOString(),
-      generations_used: 0,
-      generation_limit: getGenerationLimit(status),
-      updated_at: now.toISOString()
-    };
-  }
-
   async function fetchCurrentSubscriptionRow(userId) {
     const rows = await rest(
       `/rest/v1/subscriptions?select=*&user_id=eq.${encodeURIComponent(userId)}&order=updated_at.desc&limit=1`,
@@ -501,43 +476,6 @@
     );
 
     return Array.isArray(rows) && rows.length ? rows[0] : null;
-  }
-
-  async function createSubscriptionRow(userId, status = "free") {
-    const rows = await rest("/rest/v1/subscriptions?select=*", {
-      method: "POST",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify(getSubscriptionRowPayload(userId, status))
-    });
-
-    return Array.isArray(rows) ? rows[0] : rows;
-  }
-
-  async function updateSubscriptionRow(subscriptionId, status) {
-    const now = new Date();
-    const rows = await rest(`/rest/v1/subscriptions?id=eq.${encodeURIComponent(subscriptionId)}&select=*`, {
-      method: "PATCH",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify({
-        status,
-        provider: "mock",
-        current_period_start: now.toISOString(),
-        current_period_end: addDays(now, 30).toISOString(),
-        updated_at: now.toISOString()
-      })
-    });
-
-    return Array.isArray(rows) ? rows[0] : rows;
-  }
-
-  async function ensureSubscriptionRow(status = "free") {
-    const user = getCurrentUser();
-    if (!user?.id) {
-      throw new Error("User is not authenticated");
-    }
-
-    const existingRow = await fetchCurrentSubscriptionRow(user.id);
-    return existingRow || createSubscriptionRow(user.id, status);
   }
 
   async function fetchCurrentGenerationUsageRow(userId) {
@@ -550,80 +488,43 @@
     return Array.isArray(rows) && rows.length ? rows[0] : null;
   }
 
-  async function createGenerationUsageRow(userId, status = "free") {
-    const rows = await rest("/rest/v1/generation_usage?select=*", {
-      method: "POST",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify(getGenerationUsageRowPayload(userId, status))
-    });
-
-    return Array.isArray(rows) ? rows[0] : rows;
-  }
-
-  async function updateGenerationUsageRow(usageId, payload) {
-    const rows = await rest(`/rest/v1/generation_usage?id=eq.${encodeURIComponent(usageId)}&select=*`, {
-      method: "PATCH",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify({
-        ...payload,
-        updated_at: new Date().toISOString()
-      })
-    });
-
-    return Array.isArray(rows) ? rows[0] : rows;
-  }
-
-  async function ensureGenerationUsageRow(status = "free") {
-    const user = getCurrentUser();
-    if (!user?.id) {
-      throw new Error("User is not authenticated");
-    }
-
-    const existingRow = await fetchCurrentGenerationUsageRow(user.id);
-    if (!existingRow) {
-      return createGenerationUsageRow(user.id, status);
-    }
-
-    const expectedLimit = getGenerationLimit(status);
-    if (Number(existingRow.generation_limit) !== expectedLimit) {
-      return updateGenerationUsageRow(existingRow.id, { generation_limit: expectedLimit });
-    }
-
-    return existingRow;
-  }
-
   async function fetchSubscriptionBundle() {
-    const subscriptionRow = await ensureSubscriptionRow("free");
-    const subscription = getSubscriptionFromRow(subscriptionRow);
-    const usageRow = await ensureGenerationUsageRow(subscription.status);
+    const user = getCurrentUser();
+    if (!user?.id) throw new Error("User is not authenticated");
+
+    const [subscriptionRow, usageRow] = await Promise.all([
+      fetchCurrentSubscriptionRow(user.id),
+      fetchCurrentGenerationUsageRow(user.id)
+    ]);
+    const now = new Date().toISOString();
+    const defaultSubscription = {
+      id: null,
+      userId: user.id,
+      status: "free",
+      provider: "pending-server-setup",
+      providerSubscriptionId: null,
+      currentPeriodStart: now,
+      currentPeriodEnd: null,
+      createdAt: null,
+      updatedAt: null,
+      storage: "supabase"
+    };
+    const defaultUsage = {
+      id: null,
+      userId: user.id,
+      periodStart: now,
+      periodEnd: null,
+      generationsUsed: 0,
+      generationLimit: 1,
+      createdAt: null,
+      updatedAt: null,
+      storage: "supabase"
+    };
 
     return {
-      subscription,
-      usage: getGenerationUsageFromRow(usageRow)
+      subscription: subscriptionRow ? getSubscriptionFromRow(subscriptionRow) : defaultSubscription,
+      usage: usageRow ? getGenerationUsageFromRow(usageRow) : defaultUsage
     };
-  }
-
-  async function setSubscriptionStatus(status) {
-    const subscriptionRow = await ensureSubscriptionRow(status);
-    const nextSubscriptionRow = await updateSubscriptionRow(subscriptionRow.id, status);
-    const usageRow = await ensureGenerationUsageRow(status);
-
-    return {
-      subscription: getSubscriptionFromRow(nextSubscriptionRow),
-      usage: getGenerationUsageFromRow(usageRow)
-    };
-  }
-
-  async function incrementGenerationUsage(usageId, nextGenerationsUsed) {
-    const usageRow = await updateGenerationUsageRow(usageId, {
-      generations_used: nextGenerationsUsed
-    });
-
-    return getGenerationUsageFromRow(usageRow);
-  }
-
-  async function activateMockSubscription() {
-    return setSubscriptionStatus("active");
   }
 
   async function getClientStoryFromRows(storyRow, pageRows) {
@@ -884,9 +785,6 @@
     fetchLikedStoryIds,
     likeStory,
     unlikeStory,
-    fetchSubscriptionBundle,
-    setSubscriptionStatus,
-    incrementGenerationUsage,
-    activateMockSubscription
+    fetchSubscriptionBundle
   };
 })(window);
