@@ -351,7 +351,7 @@ async function createImage(prompt) {
   const formData = new FormData();
   formData.append("model", IMAGE_MODEL);
   for (const styleReference of styleReferences) {
-    formData.append("image", styleReference.blob, styleReference.filename);
+    formData.append("image[]", styleReference.blob, styleReference.filename);
   }
   formData.append("prompt", prompt);
   formData.append("size", IMAGE_SIZE);

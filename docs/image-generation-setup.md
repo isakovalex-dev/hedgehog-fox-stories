@@ -58,6 +58,10 @@ Together they preserve the existing watercolor paper, palette, pencil contour,
 botanical detail, and hero designs while the prompt replaces every reference
 scene with the exact event of the current story page.
 
+The Image Edits request sends these files as the multipart `image[]` array.
+Do not change that field to repeated `image` parameters: the OpenAI API treats
+that form as a duplicate parameter and rejects the request.
+
 The default reference URL is:
 
 \`\`\`text
