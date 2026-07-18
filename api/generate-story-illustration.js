@@ -179,13 +179,19 @@ function buildIllustrationPrompt(story, page) {
 }
 
 function isImageGenerationReady() {
-  return Boolean(
-    IMAGE_GENERATION_ENABLED &&
-      OPENAI_IMAGE_API_KEY &&
-      SUPABASE_SECRET_KEY &&
-      SUPABASE_URL &&
-      SUPABASE_ANON_KEY
-  );
+  return getMissingImageGenerationConfig().length === 0;
+}
+
+function getMissingImageGenerationConfig() {
+  const missing = [];
+
+  if (!IMAGE_GENERATION_ENABLED) missing.push("IMAGE_GENERATION_ENABLED");
+  if (!OPENAI_IMAGE_API_KEY) missing.push("OPENAI_IMAGE_API_KEY");
+  if (!SUPABASE_SECRET_KEY) missing.push("SUPABASE_SECRET_KEY");
+  if (!SUPABASE_URL) missing.push("SUPABASE_URL");
+  if (!SUPABASE_ANON_KEY) missing.push("SUPABASE_ANON_KEY");
+
+  return missing;
 }
 
 function validatePageNumber(pageNumber) {
@@ -362,8 +368,18 @@ async function handler(req, res) {
       return;
     }
 
-    if (!isImageGenerationReady()) {
-      sendJson(req, res, 200, { illustrated: false, reason: "not_configured", pageNumber });
+    const missingConfiguration = getMissingImageGenerationConfig();
+    if (missingConfiguration.length) {
+      logIllustrationEvent("illustration_not_configured", {
+        pageNumber,
+        missingConfiguration
+      });
+      sendJson(req, res, 200, {
+        illustrated: false,
+        reason: "not_configured",
+        missingConfiguration,
+        pageNumber
+      });
       return;
     }
 

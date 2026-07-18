@@ -1453,7 +1453,13 @@
 
   async function requestStoryIllustrations(story, options = {}) {
     const pages = Array.isArray(story?.pages) ? story.pages : [];
-    const result = { illustrated: false, completed: 0, failed: 0, total: pages.length };
+    const result = {
+      illustrated: false,
+      completed: 0,
+      failed: 0,
+      total: pages.length,
+      missingConfiguration: []
+    };
     const actionLabel = options.force ? "Перерисовываю" : "Рисую";
 
     for (let index = 0; index < pages.length; index += 1) {
@@ -1466,6 +1472,12 @@
           result.illustrated = true;
           result.completed += 1;
         } else {
+          const missingConfiguration = Array.isArray(pageResult?.missingConfiguration)
+            ? pageResult.missingConfiguration
+            : [];
+          missingConfiguration.forEach((name) => {
+            if (!result.missingConfiguration.includes(name)) result.missingConfiguration.push(name);
+          });
           result.failed += 1;
         }
       } catch (error) {
@@ -1475,6 +1487,13 @@
     }
 
     return result;
+  }
+
+  function getIllustrationConfigurationMessage(result) {
+    const missing = Array.isArray(result?.missingConfiguration) ? result.missingConfiguration : [];
+    if (!missing.length) return "Иллюстрации пока не созданы. Проверьте подключение OpenAI Images в Vercel.";
+
+    return `Vercel не видит переменные: ${missing.join(", ")}. Откройте Settings → Environments и проверьте их значения, затем сделайте Redeploy.`;
   }
 
   async function regenerateStoryIllustrations(storyId, button) {
@@ -1492,7 +1511,7 @@
       renderAllStoryLists();
 
       if (!result.illustrated) {
-        if (status) status.textContent = "Иллюстрации пока не созданы. Проверьте подключение OpenAI Images в Vercel.";
+        if (status) status.textContent = getIllustrationConfigurationMessage(result);
         return;
       }
 
@@ -1722,7 +1741,7 @@
           ? result.failed
             ? "Часть иллюстраций готова. Для остальных временно используется акварельная библиотека."
             : "Иллюстрации ко всем страницам готовы."
-          : "Иллюстрации пока не созданы. Проверьте подключение OpenAI Images в Vercel.";
+          : getIllustrationConfigurationMessage(result);
       } catch (error) {
         console.warn("[app] Cannot illustrate saved story", error);
         libraryStatus.textContent = `Не удалось создать иллюстрации: ${error.message || "ошибка"}`;
