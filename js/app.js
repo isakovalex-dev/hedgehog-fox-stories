@@ -658,6 +658,9 @@
     const deleteButton = options.canDelete
       ? `<button class="button quiet" data-delete-story="${escapeAttribute(story.id)}" type="button">Удалить</button>`
       : "";
+    const illustrateButton = options.canDelete && story.storage === "supabase" && story.useIllustrations !== false
+      ? `<button class="button secondary" data-illustrate-story="${escapeAttribute(story.id)}" type="button">Нарисовать иллюстрации</button>`
+      : "";
 
     return `
       <article class="story-card" style="--wash-color: ${top}88;">
@@ -680,6 +683,7 @@
           <p>${escapeHtml(story.description)}</p>
           <div class="card-actions">
             <button class="button primary" data-read="${escapeAttribute(story.id)}" type="button">Читать</button>
+            ${illustrateButton}
             ${deleteButton}
           </div>
         </div>
@@ -1142,8 +1146,8 @@
     }
   }
 
-  async function requestStoryIllustration(storyId) {
-    if (!canUseIllustrationApi() || !storyId) {
+  async function requestStoryIllustration(storyId, pageNumber) {
+    if (!canUseIllustrationApi() || !storyId || !pageNumber) {
       return { illustrated: false, reason: "disabled" };
     }
 
@@ -1161,7 +1165,7 @@
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`
         },
-        body: JSON.stringify({ storyId }),
+        body: JSON.stringify({ storyId, pageNumber }),
         signal: controller.signal
       });
       const payload = await response.json().catch(() => null);
@@ -1174,6 +1178,31 @@
     } finally {
       window.clearTimeout(timeoutId);
     }
+  }
+
+  async function requestStoryIllustrations(story) {
+    const pages = Array.isArray(story?.pages) ? story.pages : [];
+    const result = { illustrated: false, completed: 0, failed: 0, total: pages.length };
+
+    for (let index = 0; index < pages.length; index += 1) {
+      const pageNumber = Number(pages[index]?.pageNumber || index + 1);
+      updateGenerationStatus(`Рисую иллюстрацию ${index + 1} из ${pages.length}...`);
+
+      try {
+        const pageResult = await requestStoryIllustration(story.id, pageNumber);
+        if (pageResult?.illustrated) {
+          result.illustrated = true;
+          result.completed += 1;
+        } else {
+          result.failed += 1;
+        }
+      } catch (error) {
+        console.warn("[app] Cannot generate page illustration", error);
+        result.failed += 1;
+      }
+    }
+
+    return result;
   }
 
   async function generateStory(formData) {
@@ -1242,9 +1271,9 @@
 
       let illustrationResult = null;
       if (isBackendGenerated && savedStory.useIllustrations !== false) {
-        updateGenerationStatus("Рисую акварельную обложку...");
+        updateGenerationStatus("Рисую иллюстрации для страниц истории...");
         try {
-          illustrationResult = await requestStoryIllustration(savedStory.id);
+          illustrationResult = await requestStoryIllustrations(savedStory);
           if (illustrationResult?.illustrated) {
             await storyService.initializeUserStories();
             savedStory = storyService.getStoryById(savedStory.id) || savedStory;
@@ -1259,7 +1288,9 @@
       updateGenerationStatus(
         storageState.mode === "supabase"
           ? illustrationResult?.illustrated
-            ? `История создана: ${generated.label}. Обложка готова и сохранена в Supabase.`
+            ? illustrationResult.failed
+              ? `История создана: ${generated.label}. Часть иллюстраций готова и сохранена в Supabase.`
+              : `История создана: ${generated.label}. Иллюстрации готовы и сохранены в Supabase.`
             : `История создана: ${generated.label}. Сохранена в Supabase.`
           : `История создана: ${generated.label}. Сохранена локально.`
       );
@@ -1332,6 +1363,33 @@
         libraryStatus.textContent = `Не удалось удалить историю: ${error.message || "ошибка Supabase"}`;
       } finally {
         deleteButton.disabled = false;
+      }
+
+      return;
+    }
+
+    const illustrateButton = event.target.closest("[data-illustrate-story]");
+    if (illustrateButton) {
+      const story = storyService.getStoryById(illustrateButton.dataset.illustrateStory);
+      if (!story) return;
+
+      illustrateButton.disabled = true;
+      libraryStatus.textContent = "Готовим иллюстрации к страницам истории...";
+
+      try {
+        const result = await requestStoryIllustrations(story);
+        await storyService.initializeUserStories();
+        renderAllStoryLists();
+        libraryStatus.textContent = result.illustrated
+          ? result.failed
+            ? "Часть иллюстраций готова. Для остальных временно используется акварельная библиотека."
+            : "Иллюстрации ко всем страницам готовы."
+          : "Иллюстрации пока не созданы. Проверьте подключение OpenAI Images в Vercel.";
+      } catch (error) {
+        console.warn("[app] Cannot illustrate saved story", error);
+        libraryStatus.textContent = `Не удалось создать иллюстрации: ${error.message || "ошибка"}`;
+      } finally {
+        illustrateButton.disabled = false;
       }
 
       return;

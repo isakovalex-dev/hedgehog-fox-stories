@@ -22,17 +22,18 @@ This file tracks the current implementation plan for "Ежонок и Лисён
 16. Run the operational and security audit - done; AI fallback-rate review is deferred.
 17. Prepare YooKassa webhook idempotency - done in code; Supabase SQL execution is pending.
 18. Automatically illustrate generated stories with the approved watercolor library - done.
-19. Prepare one unique AI cover per generated story - done in code; Supabase Storage SQL and Vercel secrets are pending.
-20. Generate unique AI illustrations for every individual story page - deferred until cover costs, latency, and character consistency are reviewed.
+19. Prepare unique AI illustrations for generated story pages - done in code; Supabase Storage SQL and Vercel secrets are pending.
+20. Add manual generation of page illustrations from the library - done.
 
 ## Current Next Step
 
-Configure the prepared private AI-cover flow: run the Storage SQL in Supabase,
-add the OpenAI and Supabase server secrets in Vercel, then deploy and create one
-test story while signed in. The YooKassa preactivation SQL and YooKassa approval
-remain separate pending work. The fixed Family tariff of 299 ₽ for 30 days is
-published on the site. AI fallback-rate review is deferred and does not block
-normal operation.
+Configure the prepared private AI-illustration flow: run the Storage SQL in
+Supabase, add the OpenAI and Supabase server secrets in Vercel, then deploy and
+create one test story while signed in. The site creates one illustration for
+each story page using the text of that page. The YooKassa preactivation SQL and
+YooKassa approval remain separate pending work. The fixed Family tariff of 299
+₽ for 30 days is published on the site. AI fallback-rate review is deferred and
+does not block normal operation.
 
 Chosen provider for the first test:
 

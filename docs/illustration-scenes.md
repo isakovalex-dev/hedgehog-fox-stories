@@ -76,9 +76,10 @@ If the tag is unknown:
 - keep the story readable even without an image;
 - log the missing tag for future improvement.
 
-## Future: unique AI illustrations
+## Unique AI illustrations
 
-The first unique-image implementation is now prepared as one cover per story.
+The unique-image implementation is prepared for every generated story page. It
+uses that page's exact text and `imagePrompt` to create a scene-specific image.
 It stays disabled until the private Storage SQL and Vercel environment variables
 in `docs/image-generation-setup.md` are configured.
 

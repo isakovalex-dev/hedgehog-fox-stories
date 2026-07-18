@@ -1,13 +1,15 @@
-# Unique AI Story Covers
+# AI Story Illustrations
 
 ## Scope
 
-The first image-generation release creates one landscape cover for the first
-page of an authenticated user's AI-generated story. The remaining pages keep
-using the existing approved watercolor scene library.
+The image-generation release creates one landscape illustration for every page
+of an authenticated user's AI-generated story. Each request includes the exact
+page text and its page-specific scene description, so the illustration follows
+the event described in that page rather than only the general mood.
 
-This controls cost, keeps story text available if the image provider is slow or
-fails, and avoids a second charge for retries after a cover has been saved.
+The site creates pages one at a time, shows progress, keeps story text available
+if the image provider is slow or fails, and avoids a second charge when an
+already saved page is requested again.
 
 ## Storage setup
 
@@ -46,19 +48,19 @@ the current Secret key (\`sb_secret_...\`). The backend also supports the older
 
 1. Sign in on \`https://ezhik-i-lisenok.ru\`.
 2. Create a three-page story with illustrations enabled.
-3. Wait for the text and cover message.
-4. Confirm that the card and first reader page show the new cover.
+3. Wait for the page-by-page illustration progress and completion message.
+4. Confirm that the card and every reader page show the matching illustration.
 5. In Supabase Storage, confirm the object path uses this shape:
 
 \`\`\`text
-<user-id>/<story-id>/cover.webp
+<user-id>/<story-id>/page-1.webp
 \`\`\`
 
-6. Sign out and confirm that the cover is not reachable through an old signed
-   link after its one-hour expiry.
+6. Sign out and confirm that a page illustration is not reachable through an
+   old signed link after its one-hour expiry.
 
 ## Fallback behavior
 
 If OpenAI, Vercel, or Storage is unavailable, the story remains saved and the
-site uses a matching existing watercolor scene. A failed illustration does not
-consume an extra story-generation limit.
+site uses a matching existing watercolor scene for the affected page. A failed
+illustration does not consume an extra story-generation limit.

@@ -155,16 +155,21 @@ function cleanPromptText(value, maxLength) {
 }
 
 function buildIllustrationPrompt(story, page) {
-  const sceneDescription = cleanPromptText(page?.image_prompt, 240);
+  const sceneDescription = cleanPromptText(page?.image_prompt, 360);
+  const pageText = cleanPromptText(page?.text, 1400);
   const mood = cleanPromptText(story?.mood, 80);
+  const lesson = cleanPromptText(story?.lesson, 180);
 
   return [
     "Original watercolor illustration for a calm Russian children's storybook.",
     "Two recurring heroes: a small brown hedgehog with soft rounded spines and a kind amber fox with a white chest and a fluffy tail.",
     "Gentle hand-painted watercolor and pencil texture on warm cream paper, soft natural light, muted sage green, sky blue and honey colors.",
-    "Composition: landscape book illustration with the two friends clearly visible, safe nature setting, no text, no letters, no logos, no frames.",
+    "Illustrate only the concrete event of this exact page. Keep the heroes visually consistent across pages.",
+    "Composition: landscape book illustration with the two friends clearly visible when the text places them in the scene, safe nature setting, no text, no letters, no logos, no frames.",
     mood ? "Mood: " + mood + "." : "",
-    sceneDescription ? "Scene: " + sceneDescription + "." : ""
+    lesson ? "Story lesson: " + lesson + "." : "",
+    pageText ? "Page text in Russian: " + pageText + "." : "",
+    sceneDescription ? "Art direction for this page: " + sceneDescription + "." : ""
   ]
     .filter(Boolean)
     .join(" ");
@@ -180,7 +185,17 @@ function isImageGenerationReady() {
   );
 }
 
-async function fetchStoryAndFirstPage(storyId, accessToken) {
+function validatePageNumber(pageNumber) {
+  const normalized = Number(pageNumber || 1);
+
+  if (!Number.isInteger(normalized) || normalized < 1 || normalized > 5) {
+    throw createHttpError(400, "Page number must be between 1 and 5");
+  }
+
+  return normalized;
+}
+
+async function fetchStoryAndPage(storyId, pageNumber, accessToken) {
   const storyRows = await supabaseRequest(
     "/rest/v1/stories?select=id,title,mood,lesson&id=eq." + encodeURIComponent(storyId) + "&limit=1",
     { method: "GET" },
@@ -193,16 +208,18 @@ async function fetchStoryAndFirstPage(storyId, accessToken) {
   }
 
   const pageRows = await supabaseRequest(
-    "/rest/v1/story_pages?select=id,page_number,scene_tag,image_url,image_prompt&story_id=eq." +
+    "/rest/v1/story_pages?select=id,page_number,text,scene_tag,image_url,image_prompt&story_id=eq." +
       encodeURIComponent(storyId) +
-      "&page_number=eq.1&limit=1",
+      "&page_number=eq." +
+      encodeURIComponent(pageNumber) +
+      "&limit=1",
     { method: "GET" },
     accessToken
   );
   const page = Array.isArray(pageRows) ? pageRows[0] : null;
 
   if (!page?.id) {
-    throw createHttpError(409, "Story does not have a first page");
+    throw createHttpError(409, "Story does not have the requested page");
   }
 
   return { story, page };
@@ -234,12 +251,18 @@ async function createImage(prompt) {
   return Buffer.from(imageBase64, "base64");
 }
 
-function getObjectPath(userId, storyId) {
-  return userId + "/" + storyId + "/cover.webp";
+function getObjectPath(userId, storyId, pageNumber) {
+  return userId + "/" + storyId + "/page-" + pageNumber + ".webp";
 }
 
 function getStorageReference(objectPath) {
   return STORAGE_REFERENCE_PREFIX + objectPath;
+}
+
+function hasCurrentPageIllustration(imageUrl, pageNumber) {
+  const expectedSuffix = "/page-" + pageNumber + ".webp";
+  return String(imageUrl || "").startsWith(STORAGE_REFERENCE_PREFIX) &&
+    String(imageUrl || "").endsWith(expectedSuffix);
 }
 
 async function uploadImage(objectPath, imageBytes) {
@@ -303,22 +326,23 @@ async function handler(req, res) {
   try {
     const body = await getRequestBody(req);
     const storyId = validateStoryId(body.storyId);
+    const pageNumber = validatePageNumber(body.pageNumber);
     const { user, accessToken } = await getAuthenticatedUser(req);
-    const { story, page } = await fetchStoryAndFirstPage(storyId, accessToken);
+    const { story, page } = await fetchStoryAndPage(storyId, pageNumber, accessToken);
 
-    if (String(page.image_url || "").startsWith(STORAGE_REFERENCE_PREFIX)) {
-      sendJson(req, res, 200, { illustrated: true, alreadyExists: true });
+    if (hasCurrentPageIllustration(page.image_url, pageNumber)) {
+      sendJson(req, res, 200, { illustrated: true, alreadyExists: true, pageNumber });
       return;
     }
 
     if (!isImageGenerationReady()) {
-      sendJson(req, res, 200, { illustrated: false, reason: "not_configured" });
+      sendJson(req, res, 200, { illustrated: false, reason: "not_configured", pageNumber });
       return;
     }
 
     const prompt = buildIllustrationPrompt(story, page);
     const imageBytes = await createImage(prompt);
-    const objectPath = getObjectPath(user.id, story.id);
+    const objectPath = getObjectPath(user.id, story.id, pageNumber);
     const storageReference = getStorageReference(objectPath);
 
     await uploadImage(objectPath, imageBytes);
@@ -328,9 +352,10 @@ async function handler(req, res) {
       model: IMAGE_MODEL,
       size: IMAGE_SIZE,
       quality: IMAGE_QUALITY,
+      pageNumber,
       durationMs: Date.now() - startedAt
     });
-    sendJson(req, res, 200, { illustrated: true, alreadyExists: false });
+    sendJson(req, res, 200, { illustrated: true, alreadyExists: false, pageNumber });
   } catch (error) {
     logIllustrationEvent("illustration_failed", {
       error: getSafeLogError(error),
@@ -344,4 +369,3 @@ async function handler(req, res) {
 }
 
 module.exports = handler;
-
