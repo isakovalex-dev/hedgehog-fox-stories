@@ -7,8 +7,8 @@
   const DEFAULT_SCENE_TAG = "forest_day";
   const supabaseService = window.HFSupabaseService;
 
-  // User stories reuse the approved watercolor artwork until a separate image API
-  // is connected. This keeps every generated page illustrated without exposing a key.
+  // Built-in stories have curated art. User stories never borrow it: a borrowed
+  // scene would falsely imply that OpenAI created an illustration for this page.
   const sceneIllustrationSets = {
     sea_bench: "sea-bench",
     river_bank: "sea-bench",
@@ -409,23 +409,19 @@
       readerPages: normalizedStory.slides.map((text, index) => {
         const page = normalizedStory.pages[index] || {};
         const sceneTag = page.sceneTag || normalizedStory.sceneTag || DEFAULT_SCENE_TAG;
-        const sceneIllustration = getSceneIllustrationUrls(sceneTag, index + 1);
         const pageImageUrl = page.imageUrl || (isBuiltInStory ? getSlideImageUrl(normalizedStory.id, index) : "");
-        const useLibraryIllustration =
-          !pageImageUrl && !isBuiltInStory && normalizedStory.useIllustrations !== false;
 
         return {
           pageNumber: index + 1,
           text,
           sceneTag,
           imagePrompt: page.imagePrompt || "",
-          imageUrl: pageImageUrl || (useLibraryIllustration ? sceneIllustration.imageUrl : ""),
+          imageUrl: pageImageUrl,
+          illustrationUnavailable: Boolean(page.illustrationUnavailable),
           fallbackImageUrl: isBuiltInStory
             ? getSlideFallbackImageUrl(normalizedStory.id, index)
-            : useLibraryIllustration
-              ? sceneIllustration.fallbackImageUrl
-              : "",
-          useSceneIllustration: !pageImageUrl && !useLibraryIllustration && !isBuiltInStory
+            : "",
+          useSceneIllustration: !pageImageUrl && !page.illustrationUnavailable && !isBuiltInStory
         };
       })
     };

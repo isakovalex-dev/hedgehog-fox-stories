@@ -1796,6 +1796,19 @@ body.about-page {
   mix-blend-mode: multiply;
 }
 
+.reader-illustration-unavailable {
+  display: grid;
+  min-height: 14rem;
+  place-items: center;
+  padding: 1.5rem;
+  border: 1px dashed var(--line-dark);
+  background: var(--paper);
+  color: var(--muted);
+  font-weight: 700;
+  line-height: 1.45;
+  text-align: center;
+}
+
 .scene-illustration {
   position: relative;
   height: min(36vh, 280px);

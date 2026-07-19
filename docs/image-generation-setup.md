@@ -48,10 +48,11 @@ the current Secret key (\`sb_secret_...\`). The backend also supports the older
 
 ## Consistent illustration style
 
-The backend sends fourteen existing illustrations to the OpenAI Image Edits
-endpoint as one visual reference set. They are style references only: the new
-image must depict the event from the requested story page, not repeat a scene
-from this library.
+The backend combines fourteen existing illustrations into one reduced contact
+sheet and sends that single sheet to the OpenAI Image Edits endpoint. The sheet
+retains the shared palette, paper texture, linework and hero design without
+asking the model to preserve a full-size prior scene. The current page text is
+the source of truth for the new composition.
 
 Main story illustrations:
 
@@ -73,42 +74,19 @@ Page scenes from the existing web slides:
 - \`assets/slides-web/star-for-friend-1.jpg\`;
 - \`assets/slides-web/warm-wind-map-1.jpg\`.
 
-Together they preserve the existing watercolor paper, palette, pencil contour,
-botanical detail, and hero designs while the prompt replaces every reference
-scene with the exact event of the current story page.
+Together they form \`assets/illustration-style-sheet.jpg\`. The endpoint submits
+this one file through the standard multipart \`image\` field. The model receives
+a style guide rather than fourteen separate scene canvases, reducing accidental
+reuse of a bench, forest clearing, clouds or character pose from an old story.
 
-The Image Edits request sends these files as the multipart `image[]` array.
-Do not change that field to repeated `image` parameters: the OpenAI API treats
-that form as a duplicate parameter and rejects the request.
-
-The primary reference URL is:
-
-\`\`\`text
-https://ezhik-i-lisenok.ru/assets/stories/sea-bench.png
-\`\`\`
-
-You can replace the first, primary reference without a code change by adding
-this optional Vercel variable in Production and Preview:
-
-\`\`\`text
-ILLUSTRATION_STYLE_REFERENCE_URL=https://ezhik-i-lisenok.ru/assets/stories/sea-bench.png
-\`\`\`
-
-Leave it unset to use the default above. The remaining thirteen references are
-selected in \`api/generate-story-illustration.js\`. All references are public
-artwork from the project; they are sent only from the Vercel backend to OpenAI,
-never from the visitor's browser.
+All sources are public artwork from the project. The sheet is sent only from
+the Vercel backend to OpenAI, never from the visitor's browser.
 
 ## Style reference reliability
 
-The Vercel Function bundles the chosen files from `assets/stories/` and
-`assets/slides-web/`, then reads all fourteen style references locally before
-calling OpenAI. This prevents a temporary GitHub Pages network failure from
-interrupting one page of a multi-page illustration run.
-
-If an old deployment does not contain the bundled files, the function retries
-the corresponding public URL once as a fallback. The optional
-`ILLUSTRATION_STYLE_REFERENCE_URL` still overrides the first, primary reference.
+The Vercel Function bundles \`assets/illustration-style-sheet.jpg\` and reads it
+locally before calling OpenAI. If an old deployment does not contain the file,
+it retries the public site URL once.
 
 ## Verification
 
@@ -132,6 +110,6 @@ direct Supabase Storage signing request.
 
 ## Fallback behavior
 
-If OpenAI, Vercel, or Storage is unavailable, the story remains saved and the
-site uses a matching existing watercolor scene for the affected page. A failed
-illustration does not consume an extra story-generation limit.
+If OpenAI, Vercel, or Storage is unavailable, the story remains saved but no
+unrelated built-in artwork is substituted for that page. A failed illustration
+does not consume an extra story-generation limit.

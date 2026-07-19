@@ -15,85 +15,36 @@ const OPENAI_IMAGE_API_KEY = process.env.OPENAI_IMAGE_API_KEY || "";
 const IMAGE_MODEL = process.env.IMAGE_MODEL || "gpt-image-1";
 const IMAGE_SIZE = process.env.IMAGE_SIZE || "1536x1024";
 const IMAGE_QUALITY = process.env.IMAGE_QUALITY || "low";
-const STYLE_REFERENCE_URL =
-  process.env.ILLUSTRATION_STYLE_REFERENCE_URL ||
-  DEFAULT_ORIGIN + "/assets/stories/sea-bench.png";
 const IMAGE_BUCKET = "story-illustrations";
 const STORAGE_REFERENCE_PREFIX = "storage://" + IMAGE_BUCKET + "/";
 const MAX_STORY_ID_LENGTH = 80;
 const MAX_STYLE_REFERENCE_BYTES = 5 * 1024 * 1024;
-const STYLE_REFERENCE_FILES = [
-  {
-    filename: "sea-bench.png",
-    relativePath: path.join("assets", "stories", "sea-bench.png"),
-    url: STYLE_REFERENCE_URL
-  },
-  {
-    filename: "rustling-grass.png",
-    relativePath: path.join("assets", "stories", "rustling-grass.png"),
-    url: DEFAULT_ORIGIN + "/assets/stories/rustling-grass.png"
-  },
-  {
-    filename: "hedgehog-bravery.png",
-    relativePath: path.join("assets", "stories", "hedgehog-bravery.png"),
-    url: DEFAULT_ORIGIN + "/assets/stories/hedgehog-bravery.png"
-  },
-  {
-    filename: "star-for-friend.png",
-    relativePath: path.join("assets", "stories", "star-for-friend.png"),
-    url: DEFAULT_ORIGIN + "/assets/stories/star-for-friend.png"
-  },
-  {
-    filename: "lost-cloud.png",
-    relativePath: path.join("assets", "stories", "lost-cloud.png"),
-    url: DEFAULT_ORIGIN + "/assets/stories/lost-cloud.png"
-  },
-  {
-    filename: "warm-wind-map.png",
-    relativePath: path.join("assets", "stories", "warm-wind-map.png"),
-    url: DEFAULT_ORIGIN + "/assets/stories/warm-wind-map.png"
-  },
-  {
-    filename: "hedgehog-bravery-1.jpg",
-    relativePath: path.join("assets", "slides-web", "hedgehog-bravery-1.jpg"),
-    url: DEFAULT_ORIGIN + "/assets/slides-web/hedgehog-bravery-1.jpg"
-  },
-  {
-    filename: "hedgehog-bravery-3.jpg",
-    relativePath: path.join("assets", "slides-web", "hedgehog-bravery-3.jpg"),
-    url: DEFAULT_ORIGIN + "/assets/slides-web/hedgehog-bravery-3.jpg"
-  },
-  {
-    filename: "lost-cloud-1.jpg",
-    relativePath: path.join("assets", "slides-web", "lost-cloud-1.jpg"),
-    url: DEFAULT_ORIGIN + "/assets/slides-web/lost-cloud-1.jpg"
-  },
-  {
-    filename: "lost-cloud-3.jpg",
-    relativePath: path.join("assets", "slides-web", "lost-cloud-3.jpg"),
-    url: DEFAULT_ORIGIN + "/assets/slides-web/lost-cloud-3.jpg"
-  },
-  {
-    filename: "rustling-grass-1.jpg",
-    relativePath: path.join("assets", "slides-web", "rustling-grass-1.jpg"),
-    url: DEFAULT_ORIGIN + "/assets/slides-web/rustling-grass-1.jpg"
-  },
-  {
-    filename: "sea-bench-1.jpg",
-    relativePath: path.join("assets", "slides-web", "sea-bench-1.jpg"),
-    url: DEFAULT_ORIGIN + "/assets/slides-web/sea-bench-1.jpg"
-  },
-  {
-    filename: "star-for-friend-1.jpg",
-    relativePath: path.join("assets", "slides-web", "star-for-friend-1.jpg"),
-    url: DEFAULT_ORIGIN + "/assets/slides-web/star-for-friend-1.jpg"
-  },
-  {
-    filename: "warm-wind-map-1.jpg",
-    relativePath: path.join("assets", "slides-web", "warm-wind-map-1.jpg"),
-    url: DEFAULT_ORIGIN + "/assets/slides-web/warm-wind-map-1.jpg"
-  }
+// The sheet contains reduced versions of fourteen project illustrations. Sending a
+// single style sheet prevents the edit endpoint from treating a full-size prior
+// scene as a composition that should be preserved in the new page illustration.
+const STYLE_REFERENCE_SOURCE_FILES = [
+  "sea-bench.png",
+  "rustling-grass.png",
+  "hedgehog-bravery.png",
+  "star-for-friend.png",
+  "lost-cloud.png",
+  "warm-wind-map.png",
+  "hedgehog-bravery-1.jpg",
+  "hedgehog-bravery-3.jpg",
+  "lost-cloud-1.jpg",
+  "lost-cloud-3.jpg",
+  "rustling-grass-1.jpg",
+  "sea-bench-1.jpg",
+  "star-for-friend-1.jpg",
+  "warm-wind-map-1.jpg"
 ];
+const STYLE_REFERENCE_SHEET = {
+  filename: "illustration-style-sheet.jpg",
+  relativePath: path.join("assets", "illustration-style-sheet.jpg"),
+  url:
+    process.env.ILLUSTRATION_STYLE_SHEET_URL ||
+    DEFAULT_ORIGIN + "/assets/illustration-style-sheet.jpg"
+};
 const LOCAL_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/;
 const ILLUSTRATION_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const ILLUSTRATION_RATE_LIMIT_MAX_REQUESTS = 12;
@@ -245,9 +196,9 @@ function buildIllustrationPrompt(story, page) {
     "Create one original landscape watercolor illustration for the exact event described below.",
     "The Russian page text is the source of truth. Depict only its concrete action, place, characters and important objects.",
     "Do not illustrate another page, a general story theme, a moral, or an invented adventure. Do not add unrelated animals, props, weather or actions.",
-    "The supplied reference images are one authoritative design sheet, not scene content to copy. Use their shared visual language to match the existing printed storybook: warm off-white paper, airy transparent watercolor washes, fine pencil hatching, softly feathered painted edges, detailed natural foliage, muted sage-green, honey and sky-blue palette.",
+    "The supplied image is a reduced contact sheet of the project's visual style, not a scene to edit or copy. Use only its shared visual language: warm off-white paper, airy transparent watercolor washes, fine pencil hatching, softly feathered painted edges, detailed natural foliage, muted sage-green, honey and sky-blue palette.",
     "Keep the same recurring character design in every new illustration: a small round brown hedgehog with short dark spines, a pale face, tiny black oval eyes and rosy cheeks; and a slender amber fox with a white chest, black paws and a long fluffy tail with a white tip. Keep their modest childlike scale and gentle expressions.",
-    "Replace every reference scene completely with the exact scene from this page. Do not copy a bench, sea, clouds, stump, night sky, pose, composition, animal, or prop from the references unless this page explicitly requires it.",
+    "Create a completely new composition from this page. Do not copy any bench, sea, clouds, stump, night sky, pose, composition, animal placement, or prop from the contact sheet unless this page explicitly requires it.",
     "Two recurring heroes: a small brown hedgehog with soft rounded spines and a kind amber fox with a white chest and a fluffy tail.",
     "Gentle hand-painted watercolor and pencil texture on warm cream paper, soft natural light, delicate botanical details and plenty of breathing room around the painted scene. It must look like another illustration from the same printed storybook, never a 3D render, glossy digital cartoon, thick outlined mascot, toy-like character, or photorealistic image.",
     "Keep the heroes visually consistent across pages. If the page text names one hero only, do not force the other into the foreground.",
@@ -401,22 +352,15 @@ async function loadStyleReference(reference) {
   return (await readLocalStyleReference(reference)) || fetchStyleReference(reference);
 }
 
-async function loadStyleReferences() {
-  return Promise.all(STYLE_REFERENCE_FILES.map((reference) => loadStyleReference(reference)));
-}
-
 async function createImage(prompt) {
-  const styleReferences = await loadStyleReferences();
+  const styleReference = await loadStyleReference(STYLE_REFERENCE_SHEET);
   const formData = new FormData();
   formData.append("model", IMAGE_MODEL);
-  for (const styleReference of styleReferences) {
-    formData.append("image[]", styleReference.blob, styleReference.filename);
-  }
+  formData.append("image", styleReference.blob, styleReference.filename);
   formData.append("prompt", prompt);
   formData.append("size", IMAGE_SIZE);
   formData.append("quality", IMAGE_QUALITY);
   formData.append("output_format", "webp");
-  formData.append("input_fidelity", "high");
   formData.append("moderation", "auto");
 
   const response = await fetch("https://api.openai.com/v1/images/edits", {
@@ -435,9 +379,10 @@ async function createImage(prompt) {
 
   return {
     imageBytes: Buffer.from(imageBase64, "base64"),
-    styleReferenceCount: styleReferences.length,
-    styleReferenceFiles: styleReferences.map((reference) => reference.filename),
-    styleReferenceSources: styleReferences.map((reference) => reference.source)
+    styleReferenceCount: STYLE_REFERENCE_SOURCE_FILES.length,
+    styleReferenceInputCount: 1,
+    styleReferenceFiles: STYLE_REFERENCE_SOURCE_FILES,
+    styleReferenceSources: [styleReference.source]
   };
 }
 
@@ -576,9 +521,10 @@ async function handler(req, res) {
 
     logIllustrationEvent("illustration_succeeded", {
       model: IMAGE_MODEL,
-      generationMode: "style_reference_edit",
-      styleReferenceUrl: STYLE_REFERENCE_URL,
+      generationMode: "style_sheet_edit",
+      styleReferenceUrl: STYLE_REFERENCE_SHEET.url,
       styleReferenceCount: imageResult.styleReferenceCount,
+      styleReferenceInputCount: imageResult.styleReferenceInputCount,
       styleReferenceFiles: imageResult.styleReferenceFiles,
       styleReferenceSources: imageResult.styleReferenceSources,
       size: IMAGE_SIZE,

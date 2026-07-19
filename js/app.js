@@ -1000,13 +1000,6 @@
   function renderStoryArt(story) {
     const sceneTag = getStorySceneTag(story);
     const firstPage = Array.isArray(story.pages) ? story.pages[0] : null;
-    const libraryIllustration =
-      story.source === "user" &&
-      story.useIllustrations !== false &&
-      !story.imageUrl &&
-      !firstPage?.imageUrl
-        ? storyService.getSceneIllustrationUrls(sceneTag, 1)
-        : null;
 
     if (story.imageUrl) {
       const builtInAsset = String(story.imageUrl).match(/^assets\/stories\/([a-z0-9-]+)\.png$/i);
@@ -1022,14 +1015,8 @@
       return `<img src="${escapeAttribute(story.imageUrl)}" alt="" loading="lazy" decoding="async" width="1536" height="1024" />`;
     }
 
-    if (firstPage?.imageUrl || libraryIllustration?.imageUrl) {
-      const imageUrl = firstPage?.imageUrl || libraryIllustration.imageUrl;
-      const fallbackUrl = libraryIllustration?.fallbackImageUrl || "";
-      const fallbackHandler = fallbackUrl
-        ? `this.onerror=null; this.src='${escapeAttribute(fallbackUrl)}';`
-        : "this.remove();";
-
-      return `<img src="${escapeAttribute(imageUrl)}" alt="" loading="lazy" decoding="async" width="1536" height="1024" onerror="${fallbackHandler}" />`;
+    if (firstPage?.imageUrl) {
+      return `<img src="${escapeAttribute(firstPage.imageUrl)}" alt="" loading="lazy" decoding="async" width="1536" height="1024" onerror="this.remove();" />`;
     }
 
     if (story.source === "user" && story.useIllustrations !== false) {
@@ -1239,6 +1226,14 @@
           decoding="async"
           onerror="${fallbackHandler}"
         />
+      `;
+    }
+
+    if (page.illustrationUnavailable) {
+      return `
+        <div class="reader-illustration-unavailable" role="status">
+          Новая иллюстрация создана, но пока не загрузилась. Обновите страницу или попробуйте позднее.
+        </div>
       `;
     }
 

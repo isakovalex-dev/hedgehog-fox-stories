@@ -530,13 +530,20 @@
   async function getClientStoryFromRows(storyRow, pageRows) {
     const sortedPages = [...pageRows].sort((a, b) => Number(a.page_number) - Number(b.page_number));
     const pages = await Promise.all(
-      sortedPages.map(async (pageRow, index) => ({
-        pageNumber: Number(pageRow.page_number || index + 1),
-        text: pageRow.text || "",
-        sceneTag: pageRow.scene_tag || "forest_day",
-        imageUrl: await resolveStoryImageUrl(pageRow.image_url || "", storyRow.id),
-        imagePrompt: pageRow.image_prompt || ""
-      }))
+      sortedPages.map(async (pageRow, index) => {
+        const imageReference = pageRow.image_url || "";
+        const imageUrl = await resolveStoryImageUrl(imageReference, storyRow.id);
+
+        return {
+          pageNumber: Number(pageRow.page_number || index + 1),
+          text: pageRow.text || "",
+          sceneTag: pageRow.scene_tag || "forest_day",
+          imageReference,
+          imageUrl,
+          illustrationUnavailable: Boolean(imageReference) && !imageUrl,
+          imagePrompt: pageRow.image_prompt || ""
+        };
+      })
     );
     const ageGroup = storyRow.age_group || "5-7";
     const moodTag = getMoodTag(storyRow.mood);
