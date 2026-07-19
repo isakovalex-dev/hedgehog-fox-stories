@@ -4,5 +4,9 @@
     "api/generate-story-illustration.js": {
       "includeFiles": "assets/{stories,slides-web}/*.{png,jpg,jpeg,webp}"
     }
-  }
+  },
+  "rewrites": [
+    { "source": "/games/memory", "destination": "/" },
+    { "source": "/memory", "destination": "/" }
+  ]
 }

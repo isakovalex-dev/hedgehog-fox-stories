@@ -28,6 +28,7 @@
   const siteNavMenu = document.querySelector("#siteNavMenu");
   const navLoginButton = document.querySelector("#navLoginButton");
   const navStoriesButton = document.querySelector("#navStoriesButton");
+  const navMemoryButton = document.querySelector("#navMemoryButton");
   const navGeneratorButton = document.querySelector("#navGeneratorButton");
   const navLibraryButton = document.querySelector("#navLibraryButton");
   const navAboutButton = document.querySelector("#navAboutButton");
@@ -71,6 +72,8 @@
   const signOutButton = document.querySelector("#signOutButton");
   const passwordToggleButtons = document.querySelectorAll("[data-password-toggle]");
   const storiesSection = document.querySelector("#stories");
+  const memoryPromo = document.querySelector("#memoryPromo");
+  const memoryGameSection = document.querySelector("#memoryGameSection");
   const readingValuesSection = document.querySelector("#why-read");
   const generatorSection = document.querySelector("#generator");
   const librarySection = document.querySelector("#library");
@@ -169,6 +172,7 @@
 
     if (path === "/create") return { name: "create" };
     if (path === "/library") return { name: "library" };
+    if (path === "/games/memory" || path === "/memory") return { name: "memory" };
     if (path === "/stories") return { name: "stories", filter: search.get("filter") || "all" };
     if (path.startsWith("/stories/")) return { name: "story", storyId: path.slice("/stories/".length) };
     return { name: "home", filter: search.get("filter") || "all" };
@@ -177,6 +181,7 @@
   function getRouteUrl(route) {
     if (route.name === "create") return "/create";
     if (route.name === "library") return "/library";
+    if (route.name === "memory") return "/games/memory";
     if (route.name === "story") return `/stories/${encodeURIComponent(route.storyId)}`;
     if (route.name === "stories") {
       return route.filter && route.filter !== "all" ? `/stories?filter=${encodeURIComponent(route.filter)}` : "/stories";
@@ -212,6 +217,11 @@
           description: "Личная библиотека созданных сказок.",
           url: `${PUBLIC_SITE_ORIGIN}/library`,
           noIndex: true
+        },
+        memory: {
+          title: "Мемори с Ежонком и Лисёнком — игра для детей",
+          description: "Открывайте карточки с иллюстрациями историй, запоминайте картинки и находите пары.",
+          url: `${PUBLIC_SITE_ORIGIN}/games/memory`
         },
         home: {
           title: DEFAULT_DOCUMENT_TITLE,
@@ -297,18 +307,27 @@
 
     document.body.classList.remove("reading");
     reader.classList.add("hidden");
-    setHeroTitleLevel(true);
+    setHeroTitleLevel(route.name !== "memory");
     setReaderTitle("История", false);
     activeStory = null;
     readingProgress.style.width = "0%";
     setSectionVisibility(hero, route.name === "home");
     setSectionVisibility(storiesSection, route.name === "home" || route.name === "stories");
+    setSectionVisibility(memoryPromo, route.name === "home");
+    setSectionVisibility(memoryGameSection, route.name === "memory");
     setSectionVisibility(readingValuesSection, route.name === "home");
     setSectionVisibility(document.querySelector("#pricing"), route.name === "home");
     setSectionVisibility(generatorSection, route.name === "create");
     setSectionVisibility(librarySection, route.name === "library");
     setSectionVisibility(aboutSection, route.name === "home");
+    navStoriesButton?.classList.toggle("active", route.name === "stories");
+    navMemoryButton?.classList.toggle("active", route.name === "memory");
+    navLibraryButton?.classList.toggle("active", route.name === "library");
     updateDocumentMeta(null, route);
+
+    if (route.name === "memory") {
+      window.HFMemoryGame?.initialize?.();
+    }
 
     if (options.focus) {
       window.setTimeout(() => {
@@ -2284,6 +2303,11 @@
     navigateTo({ name: "stories", filter: activeFilter });
   });
 
+  navMemoryButton?.addEventListener("click", (event) => {
+    event.preventDefault();
+    navigateTo({ name: "memory" });
+  });
+
   navGeneratorButton.addEventListener("click", (event) => {
     event.preventDefault();
     navigateTo({ name: "create" });
@@ -2317,6 +2341,18 @@
   });
 
   openAboutButton.addEventListener("click", openAboutSection);
+
+  document.querySelectorAll("[data-open-memory]").forEach((link) => {
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      navigateTo({ name: "memory" });
+    });
+  });
+
+  document.querySelector(".memory-back-link")?.addEventListener("click", (event) => {
+    event.preventDefault();
+    navigateTo({ name: "stories", filter: activeFilter });
+  });
 
   document.querySelectorAll("[data-about-read-stories]").forEach((button) => {
     button.addEventListener("click", () => {

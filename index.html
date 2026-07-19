@@ -33,7 +33,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=21" />
+    <link rel="stylesheet" href="styles.css?v=22" />
   </head>
   <body>
     <a class="skip-link" href="#mainContent">Перейти к содержанию</a>
@@ -61,6 +61,7 @@
       <div class="nav-menu" id="siteNavMenu">
         <div class="nav-links">
           <a class="nav-link" id="navStoriesButton" href="/stories">Истории</a>
+          <a class="nav-link" id="navMemoryButton" href="/games/memory">Игры</a>
           <a class="nav-link" id="navAboutButton" href="/#about">О проекте</a>
           <a class="nav-link" href="/#pricing">Тарифы</a>
           <a class="nav-link" id="navLibraryButton" href="/library">Библиотека</a>
@@ -128,6 +129,20 @@
         </div>
 
         <div class="story-list" id="storyList" aria-live="polite"></div>
+      </section>
+
+      <section class="memory-promo" id="memoryPromo" aria-labelledby="memoryPromoTitle">
+        <div class="memory-promo__art" aria-hidden="true">
+          <span>❧</span>
+          <span>✦</span>
+          <span>❧</span>
+        </div>
+        <div class="memory-promo__copy">
+          <p class="eyebrow">Маленькая игра</p>
+          <h2 id="memoryPromoTitle">Найди знакомые иллюстрации</h2>
+          <p>Переворачивай карточки с героями любимых историй и собирай одинаковые пары.</p>
+          <a class="button secondary" data-open-memory href="/games/memory">Играть в мемори</a>
+        </div>
       </section>
 
       <section class="reading-values" id="why-read" aria-labelledby="readingValuesTitle">
@@ -743,6 +758,42 @@
         </div>
         <div class="slides" id="slides"></div>
       </section>
+
+      <section class="memory-game-section hidden" id="memoryGameSection" aria-labelledby="memoryGameTitle">
+        <div class="memory-game-header">
+          <a class="memory-back-link" href="/stories">← Назад к историям</a>
+          <p class="eyebrow">Игра на внимание</p>
+          <h1 id="memoryGameTitle">Мемори с Ежонком и Лисёнком</h1>
+          <p class="memory-game-description">Открывай карточки, запоминай картинки и находи пары.</p>
+        </div>
+
+        <div class="memory-game" id="memoryGame">
+          <div class="memory-game-loading" id="memoryGameLoading" role="status">
+            <span class="memory-loading-leaf" aria-hidden="true">❧</span>
+            <span>Готовим карточки…</span>
+          </div>
+
+          <div class="memory-game-content hidden" id="memoryGameContent">
+            <div class="memory-game-toolbar">
+              <div class="memory-stats" aria-label="Счёт игры">
+                <span id="memoryMoves">Ходы: 0</span>
+                <span id="memoryMatches">Найдено: 0 из 6</span>
+              </div>
+              <button class="memory-restart-button" id="memoryRestartTop" type="button">Начать заново</button>
+            </div>
+
+            <p class="memory-announcement sr-only" id="memoryAnnouncement" aria-live="polite"></p>
+            <div class="memory-grid" id="memoryGrid" aria-label="Поле из 12 карточек"></div>
+
+            <div class="memory-victory hidden" id="memoryVictory" role="status" tabindex="-1">
+              <span class="memory-victory__mark" aria-hidden="true">✦</span>
+              <h2>Ура! Все пары найдены!</h2>
+              <p id="memoryVictorySummary">Ты нашёл все 6 пар.</p>
+              <button class="button primary" id="memoryPlayAgain" type="button">Играть ещё раз</button>
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
 
     <div class="generation-experience hidden" id="generationExperience" role="dialog" aria-modal="true" aria-labelledby="generationExperienceTitle">
@@ -802,6 +853,7 @@
     <script src="js/analyticsService.js?v=14"></script>
     <script src="js/miniGamesData.js?v=1"></script>
     <script src="js/miniGames.js?v=1"></script>
-    <script src="js/app.js?v=23"></script>
+    <script src="js/memoryGame.js?v=2"></script>
+    <script src="js/app.js?v=24"></script>
   </body>
 </html>
