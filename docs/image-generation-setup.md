@@ -46,13 +46,30 @@ the current Secret key (\`sb_secret_...\`). The backend also supports the older
 
 ## Consistent illustration style
 
-The backend sends four existing illustrations to the OpenAI Image Edits endpoint
-as one visual reference set:
+The backend sends fourteen existing illustrations to the OpenAI Image Edits
+endpoint as one visual reference set. They are style references only: the new
+image must depict the event from the requested story page, not repeat a scene
+from this library.
+
+Main story illustrations:
 
 - \`assets/stories/sea-bench.png\` for the recurring heroes and light coastal palette;
 - \`assets/stories/rustling-grass.png\` for evening watercolor texture;
 - \`assets/stories/hedgehog-bravery.png\` for forest foliage and the heroes' proportions;
-- \`assets/stories/star-for-friend.png\` for delicate night colors and paper edges.
+- \`assets/stories/star-for-friend.png\` for delicate night colors and paper edges;
+- \`assets/stories/lost-cloud.png\` for soft airy skies and open compositions;
+- \`assets/stories/warm-wind-map.png\` for warm earth tones and travel details.
+
+Page scenes from the existing web slides:
+
+- \`assets/slides-web/hedgehog-bravery-1.jpg\`;
+- \`assets/slides-web/hedgehog-bravery-3.jpg\`;
+- \`assets/slides-web/lost-cloud-1.jpg\`;
+- \`assets/slides-web/lost-cloud-3.jpg\`;
+- \`assets/slides-web/rustling-grass-1.jpg\`;
+- \`assets/slides-web/sea-bench-1.jpg\`;
+- \`assets/slides-web/star-for-friend-1.jpg\`;
+- \`assets/slides-web/warm-wind-map-1.jpg\`.
 
 Together they preserve the existing watercolor paper, palette, pencil contour,
 botanical detail, and hero designs while the prompt replaces every reference
@@ -62,28 +79,30 @@ The Image Edits request sends these files as the multipart `image[]` array.
 Do not change that field to repeated `image` parameters: the OpenAI API treats
 that form as a duplicate parameter and rejects the request.
 
-The default reference URL is:
+The primary reference URL is:
 
 \`\`\`text
 https://ezhik-i-lisenok.ru/assets/stories/sea-bench.png
 \`\`\`
 
-You can replace it without a code change by adding this optional Vercel
-variable in Production and Preview:
+You can replace the first, primary reference without a code change by adding
+this optional Vercel variable in Production and Preview:
 
 \`\`\`text
 ILLUSTRATION_STYLE_REFERENCE_URL=https://ezhik-i-lisenok.ru/assets/stories/sea-bench.png
 \`\`\`
 
-Leave it unset to use the default above. This reference is public artwork from
-the project; it is sent only from the Vercel backend to OpenAI, never from the
-visitor's browser.
+Leave it unset to use the default above. The remaining thirteen references are
+selected in \`api/generate-story-illustration.js\`. All references are public
+artwork from the project; they are sent only from the Vercel backend to OpenAI,
+never from the visitor's browser.
 
 ## Style reference reliability
 
-The Vercel Function bundles `assets/stories/*.png` and reads the four style
-references locally before calling OpenAI. This prevents a temporary GitHub Pages
-network failure from interrupting one page of a multi-page illustration run.
+The Vercel Function bundles the chosen files from `assets/stories/` and
+`assets/slides-web/`, then reads all fourteen style references locally before
+calling OpenAI. This prevents a temporary GitHub Pages network failure from
+interrupting one page of a multi-page illustration run.
 
 If an old deployment does not contain the bundled files, the function retries
 the corresponding public URL once as a fallback. The optional

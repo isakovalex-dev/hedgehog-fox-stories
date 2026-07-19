@@ -42,6 +42,56 @@ const STYLE_REFERENCE_FILES = [
     filename: "star-for-friend.png",
     relativePath: path.join("assets", "stories", "star-for-friend.png"),
     url: DEFAULT_ORIGIN + "/assets/stories/star-for-friend.png"
+  },
+  {
+    filename: "lost-cloud.png",
+    relativePath: path.join("assets", "stories", "lost-cloud.png"),
+    url: DEFAULT_ORIGIN + "/assets/stories/lost-cloud.png"
+  },
+  {
+    filename: "warm-wind-map.png",
+    relativePath: path.join("assets", "stories", "warm-wind-map.png"),
+    url: DEFAULT_ORIGIN + "/assets/stories/warm-wind-map.png"
+  },
+  {
+    filename: "hedgehog-bravery-1.jpg",
+    relativePath: path.join("assets", "slides-web", "hedgehog-bravery-1.jpg"),
+    url: DEFAULT_ORIGIN + "/assets/slides-web/hedgehog-bravery-1.jpg"
+  },
+  {
+    filename: "hedgehog-bravery-3.jpg",
+    relativePath: path.join("assets", "slides-web", "hedgehog-bravery-3.jpg"),
+    url: DEFAULT_ORIGIN + "/assets/slides-web/hedgehog-bravery-3.jpg"
+  },
+  {
+    filename: "lost-cloud-1.jpg",
+    relativePath: path.join("assets", "slides-web", "lost-cloud-1.jpg"),
+    url: DEFAULT_ORIGIN + "/assets/slides-web/lost-cloud-1.jpg"
+  },
+  {
+    filename: "lost-cloud-3.jpg",
+    relativePath: path.join("assets", "slides-web", "lost-cloud-3.jpg"),
+    url: DEFAULT_ORIGIN + "/assets/slides-web/lost-cloud-3.jpg"
+  },
+  {
+    filename: "rustling-grass-1.jpg",
+    relativePath: path.join("assets", "slides-web", "rustling-grass-1.jpg"),
+    url: DEFAULT_ORIGIN + "/assets/slides-web/rustling-grass-1.jpg"
+  },
+  {
+    filename: "sea-bench-1.jpg",
+    relativePath: path.join("assets", "slides-web", "sea-bench-1.jpg"),
+    url: DEFAULT_ORIGIN + "/assets/slides-web/sea-bench-1.jpg"
+  },
+  {
+    filename: "star-for-friend-1.jpg",
+    relativePath: path.join("assets", "slides-web", "star-for-friend-1.jpg"),
+    url: DEFAULT_ORIGIN + "/assets/slides-web/star-for-friend-1.jpg"
+  },
+  {
+    filename: "warm-wind-map-1.jpg",
+    relativePath: path.join("assets", "slides-web", "warm-wind-map-1.jpg"),
+    url: DEFAULT_ORIGIN + "/assets/slides-web/warm-wind-map-1.jpg"
   }
 ];
 const LOCAL_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/;
@@ -195,7 +245,7 @@ function buildIllustrationPrompt(story, page) {
     "Create one original landscape watercolor illustration for the exact event described below.",
     "The Russian page text is the source of truth. Depict only its concrete action, place, characters and important objects.",
     "Do not illustrate another page, a general story theme, a moral, or an invented adventure. Do not add unrelated animals, props, weather or actions.",
-    "The four supplied images are one authoritative design sheet, not scene content to copy. Use all of them to match the existing printed storybook: warm off-white paper, airy transparent watercolor washes, fine pencil hatching, softly feathered painted edges, detailed natural foliage, muted sage-green, honey and sky-blue palette.",
+    "The supplied reference images are one authoritative design sheet, not scene content to copy. Use their shared visual language to match the existing printed storybook: warm off-white paper, airy transparent watercolor washes, fine pencil hatching, softly feathered painted edges, detailed natural foliage, muted sage-green, honey and sky-blue palette.",
     "Keep the same recurring character design in every new illustration: a small round brown hedgehog with short dark spines, a pale face, tiny black oval eyes and rosy cheeks; and a slender amber fox with a white chest, black paws and a long fluffy tail with a white tip. Keep their modest childlike scale and gentle expressions.",
     "Replace every reference scene completely with the exact scene from this page. Do not copy a bench, sea, clouds, stump, night sky, pose, composition, animal, or prop from the references unless this page explicitly requires it.",
     "Two recurring heroes: a small brown hedgehog with soft rounded spines and a kind amber fox with a white chest and a fluffy tail.",
@@ -277,7 +327,7 @@ async function readLocalStyleReference(reference) {
       }
 
       return {
-        blob: new Blob([bytes], { type: "image/png" }),
+        blob: new Blob([bytes], { type: getImageContentType(reference.filename) }),
         filename: reference.filename,
         source: "bundled_asset"
       };
@@ -290,6 +340,15 @@ async function readLocalStyleReference(reference) {
   }
 
   return null;
+}
+
+function getImageContentType(filename) {
+  const extension = path.extname(String(filename || "")).toLowerCase();
+
+  if (extension === ".jpg" || extension === ".jpeg") return "image/jpeg";
+  if (extension === ".webp") return "image/webp";
+  if (extension === ".gif") return "image/gif";
+  return "image/png";
 }
 
 function wait(milliseconds) {

@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "api/generate-story-illustration.js": {
-      "includeFiles": "assets/stories/*.png"
+      "includeFiles": "assets/{stories,slides-web}/*.{png,jpg,jpeg,webp}"
     }
   }
 }
