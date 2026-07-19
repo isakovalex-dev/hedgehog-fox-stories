@@ -2,6 +2,7 @@
 
 const fs = require("node:fs/promises");
 const path = require("node:path");
+const crypto = require("node:crypto");
 
 const DEFAULT_ORIGIN = "https://ezhik-i-lisenok.ru";
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ynidvdesfolavhngubqv.supabase.co";
@@ -12,39 +13,16 @@ const SUPABASE_SECRET_KEY =
   process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const IMAGE_GENERATION_ENABLED = process.env.IMAGE_GENERATION_ENABLED === "true";
 const OPENAI_IMAGE_API_KEY = process.env.OPENAI_IMAGE_API_KEY || "";
-const IMAGE_MODEL = process.env.IMAGE_MODEL || "gpt-image-1";
-const IMAGE_SIZE = process.env.IMAGE_SIZE || "1536x1024";
-const IMAGE_QUALITY = process.env.IMAGE_QUALITY || "low";
+const IMAGE_MODEL = process.env.IMAGE_MODEL || "";
+const IMAGE_SIZE = process.env.IMAGE_SIZE || "";
+const IMAGE_QUALITY = process.env.IMAGE_QUALITY || "";
 const IMAGE_BUCKET = "story-illustrations";
 const STORAGE_REFERENCE_PREFIX = "storage://" + IMAGE_BUCKET + "/";
 const MAX_STORY_ID_LENGTH = 80;
-const MAX_STYLE_REFERENCE_BYTES = 5 * 1024 * 1024;
-// The sheet contains reduced versions of fourteen project illustrations. Sending a
-// single style sheet prevents the edit endpoint from treating a full-size prior
-// scene as a composition that should be preserved in the new page illustration.
-const STYLE_REFERENCE_SOURCE_FILES = [
-  "sea-bench.png",
-  "rustling-grass.png",
-  "hedgehog-bravery.png",
-  "star-for-friend.png",
-  "lost-cloud.png",
-  "warm-wind-map.png",
-  "hedgehog-bravery-1.jpg",
-  "hedgehog-bravery-3.jpg",
-  "lost-cloud-1.jpg",
-  "lost-cloud-3.jpg",
-  "rustling-grass-1.jpg",
-  "sea-bench-1.jpg",
-  "star-for-friend-1.jpg",
-  "warm-wind-map-1.jpg"
-];
-const STYLE_REFERENCE_SHEET = {
-  filename: "illustration-style-sheet.jpg",
-  relativePath: path.join("assets", "illustration-style-sheet.jpg"),
-  url:
-    process.env.ILLUSTRATION_STYLE_SHEET_URL ||
-    DEFAULT_ORIGIN + "/assets/illustration-style-sheet.jpg"
-};
+const STYLE_PROFILE_RELATIVE_PATH = path.join("assets", "illustration-style-profile.json");
+const MAX_EXPLICIT_REFERENCES = 2;
+const MAX_REFERENCE_BYTES = 5 * 1024 * 1024;
+const GENERATION_MODES = new Set(["style_only", "with_references", "iteration"]);
 const LOCAL_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/;
 const ILLUSTRATION_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const ILLUSTRATION_RATE_LIMIT_MAX_REQUESTS = 12;
@@ -187,25 +165,37 @@ function cleanPromptText(value, maxLength) {
     .slice(0, maxLength);
 }
 
-function buildIllustrationPrompt(story, page) {
+function buildIllustrationPrompt(story, page, styleProfile, userInstructions, generationMode) {
   const sceneDescription = cleanPromptText(page?.image_prompt, 360);
   const pageText = cleanPromptText(page?.text, 1400);
   const mood = cleanPromptText(story?.mood, 80);
+  const additionalInstructions = cleanPromptText(userInstructions, 360);
+  const stylePassport = [
+    styleProfile.visual_language,
+    "Palette: " + styleProfile.color_palette.join(", ") + ".",
+    "Lighting: " + styleProfile.lighting,
+    "Composition: " + styleProfile.composition,
+    "Perspective: " + styleProfile.camera_and_perspective,
+    "Shapes and proportions: " + styleProfile.shapes_and_proportions,
+    "Materials and textures: " + styleProfile.materials_and_textures,
+    "Line and edge style: " + styleProfile.line_and_edge_style,
+    "Character rules: " + styleProfile.character_rules,
+    "Background rules: " + styleProfile.background_rules,
+    "Typography rules: " + styleProfile.typography_rules
+  ].join(" ");
 
   return [
-    "Create one original landscape watercolor illustration for the exact event described below.",
-    "The Russian page text is the source of truth. Depict only its concrete action, place, characters and important objects.",
-    "Do not illustrate another page, a general story theme, a moral, or an invented adventure. Do not add unrelated animals, props, weather or actions.",
-    "The supplied image is a reduced contact sheet of the project's visual style, not a scene to edit or copy. Use only its shared visual language: warm off-white paper, airy transparent watercolor washes, fine pencil hatching, softly feathered painted edges, detailed natural foliage, muted sage-green, honey and sky-blue palette.",
-    "Keep the same recurring character design in every new illustration: a small round brown hedgehog with short dark spines, a pale face, tiny black oval eyes and rosy cheeks; and a slender amber fox with a white chest, black paws and a long fluffy tail with a white tip. Keep their modest childlike scale and gentle expressions.",
-    "Create a completely new composition from this page. Do not copy any bench, sea, clouds, stump, night sky, pose, composition, animal placement, or prop from the contact sheet unless this page explicitly requires it.",
-    "Two recurring heroes: a small brown hedgehog with soft rounded spines and a kind amber fox with a white chest and a fluffy tail.",
-    "Gentle hand-painted watercolor and pencil texture on warm cream paper, soft natural light, delicate botanical details and plenty of breathing room around the painted scene. It must look like another illustration from the same printed storybook, never a 3D render, glossy digital cartoon, thick outlined mascot, toy-like character, or photorealistic image.",
-    "Keep the heroes visually consistent across pages. If the page text names one hero only, do not force the other into the foreground.",
-    "Composition: safe children's storybook scene, no text, no letters, no logos, no frames.",
+    styleProfile.prompt_template,
+    "STYLE PASSPORT (version " + styleProfile.version + "): " + stylePassport,
+    "REQUIRED VISUAL RULES: " + styleProfile.required_elements.join("; ") + ".",
+    generationMode === "iteration"
+      ? "The supplied image is the existing illustration being revised. Preserve only the elements that remain compatible with the exact page event and apply the requested change."
+      : "Create a completely new composition for this page. The Russian page text is the source of truth; depict only its concrete action, place, characters and important objects.",
     pageText ? "EXACT PAGE TEXT IN RUSSIAN: " + pageText : "",
     sceneDescription ? "CONCISE VISUAL BRIEF FOR THIS SAME PAGE: " + sceneDescription : "",
     mood ? "Mood: " + mood + "." : "",
+    "NEGATIVE CONSTRAINTS: " + styleProfile.negative_prompt,
+    additionalInstructions ? "ADDITIONAL REQUEST FOR THIS ONE IMAGE: " + additionalInstructions : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -216,6 +206,9 @@ function getMissingImageGenerationConfig() {
 
   if (!IMAGE_GENERATION_ENABLED) missing.push("IMAGE_GENERATION_ENABLED");
   if (!OPENAI_IMAGE_API_KEY) missing.push("OPENAI_IMAGE_API_KEY");
+  if (!IMAGE_MODEL) missing.push("IMAGE_MODEL");
+  if (!IMAGE_SIZE) missing.push("IMAGE_SIZE");
+  if (!IMAGE_QUALITY) missing.push("IMAGE_QUALITY");
   if (!SUPABASE_SECRET_KEY) missing.push("SUPABASE_SECRET_KEY");
   if (!SUPABASE_URL) missing.push("SUPABASE_URL");
   if (!SUPABASE_ANON_KEY) missing.push("SUPABASE_ANON_KEY");
@@ -263,34 +256,47 @@ async function fetchStoryAndPage(storyId, pageNumber, accessToken) {
   return { story, page };
 }
 
-async function readLocalStyleReference(reference) {
-  const candidatePaths = [
-    path.join(process.cwd(), reference.relativePath),
-    path.join(__dirname, "..", reference.relativePath)
-  ];
+function getProjectFileCandidates(relativePath) {
+  return [path.join(process.cwd(), relativePath), path.join(__dirname, "..", relativePath)];
+}
 
-  for (const candidatePath of candidatePaths) {
+async function readBundledFile(relativePath, fallbackMessage) {
+  for (const candidatePath of getProjectFileCandidates(relativePath)) {
     try {
-      const bytes = await fs.readFile(candidatePath);
-
-      if (!bytes.byteLength || bytes.byteLength > MAX_STYLE_REFERENCE_BYTES) {
-        throw createHttpError(502, "Illustration style reference has an invalid size");
-      }
-
-      return {
-        blob: new Blob([bytes], { type: getImageContentType(reference.filename) }),
-        filename: reference.filename,
-        source: "bundled_asset"
-      };
+      return await fs.readFile(candidatePath);
     } catch (error) {
-      if (error?.statusCode) throw error;
-      if (error?.code !== "ENOENT") {
-        throw createHttpError(502, "Could not read the illustration style reference");
-      }
+      if (error?.code !== "ENOENT") throw createHttpError(502, fallbackMessage);
     }
   }
 
-  return null;
+  throw createHttpError(502, fallbackMessage);
+}
+
+async function loadStyleProfile() {
+  const bytes = await readBundledFile(STYLE_PROFILE_RELATIVE_PATH, "Illustration style profile is unavailable");
+
+  try {
+    const profile = JSON.parse(bytes.toString("utf8"));
+    const requiredFields = [
+      "id",
+      "version",
+      "prompt_template",
+      "visual_language",
+      "color_palette",
+      "required_elements",
+      "negative_prompt",
+      "reference_roles",
+      "source_hashes"
+    ];
+
+    if (requiredFields.some((field) => !profile?.[field])) {
+      throw new Error("missing required field");
+    }
+
+    return profile;
+  } catch (error) {
+    throw createHttpError(502, "Illustration style profile is invalid");
+  }
 }
 
 function getImageContentType(filename) {
@@ -302,87 +308,194 @@ function getImageContentType(filename) {
   return "image/png";
 }
 
-function wait(milliseconds) {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+function getGenerationOptions(body, styleProfile) {
+  const mode = String(body?.generationMode || "style_only").trim();
+  const userInstructions = cleanPromptText(body?.userInstructions, 360);
+  const referenceIds = Array.isArray(body?.referenceIds)
+    ? [...new Set(body.referenceIds.map((value) => String(value || "").trim()).filter(Boolean))]
+    : [];
+
+  if (!GENERATION_MODES.has(mode)) {
+    throw createHttpError(400, "Illustration generation mode is invalid");
+  }
+
+  if (referenceIds.length > MAX_EXPLICIT_REFERENCES) {
+    throw createHttpError(400, `Choose at most ${MAX_EXPLICIT_REFERENCES} illustration references`);
+  }
+
+  if (mode === "style_only" && referenceIds.length) {
+    throw createHttpError(400, "style_only generation does not accept image references");
+  }
+
+  if (mode === "with_references" && !referenceIds.length) {
+    throw createHttpError(400, "Choose at least one illustration reference");
+  }
+
+  if (mode === "iteration" && !userInstructions) {
+    throw createHttpError(400, "Describe the illustration change for iteration mode");
+  }
+
+  const referencesById = new Map(
+    (Array.isArray(styleProfile.reference_roles) ? styleProfile.reference_roles : []).map((reference) => [reference.id, reference])
+  );
+  const selectedReferences = referenceIds.map((referenceId) => referencesById.get(referenceId));
+
+  if (selectedReferences.some((reference) => !reference)) {
+    throw createHttpError(400, "An illustration reference is not available");
+  }
+
+  return { mode, userInstructions, selectedReferences };
 }
 
-async function fetchStyleReference(reference) {
+async function readExplicitReference(reference) {
+  const bytes = await readBundledFile(reference.path, "Could not read the selected illustration reference");
+
+  if (!bytes.byteLength || bytes.byteLength > MAX_REFERENCE_BYTES) {
+    throw createHttpError(502, "Selected illustration reference has an invalid size");
+  }
+
+  return {
+    blob: new Blob([bytes], { type: getImageContentType(reference.path) }),
+    filename: path.basename(reference.path),
+    id: reference.id,
+    sha256: crypto.createHash("sha256").update(bytes).digest("hex")
+  };
+}
+
+function getOwnedObjectPath(imageReference, userId, storyId) {
+  const reference = String(imageReference || "");
+  const objectPath = reference.startsWith(STORAGE_REFERENCE_PREFIX)
+    ? reference.slice(STORAGE_REFERENCE_PREFIX.length)
+    : "";
+  const parts = objectPath.split("/");
+
+  if (
+    parts.length !== 3 ||
+    parts[0] !== userId ||
+    parts[1] !== storyId ||
+    !/^page-[1-5](?:-\d+)?\.webp$/.test(parts[2] || "")
+  ) {
+    throw createHttpError(409, "There is no saved illustration available for iteration");
+  }
+
+  return objectPath;
+}
+
+async function readIterationImage(page, userId, storyId) {
+  const objectPath = getOwnedObjectPath(page.image_url, userId, storyId);
+  const encodedPath = objectPath
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/");
+  const response = await fetch(
+    SUPABASE_URL.replace(/\/$/, "") + "/storage/v1/object/authenticated/" + IMAGE_BUCKET + "/" + encodedPath,
+    {
+      method: "GET",
+      headers: {
+        apikey: SUPABASE_SECRET_KEY,
+        Authorization: "Bearer " + SUPABASE_SECRET_KEY
+      }
+    }
+  );
+
+  if (!response.ok) {
+    throw createHttpError(502, "Could not load the current illustration for iteration");
+  }
+
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (!bytes.byteLength || bytes.byteLength > MAX_REFERENCE_BYTES) {
+    throw createHttpError(502, "Current illustration has an invalid size");
+  }
+
+  return {
+    blob: new Blob([bytes], { type: "image/webp" }),
+    filename: "current-page.webp",
+    id: "current-page",
+    sha256: crypto.createHash("sha256").update(bytes).digest("hex")
+  };
+}
+
+function shouldRetryImageError(error) {
+  return error?.statusCode === 429 || error?.statusCode === 502 || error?.name === "TypeError";
+}
+
+async function requestImageProvider(url, options, fallbackMessage) {
   let lastError = null;
 
   for (let attempt = 1; attempt <= 2; attempt += 1) {
     try {
-      const response = await fetch(reference.url, { method: "GET" });
-
-      if (!response.ok) {
-        throw createHttpError(502, "Could not load the illustration style reference");
-      }
-
-      const contentType = String(response.headers.get("content-type") || "").split(";")[0];
-      const contentLength = Number(response.headers.get("content-length") || 0);
-
-      if (!contentType.startsWith("image/")) {
-        throw createHttpError(502, "Illustration style reference is not an image");
-      }
-
-      if (contentLength > MAX_STYLE_REFERENCE_BYTES) {
-        throw createHttpError(502, "Illustration style reference is too large");
-      }
-
-      const bytes = await response.arrayBuffer();
-
-      if (!bytes.byteLength || bytes.byteLength > MAX_STYLE_REFERENCE_BYTES) {
-        throw createHttpError(502, "Illustration style reference has an invalid size");
-      }
-
-      return {
-        blob: new Blob([bytes], { type: contentType }),
-        filename: reference.filename,
-        source: "remote_fallback"
-      };
+      const response = await fetch(url, options);
+      const payload = await parseJsonResponse(response, fallbackMessage);
+      return { payload, requestId: response.headers.get("x-request-id") || null };
     } catch (error) {
       lastError = error;
-      if (attempt < 2) await wait(250);
+      if (attempt < 2 && shouldRetryImageError(error)) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        continue;
+      }
+      throw error;
     }
   }
 
-  throw lastError || createHttpError(502, "Could not load the illustration style reference");
+  throw lastError || createHttpError(502, fallbackMessage);
 }
 
-async function loadStyleReference(reference) {
-  return (await readLocalStyleReference(reference)) || fetchStyleReference(reference);
-}
+async function createImage(prompt, generationOptions, page, userId, storyId) {
+  let providerResponse;
+  let referenceInputs = [];
 
-async function createImage(prompt) {
-  const styleReference = await loadStyleReference(STYLE_REFERENCE_SHEET);
-  const formData = new FormData();
-  formData.append("model", IMAGE_MODEL);
-  formData.append("image", styleReference.blob, styleReference.filename);
-  formData.append("prompt", prompt);
-  formData.append("size", IMAGE_SIZE);
-  formData.append("quality", IMAGE_QUALITY);
-  formData.append("output_format", "webp");
-  formData.append("moderation", "auto");
+  if (generationOptions.mode === "style_only") {
+    providerResponse = await requestImageProvider(
+      "https://api.openai.com/v1/images/generations",
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + OPENAI_IMAGE_API_KEY,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: IMAGE_MODEL,
+          prompt,
+          size: IMAGE_SIZE,
+          quality: IMAGE_QUALITY,
+          output_format: "webp",
+          moderation: "auto"
+        })
+      },
+      "Image generation request failed"
+    );
+  } else {
+    if (generationOptions.mode === "with_references") {
+      referenceInputs = await Promise.all(generationOptions.selectedReferences.map(readExplicitReference));
+    } else {
+      referenceInputs = [await readIterationImage(page, userId, storyId)];
+    }
 
-  const response = await fetch("https://api.openai.com/v1/images/edits", {
-    method: "POST",
-    headers: {
-      Authorization: "Bearer " + OPENAI_IMAGE_API_KEY
-    },
-    body: formData
-  });
-  const payload = await parseJsonResponse(response, "Image editing request failed");
-  const imageBase64 = payload?.data?.[0]?.b64_json;
+    const formData = new FormData();
+    formData.append("model", IMAGE_MODEL);
+    referenceInputs.forEach((reference) => formData.append("image[]", reference.blob, reference.filename));
+    formData.append("prompt", prompt);
+    formData.append("size", IMAGE_SIZE);
+    formData.append("quality", IMAGE_QUALITY);
+    formData.append("output_format", "webp");
+    formData.append("moderation", "auto");
 
-  if (!imageBase64) {
-    throw createHttpError(502, "Image provider response is missing image data");
+    providerResponse = await requestImageProvider(
+      "https://api.openai.com/v1/images/edits",
+      { method: "POST", headers: { Authorization: "Bearer " + OPENAI_IMAGE_API_KEY }, body: formData },
+      "Image editing request failed"
+    );
   }
+
+  const imageBase64 = providerResponse.payload?.data?.[0]?.b64_json;
+  if (!imageBase64) throw createHttpError(502, "Image provider response is missing image data");
 
   return {
     imageBytes: Buffer.from(imageBase64, "base64"),
-    styleReferenceCount: STYLE_REFERENCE_SOURCE_FILES.length,
-    styleReferenceInputCount: 1,
-    styleReferenceFiles: STYLE_REFERENCE_SOURCE_FILES,
-    styleReferenceSources: [styleReference.source]
+    requestId: providerResponse.requestId,
+    usage: providerResponse.payload?.usage || null,
+    referenceIds: referenceInputs.map((reference) => reference.id),
+    referenceHashes: referenceInputs.map((reference) => reference.sha256)
   };
 }
 
@@ -488,8 +601,14 @@ async function handler(req, res) {
     const force = body.force === true;
     const { user, accessToken } = await getAuthenticatedUser(req);
     const { story, page } = await fetchStoryAndPage(storyId, pageNumber, accessToken);
+    const styleProfile = await loadStyleProfile();
+    const generationOptions = getGenerationOptions(body, styleProfile);
 
-    if (!force && hasCurrentPageIllustration(page.image_url, pageNumber)) {
+    if (
+      !force &&
+      generationOptions.mode !== "iteration" &&
+      hasCurrentPageIllustration(page.image_url, pageNumber)
+    ) {
       sendJson(req, res, 200, { illustrated: true, alreadyExists: true, pageNumber });
       return;
     }
@@ -511,9 +630,20 @@ async function handler(req, res) {
 
     enforceIllustrationRateLimit(user.id);
 
-    const prompt = buildIllustrationPrompt(story, page);
-    const imageResult = await createImage(prompt);
-    const objectPath = getObjectPath(user.id, story.id, pageNumber, force);
+    const prompt = buildIllustrationPrompt(
+      story,
+      page,
+      styleProfile,
+      generationOptions.userInstructions,
+      generationOptions.mode
+    );
+    const imageResult = await createImage(prompt, generationOptions, page, user.id, story.id);
+    const objectPath = getObjectPath(
+      user.id,
+      story.id,
+      pageNumber,
+      force || generationOptions.mode === "iteration"
+    );
     const storageReference = getStorageReference(objectPath);
 
     await uploadImage(objectPath, imageResult.imageBytes);
@@ -521,19 +651,24 @@ async function handler(req, res) {
 
     logIllustrationEvent("illustration_succeeded", {
       model: IMAGE_MODEL,
-      generationMode: "style_sheet_edit",
-      styleReferenceUrl: STYLE_REFERENCE_SHEET.url,
-      styleReferenceCount: imageResult.styleReferenceCount,
-      styleReferenceInputCount: imageResult.styleReferenceInputCount,
-      styleReferenceFiles: imageResult.styleReferenceFiles,
-      styleReferenceSources: imageResult.styleReferenceSources,
+      generationMode: generationOptions.mode,
+      styleProfileId: styleProfile.id,
+      styleProfileVersion: styleProfile.version,
+      styleProfileSourceCount: Object.keys(styleProfile.source_hashes || {}).length,
+      referenceCount: imageResult.referenceIds.length,
+      referenceIds: imageResult.referenceIds,
+      referenceHashes: imageResult.referenceHashes,
       size: IMAGE_SIZE,
       quality: IMAGE_QUALITY,
       pageNumber,
       force,
       objectPath,
+      promptSha256: crypto.createHash("sha256").update(prompt).digest("hex"),
       pageTextLength: cleanPromptText(page.text, 1400).length,
       visualBriefLength: cleanPromptText(page.image_prompt, 360).length,
+      providerRequestId: imageResult.requestId,
+      usage: imageResult.usage,
+      estimatedCostUsd: null,
       durationMs: Date.now() - startedAt
     });
     sendJson(req, res, 200, {

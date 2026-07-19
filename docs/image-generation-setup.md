@@ -32,9 +32,9 @@ Set these in Production and Preview after the SQL succeeds:
 \`\`\`text
 IMAGE_GENERATION_ENABLED=true
 OPENAI_IMAGE_API_KEY=<OpenAI API key>
-IMAGE_MODEL=gpt-image-1
-IMAGE_SIZE=1536x1024
-IMAGE_QUALITY=low
+IMAGE_MODEL=<existing Vercel value>
+IMAGE_SIZE=<existing Vercel value>
+IMAGE_QUALITY=<existing Vercel value>
 SUPABASE_SECRET_KEY=<Supabase secret key>
 \`\`\`
 
@@ -46,13 +46,18 @@ the current Secret key (\`sb_secret_...\`). The backend also supports the older
 \`SUPABASE_SERVICE_ROLE_KEY\` name during a transition, but new setup should use
 \`SUPABASE_SECRET_KEY\`.
 
-## Consistent illustration style
+## Economic illustration style
 
-The backend combines fourteen existing illustrations into one reduced contact
-sheet and sends that single sheet to the OpenAI Image Edits endpoint. The sheet
-retains the shared palette, paper texture, linework and hero design without
-asking the model to preserve a full-size prior scene. The current page text is
-the source of truth for the new composition.
+The default `style_only` mode sends **no image references** to OpenAI. It uses
+the versioned textual passport in `assets/illustration-style-profile.json`.
+The passport records the paper, watercolor technique, palette, linework,
+recurring heroes, composition rules and negative constraints inferred from the
+project artwork. It is followed by the changing page event and visual brief.
+
+This is the primary cost-saving measure: the 14 source illustrations inform the
+passport once, but are not charged as image inputs on each generated page. The
+public "Перерисовать" action always remains in `style_only`, so it creates a
+new scene from the current page text without sending the project artwork again.
 
 Main story illustrations:
 
@@ -74,19 +79,38 @@ Page scenes from the existing web slides:
 - \`assets/slides-web/star-for-friend-1.jpg\`;
 - \`assets/slides-web/warm-wind-map-1.jpg\`.
 
-Together they form \`assets/illustration-style-sheet.jpg\`. The endpoint submits
-this one file through the standard multipart \`image\` field. The model receives
-a style guide rather than fourteen separate scene canvases, reducing accidental
-reuse of a bench, forest clearing, clouds or character pose from an old story.
+The source files remain listed in the passport together with their SHA-256
+hashes and roles (`style`, `character`, `composition`, `optional`). Their names
+are not treated as content identifiers.
 
-All sources are public artwork from the project. The sheet is sent only from
-the Vercel backend to OpenAI, never from the visitor's browser.
+### Optional non-default modes
 
-## Style reference reliability
+These backend modes are reserved for future editor tooling and are never chosen
+automatically:
 
-The Vercel Function bundles \`assets/illustration-style-sheet.jpg\` and reads it
-locally before calling OpenAI. If an old deployment does not contain the file,
-it retries the public site URL once.
+- `with_references` sends no more than two explicitly selected allow-listed
+  reference images. It is appropriate only for a specific hero, object or
+  composition that cannot be described accurately in text.
+- `iteration` sends just the current page illustration and a required change
+  instruction. It does not resend the source style references.
+
+### Update the passport after changing artwork
+
+Run this from the repository root:
+
+```bash
+node scripts/update-illustration-style-profile.js
+```
+
+If a source file changed, the command refuses to update hashes silently. Review
+the visual rules in `assets/illustration-style-profile.json`, then deliberately
+update hashes and the profile version:
+
+```bash
+node scripts/update-illustration-style-profile.js --force
+```
+
+The script makes no paid API calls and does not send source images anywhere.
 
 ## Verification
 
@@ -102,6 +126,10 @@ it retries the public site URL once.
 
 6. Sign out and confirm that a page illustration is not reachable through an
    old signed link after its one-hour expiry.
+
+Vercel logs include the generation mode, style profile id/version, hashes of
+non-default references, a prompt SHA-256, provider request ID and returned usage
+when available. Full story text and API keys are not stored in logs.
 
 If Vercel logs \`illustration_succeeded\` but the page still shows no image,
 redeploy this endpoint update. It returns the short-lived link through
