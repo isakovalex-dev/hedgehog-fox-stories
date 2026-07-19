@@ -3,6 +3,7 @@
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const crypto = require("node:crypto");
+const BUNDLED_STYLE_PROFILE = require("../assets/illustration-style-profile.json");
 
 const DEFAULT_ORIGIN = "https://ezhik-i-lisenok.ru";
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ynidvdesfolavhngubqv.supabase.co";
@@ -19,7 +20,6 @@ const IMAGE_QUALITY = process.env.IMAGE_QUALITY || "";
 const IMAGE_BUCKET = "story-illustrations";
 const STORAGE_REFERENCE_PREFIX = "storage://" + IMAGE_BUCKET + "/";
 const MAX_STORY_ID_LENGTH = 80;
-const STYLE_PROFILE_RELATIVE_PATH = path.join("assets", "illustration-style-profile.json");
 const MAX_EXPLICIT_REFERENCES = 2;
 const MAX_REFERENCE_BYTES = 5 * 1024 * 1024;
 const GENERATION_MODES = new Set(["style_only", "with_references", "iteration"]);
@@ -256,27 +256,9 @@ async function fetchStoryAndPage(storyId, pageNumber, accessToken) {
   return { story, page };
 }
 
-function getProjectFileCandidates(relativePath) {
-  return [path.join(process.cwd(), relativePath), path.join(__dirname, "..", relativePath)];
-}
-
-async function readBundledFile(relativePath, fallbackMessage) {
-  for (const candidatePath of getProjectFileCandidates(relativePath)) {
-    try {
-      return await fs.readFile(candidatePath);
-    } catch (error) {
-      if (error?.code !== "ENOENT") throw createHttpError(502, fallbackMessage);
-    }
-  }
-
-  throw createHttpError(502, fallbackMessage);
-}
-
-async function loadStyleProfile() {
-  const bytes = await readBundledFile(STYLE_PROFILE_RELATIVE_PATH, "Illustration style profile is unavailable");
-
+function loadStyleProfile() {
   try {
-    const profile = JSON.parse(bytes.toString("utf8"));
+    const profile = BUNDLED_STYLE_PROFILE;
     const requiredFields = [
       "id",
       "version",
@@ -297,6 +279,25 @@ async function loadStyleProfile() {
   } catch (error) {
     throw createHttpError(502, "Illustration style profile is invalid");
   }
+}
+
+async function readBundledFile(relativePath, fallbackMessage) {
+  const candidates = [
+    path.join(process.cwd(), relativePath),
+    path.join(__dirname, "..", relativePath)
+  ];
+
+  for (const candidatePath of candidates) {
+    try {
+      return await fs.readFile(candidatePath);
+    } catch (error) {
+      if (error?.code !== "ENOENT") {
+        throw createHttpError(502, fallbackMessage);
+      }
+    }
+  }
+
+  throw createHttpError(502, fallbackMessage);
 }
 
 function getImageContentType(filename) {
