@@ -18,11 +18,10 @@ api/create-checkout.js
 api/payment-webhook.js
 ```
 
-No real payment provider is connected yet. The site must not collect money until the
-YooKassa contract is approved, the Supabase payment SQL is installed, and the final
-checkout flow is tested.
-
-YooKassa is the selected provider for the MVP.
+YooKassa is the selected provider for the MVP. The public interface exposes a
+single `Семейный` plan: **299 ₽** for **30 days**, up to **20 new stories**, with
+**no automatic renewal**. The amount, period, and limit are fixed and validated by
+the Vercel backend and Supabase payment RPC, not accepted from the browser.
 
 ## Environment variables
 
@@ -46,18 +45,18 @@ PAYMENTS_ENABLED=true
 PAYMENT_PROVIDER=yookassa
 YOOKASSA_SHOP_ID=<shop_id_from_yookassa>
 YOOKASSA_SECRET_KEY=<secret_key_from_yookassa>
-YOOKASSA_RETURN_URL=https://ezhik-i-lisenok.ru
-YOOKASSA_FAMILY_PRICE_RUB=299.00
-SUPABASE_SERVICE_ROLE_KEY=<supabase_service_role_key>
+YOOKASSA_RETURN_URL=https://ezhik-i-lisenok.ru/?route=/library&payment=return
+SUPABASE_SECRET_KEY=<supabase_secret_key>
 ```
 
 Important:
 
-- `SUPABASE_SERVICE_ROLE_KEY` must be stored only in Vercel backend environment variables.
-- Do not put `SUPABASE_SERVICE_ROLE_KEY`, `YOOKASSA_SECRET_KEY`, or any payment secret into frontend JavaScript.
+- `SUPABASE_SECRET_KEY` must be stored only in Vercel backend environment variables.
+- Do not put `SUPABASE_SECRET_KEY`, `YOOKASSA_SECRET_KEY`, the shop ID, or any payment secret into frontend JavaScript.
 - After changing Vercel environment variables, redeploy the backend project.
-- Keep `PAYMENTS_ENABLED=false` until the YooKassa application is approved and the
-  database setup below has been executed.
+- The server accepts exactly `299.00 RUB`; do not add a browser-editable price field.
+- Keep `PAYMENTS_ENABLED=false` until the database setup below has been executed and
+  all variables are present.
 
 Optional manual checkout mode for a temporary external payment link:
 
@@ -119,7 +118,10 @@ Response for YooKassa mode:
     "amount": {
       "value": "299.00",
       "currency": "RUB"
-    }
+    },
+    "accessDays": 30,
+    "generationLimit": 20,
+    "autoRenew": false
   },
   "meta": {
     "paymentsEnabled": true,
@@ -154,7 +156,7 @@ Current YooKassa behavior:
 - accepts `payment.succeeded`;
 - verifies the payment by requesting the current payment object from YooKassa API;
 - requires `status: succeeded` and `paid: true`;
-- reads `metadata.userId` and `metadata.plan`;
+- reads `metadata.userId`, `metadata.plan`, the 30-day period, and the 20-story limit;
 - verifies the recipient shop, plan metadata, currency, and configured price before
   changing access;
 - calls an atomic Supabase RPC that records the payment event and activates the
@@ -193,7 +195,7 @@ https://hedgehog-fox-stories.vercel.app/api/payment-webhook
 ```
 
 5. Enable the `payment.succeeded` event.
-6. On the public site, sign in and click the subscription payment button.
+6. On the public site, sign in and click `Оплатить 299 ₽`.
 7. Complete a test payment.
 8. Confirm that one `payment_events` row and one family subscription period were created.
 9. Send the same test webhook again and confirm it returns `alreadyProcessed: true`.
@@ -203,6 +205,5 @@ https://hedgehog-fox-stories.vercel.app/api/payment-webhook
 
 1. Add authoritative subscription RLS rules before public paid traffic, so browser
    requests cannot change a paid tariff or a generation counter directly.
-2. Add subscription expiration handling.
-3. Add cancellation/refund event handling.
-4. Add account UI for payment status and tariff management.
+2. Add cancellation/refund event handling.
+3. Add renewal only if a future product decision introduces it. The current plan has no auto-renewal.

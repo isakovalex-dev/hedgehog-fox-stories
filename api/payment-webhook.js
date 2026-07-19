@@ -4,10 +4,13 @@ const PAYMENTS_ENABLED = process.env.PAYMENTS_ENABLED === "true";
 const PAYMENT_PROVIDER = process.env.PAYMENT_PROVIDER || "";
 const PAYMENT_WEBHOOK_SECRET = process.env.PAYMENT_WEBHOOK_SECRET || "";
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ynidvdesfolavhngubqv.supabase.co";
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const YOOKASSA_SHOP_ID = process.env.YOOKASSA_SHOP_ID || "";
 const YOOKASSA_SECRET_KEY = process.env.YOOKASSA_SECRET_KEY || "";
-const YOOKASSA_FAMILY_PRICE_RUB = process.env.YOOKASSA_FAMILY_PRICE_RUB || "";
+const FAMILY_PLAN = "family";
+const FAMILY_PRICE_RUB = "299.00";
+const FAMILY_ACCESS_DAYS = "30";
+const FAMILY_GENERATION_LIMIT = "20";
 
 function sendJson(res, statusCode, payload) {
   res.statusCode = statusCode;
@@ -118,16 +121,6 @@ function getYooKassaAuthHeader() {
   return `Basic ${Buffer.from(`${YOOKASSA_SHOP_ID}:${YOOKASSA_SECRET_KEY}`).toString("base64")}`;
 }
 
-function getYooKassaFamilyPrice() {
-  const normalizedPrice = String(YOOKASSA_FAMILY_PRICE_RUB).trim().replace(",", ".");
-
-  if (!/^\d+(\.\d{2})$/.test(normalizedPrice)) {
-    throw createHttpError(500, "YOOKASSA_FAMILY_PRICE_RUB must use format 299.00");
-  }
-
-  return normalizedPrice;
-}
-
 async function getVerifiedYooKassaPayment(paymentId) {
   if (!paymentId) {
     throw createHttpError(400, "YooKassa payment id is missing");
@@ -154,13 +147,18 @@ async function getVerifiedYooKassaPayment(paymentId) {
     throw createHttpError(400, "YooKassa payment belongs to another shop");
   }
 
-  if (payment?.metadata?.plan !== "family" || !payment?.metadata?.userId) {
+  if (
+    payment?.metadata?.plan !== FAMILY_PLAN ||
+    payment?.metadata?.accessDays !== FAMILY_ACCESS_DAYS ||
+    payment?.metadata?.generationLimit !== FAMILY_GENERATION_LIMIT ||
+    !payment?.metadata?.userId
+  ) {
     throw createHttpError(400, "YooKassa payment metadata is invalid");
   }
 
   if (
     String(payment?.amount?.currency || "") !== "RUB" ||
-    String(payment?.amount?.value || "") !== getYooKassaFamilyPrice()
+    String(payment?.amount?.value || "") !== FAMILY_PRICE_RUB
   ) {
     throw createHttpError(400, "YooKassa payment amount is invalid");
   }
@@ -169,22 +167,22 @@ async function getVerifiedYooKassaPayment(paymentId) {
 }
 
 async function applyVerifiedYooKassaPayment(payment) {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    throw createHttpError(500, "Supabase service role config is missing");
+  if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) {
+    throw createHttpError(500, "Supabase secret key config is missing");
   }
 
   const response = await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/rpc/apply_yookassa_payment`, {
     method: "POST",
     headers: {
-      apikey: SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      apikey: SUPABASE_SECRET_KEY,
+      Authorization: `Bearer ${SUPABASE_SECRET_KEY}`,
       "Content-Type": "application/json",
       Prefer: "return=representation"
     },
     body: JSON.stringify({
       p_provider_payment_id: payment.id,
       p_user_id: payment.metadata.userId,
-      p_plan: payment.metadata.plan,
+      p_plan: FAMILY_PLAN,
       p_amount: payment.amount.value,
       p_currency: payment.amount.currency,
       p_paid_at: payment.captured_at || new Date().toISOString()

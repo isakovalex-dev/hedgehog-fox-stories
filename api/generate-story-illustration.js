@@ -585,6 +585,7 @@ async function handler(req, res) {
       quality: IMAGE_QUALITY,
       pageNumber,
       force,
+      objectPath,
       pageTextLength: cleanPromptText(page.text, 1400).length,
       visualBriefLength: cleanPromptText(page.image_prompt, 360).length,
       durationMs: Date.now() - startedAt

@@ -9,6 +9,8 @@
   const appConfig = window.HFConfig || {};
   const { EVENTS, trackEvent } = analyticsService;
   const BACKEND_GENERATION_TIMEOUT_MS = 30000;
+  const PAYMENT_CHECKOUT_TIMEOUT_MS = 20000;
+  const paymentReturnIntent = new URLSearchParams(window.location.search).get("payment") === "return";
 
   const storyList = document.querySelector("#storyList");
   const libraryList = document.querySelector("#libraryList");
@@ -52,6 +54,8 @@
   const subscriptionPeriodText = document.querySelector("#subscriptionPeriodText");
   const subscriptionWarning = document.querySelector("#subscriptionWarning");
   const subscriptionFallbackNotice = document.querySelector("#subscriptionFallbackNotice");
+  const paymentButtons = document.querySelectorAll("[data-start-checkout]");
+  const paymentStatusElements = document.querySelectorAll("[data-payment-status]");
   const authPanel = document.querySelector("#authPanel");
   const authForm = document.querySelector("#authForm");
   const authAdultConsent = document.querySelector("#authAdultConsent");
@@ -115,6 +119,9 @@
   let librarySearchQuery = "";
   let librarySortMode = "newest";
   let activeRoute = "home";
+  let paymentCheckoutInProgress = false;
+  let paymentCheckoutMessage = "";
+  let paymentCheckoutTone = "";
 
   const PUBLIC_SITE_ORIGIN = "https://ezhik-i-lisenok.ru";
   const DEFAULT_DOCUMENT_TITLE = "Добрые сказки для детей 5–10 лет — Ежонок и Лисёнок";
@@ -602,7 +609,11 @@
     }
 
     if (accountPaymentText) {
-      accountPaymentText.textContent = "Пока недоступны";
+      accountPaymentText.textContent = isSignedIn
+        ? subscription.status === "active"
+          ? "Разовая оплата YooKassa, без автопродления"
+          : "Разовая оплата YooKassa: 299 ₽ за 30 дней"
+        : "Войдите, чтобы оплатить тариф";
     }
   }
 
@@ -773,6 +784,165 @@
     renderSubscriptionPanel();
   }
 
+  function hasActiveFamilyAccess(subscription, periodEnd) {
+    return (
+      subscription?.status === "active" &&
+      Boolean(periodEnd) &&
+      new Date(periodEnd).getTime() > Date.now()
+    );
+  }
+
+  function setPaymentCheckoutStatus(message = "", tone = "") {
+    paymentCheckoutMessage = message;
+    paymentCheckoutTone = tone;
+
+    paymentStatusElements.forEach((element) => {
+      element.textContent = message;
+      element.classList.toggle("success", tone === "success");
+      element.classList.toggle("warning", tone === "warning");
+    });
+  }
+
+  function renderPaymentActions() {
+    const subscription = subscriptionService.getSubscriptionState();
+    const usage = subscriptionService.getGenerationUsage();
+    const periodEnd = usage.periodEnd || subscription.currentPeriodEnd;
+    const hasActiveAccess = hasActiveFamilyAccess(subscription, periodEnd);
+    const authState = supabaseService?.getAuthState?.() || { status: "signed_out" };
+    const isSignedIn = authState.status === "signed_in" && Boolean(supabaseService?.getCurrentUser?.()?.id);
+
+    paymentButtons.forEach((button) => {
+      button.hidden = hasActiveAccess;
+      button.disabled = paymentCheckoutInProgress;
+
+      if (paymentCheckoutInProgress) {
+        button.textContent = "Создаём оплату...";
+      } else if (isSignedIn) {
+        button.textContent = "Оплатить 299 ₽";
+      } else {
+        button.textContent = "Войти для оплаты";
+      }
+    });
+
+    if (hasActiveAccess && !paymentCheckoutMessage) {
+      setPaymentCheckoutStatus(`Семейный доступ активен до ${formatDate(periodEnd)}.`, "success");
+    }
+  }
+
+  async function parsePaymentResponse(response) {
+    const rawText = await response.text();
+    let payload = null;
+
+    try {
+      payload = rawText ? JSON.parse(rawText) : null;
+    } catch (error) {
+      throw new Error("Сервис оплаты вернул непонятный ответ. Попробуйте ещё раз.");
+    }
+
+    if (!response.ok) {
+      throw new Error(payload?.message || "Не удалось подготовить оплату. Попробуйте ещё раз.");
+    }
+
+    return payload;
+  }
+
+  async function startSubscriptionCheckout() {
+    if (paymentCheckoutInProgress) return;
+
+    const session = await supabaseService?.ensureFreshSession?.();
+    const accessToken = session?.access_token || "";
+
+    if (!accessToken) {
+      setPaymentCheckoutStatus("Чтобы оплатить тариф, войдите в аккаунт.", "warning");
+      setAuthNotice("Войдите или зарегистрируйтесь, затем вернитесь к оплате тарифа.", "warning");
+      navigateTo({ name: "library" });
+      renderAuthPanel();
+      window.setTimeout(() => document.querySelector("#authEmail")?.focus({ preventScroll: true }), 0);
+      return;
+    }
+
+    if (!appConfig.PAYMENT_API_URL) {
+      setPaymentCheckoutStatus("Оплата временно недоступна. Попробуйте позднее.", "warning");
+      return;
+    }
+
+    paymentCheckoutInProgress = true;
+    setPaymentCheckoutStatus("Создаём безопасную страницу оплаты YooKassa...");
+    renderPaymentActions();
+    trackEvent(EVENTS.SUBSCRIPTION_BUTTON_CLICKED, { plan: "family", amount: 299 });
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), PAYMENT_CHECKOUT_TIMEOUT_MS);
+
+    try {
+      const response = await window.fetch(appConfig.PAYMENT_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({ plan: "family" }),
+        signal: controller.signal
+      });
+      const payload = await parsePaymentResponse(response);
+      const checkoutUrl = String(payload?.checkout?.checkoutUrl || "").trim();
+      if (!checkoutUrl) {
+        throw new Error("Сервис оплаты не вернул ссылку. Попробуйте ещё раз.");
+      }
+      const checkoutUrlObject = new URL(checkoutUrl);
+
+      if (checkoutUrlObject.protocol !== "https:") {
+        throw new Error("Сервис оплаты вернул небезопасную ссылку. Попробуйте ещё раз.");
+      }
+
+      window.location.assign(checkoutUrlObject.toString());
+    } catch (error) {
+      const message = error?.name === "AbortError"
+        ? "Подготовка оплаты заняла слишком долго. Попробуйте ещё раз."
+        : error?.message || "Не удалось подготовить оплату. Попробуйте ещё раз.";
+      setPaymentCheckoutStatus(message, "warning");
+      console.warn("[app] Cannot start checkout", error);
+    } finally {
+      window.clearTimeout(timeoutId);
+      paymentCheckoutInProgress = false;
+      renderPaymentActions();
+    }
+  }
+
+  async function refreshAfterPaymentReturn() {
+    if (!paymentReturnIntent) return;
+
+    setPaymentCheckoutStatus("Проверяем оплату и обновляем тариф...");
+    await new Promise((resolve) => window.setTimeout(resolve, 2500));
+
+    try {
+      await supabaseService.ensureFreshSession?.();
+      await subscriptionService.initializeSubscription();
+      const subscription = subscriptionService.getSubscriptionState();
+      const usage = subscriptionService.getGenerationUsage();
+      const periodEnd = usage.periodEnd || subscription.currentPeriodEnd;
+
+      if (hasActiveFamilyAccess(subscription, periodEnd)) {
+        setPaymentCheckoutStatus("Оплата подтверждена. Семейный тариф активирован.", "success");
+      } else {
+        setPaymentCheckoutStatus(
+          "Оплата обрабатывается. Обычно это занимает меньше минуты. Нажмите «Обновить синхронизацию» немного позже.",
+          "warning"
+        );
+      }
+    } catch (error) {
+      setPaymentCheckoutStatus(
+        "Не удалось обновить статус оплаты. Нажмите «Обновить синхронизацию» немного позже.",
+        "warning"
+      );
+      console.warn("[app] Cannot refresh payment status", error);
+    }
+
+    renderSubscriptionPanel();
+    renderAuthPanel();
+    updateGenerationStatus();
+  }
+
   function renderSubscriptionPanel() {
     if (!subscriptionScreen) return;
 
@@ -805,6 +975,7 @@
     }
 
     renderAccountSummary();
+    renderPaymentActions();
   }
 
   function renderLikeButton(story, variant = "") {
@@ -1974,6 +2145,12 @@
 
   generatorForm.addEventListener("submit", handleGeneratorSubmit);
 
+  paymentButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      void startSubscriptionCheckout();
+    });
+  });
+
   document.querySelector("#openReadyStoryButton")?.addEventListener("click", () => {
     const storyId = window.HFMiniGames?.getStoryId?.();
     if (!storyId) return;
@@ -2214,6 +2391,8 @@
       renderAuthPanel();
       renderAllStoryLists();
     }
+
+    await refreshAfterPaymentReturn();
 
     if (passwordRecoverySession || supabaseService?.hasPasswordRecoveryIntent?.()) {
       navigateTo({ name: "library" }, { replace: true, focus: false });

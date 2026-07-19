@@ -20,8 +20,10 @@ docs/supabase-story-illustrations-storage.sql
 \`\`\`
 
 It creates a private \`story-illustrations\` bucket. The Vercel backend uploads
-objects using a Supabase server secret. A signed URL is issued to the signed-in
-owner only when the library is loaded.
+objects using a Supabase server secret. The site requests a short-lived signed
+URL from the Vercel backend only after that backend verifies the signed-in story
+owner. This works even if an older bucket is missing its browser-side Storage
+policy, while the SQL policy remains useful as defence in depth.
 
 ## Vercel environment variables
 
@@ -122,6 +124,11 @@ the corresponding public URL once as a fallback. The optional
 
 6. Sign out and confirm that a page illustration is not reachable through an
    old signed link after its one-hour expiry.
+
+If Vercel logs \`illustration_succeeded\` but the page still shows no image,
+redeploy this endpoint update. It returns the short-lived link through
+\`/api/get-story-illustration-url\`; the browser no longer depends solely on a
+direct Supabase Storage signing request.
 
 ## Fallback behavior
 

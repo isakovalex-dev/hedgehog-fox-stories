@@ -33,7 +33,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=19" />
+    <link rel="stylesheet" href="styles.css?v=20" />
   </head>
   <body>
     <a class="skip-link" href="#mainContent">Перейти к содержанию</a>
@@ -175,8 +175,9 @@
             <li>Акварельные иллюстрации к историям</li>
           </ul>
           <div class="pricing-card-action">
-            <a class="button primary" href="/create">Создать историю</a>
+            <button class="button primary" type="button" data-start-checkout>Оплатить 299 ₽</button>
             <p>Разовый платёж за 30 дней доступа. Автоматических списаний нет.</p>
+            <p class="payment-action-status" data-payment-status aria-live="polite"></p>
           </div>
         </article>
         <p class="pricing-note">Бесплатный режим включает 1 новую историю за 30 дней.</p>
@@ -287,7 +288,9 @@
             <p class="subscription-warning hidden" id="subscriptionWarning"></p>
             <p class="subscription-fallback hidden" id="subscriptionFallbackNotice"></p>
             <p class="subscription-price"><strong>Семейный: 299 ₽ за 30 дней.</strong> До 20 новых историй.</p>
-            <p>Оплата станет доступна после завершения подключения платёжного сервиса.</p>
+            <p>Разовая оплата через YooKassa. Автоматических списаний нет.</p>
+            <button class="button primary" type="button" data-start-checkout>Перейти к оплате</button>
+            <p class="payment-action-status" data-payment-status aria-live="polite"></p>
           </aside>
         </div>
       </section>
@@ -790,15 +793,15 @@
       <small>© Ежонок и Лисёнок, 2026</small>
     </footer>
 
-    <script src="js/config.js?v=12"></script>
+    <script src="js/config.js?v=14"></script>
     <script src="js/storageService.js?v=12"></script>
-    <script src="js/supabaseService.js?v=14"></script>
+    <script src="js/supabaseService.js?v=15"></script>
     <script src="js/storyService.js?v=12"></script>
     <script src="js/likeService.js?v=12"></script>
     <script src="js/subscriptionService.js?v=12"></script>
     <script src="js/analyticsService.js?v=14"></script>
     <script src="js/miniGamesData.js?v=1"></script>
     <script src="js/miniGames.js?v=1"></script>
-    <script src="js/app.js?v=21"></script>
+    <script src="js/app.js?v=22"></script>
   </body>
 </html>

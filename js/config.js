@@ -8,6 +8,8 @@
     GENERATION_API_ENABLED: true,
     GENERATION_API_URL: "https://hedgehog-fox-stories.vercel.app/api/generate-story",
     ILLUSTRATION_API_ENABLED: true,
-    ILLUSTRATION_API_URL: "https://hedgehog-fox-stories.vercel.app/api/generate-story-illustration"
+    ILLUSTRATION_API_URL: "https://hedgehog-fox-stories.vercel.app/api/generate-story-illustration",
+    ILLUSTRATION_SIGNING_API_URL: "https://hedgehog-fox-stories.vercel.app/api/get-story-illustration-url",
+    PAYMENT_API_URL: "https://hedgehog-fox-stories.vercel.app/api/create-checkout"
   };
 })(window);

@@ -11,15 +11,26 @@ const PAYMENT_PROVIDER = process.env.PAYMENT_PROVIDER || "";
 const PAYMENT_CHECKOUT_URL = process.env.PAYMENT_CHECKOUT_URL || "";
 const YOOKASSA_SHOP_ID = process.env.YOOKASSA_SHOP_ID || "";
 const YOOKASSA_SECRET_KEY = process.env.YOOKASSA_SECRET_KEY || "";
-const YOOKASSA_RETURN_URL = process.env.YOOKASSA_RETURN_URL || DEFAULT_ORIGIN;
-const YOOKASSA_FAMILY_PRICE_RUB = process.env.YOOKASSA_FAMILY_PRICE_RUB || "";
+const YOOKASSA_RETURN_URL =
+  process.env.YOOKASSA_RETURN_URL || DEFAULT_ORIGIN + "/?route=/library&payment=return";
+const FAMILY_PLAN = "family";
+const FAMILY_PRICE_RUB = "299.00";
+const FAMILY_ACCESS_DAYS = 30;
+const FAMILY_GENERATION_LIMIT = 20;
+const CHECKOUT_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const CHECKOUT_RATE_LIMIT_MAX_REQUESTS = 5;
+const checkoutRequestTimes = new Map();
 const LOCAL_ORIGINS = new Set([
   "http://localhost:8000",
   "http://localhost:8001",
   "http://localhost:8002",
   "http://localhost:8003",
   "http://localhost:8004",
-  "http://127.0.0.1:8000"
+  "http://localhost:8020",
+  "http://localhost:8021",
+  "http://localhost:8022",
+  "http://127.0.0.1:8000",
+  "http://127.0.0.1:8020"
 ]);
 
 function getAllowedOrigin(origin) {
@@ -102,6 +113,25 @@ async function getAuthenticatedUser(accessToken) {
   return user;
 }
 
+async function hasActiveFamilySubscription(user, accessToken) {
+  const currentTime = encodeURIComponent(new Date().toISOString());
+  const response = await fetch(
+    `${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/subscriptions?select=id&user_id=eq.${encodeURIComponent(
+      user.id
+    )}&status=eq.active&current_period_end=gt.${currentTime}&limit=1`,
+    {
+      method: "GET",
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${accessToken}`
+      }
+    }
+  );
+  const subscriptions = await parseResponse(response);
+
+  return Array.isArray(subscriptions) && subscriptions.length > 0;
+}
+
 function getYooKassaAuthHeader() {
   if (!YOOKASSA_SHOP_ID || !YOOKASSA_SECRET_KEY) {
     throw createHttpError(500, "YooKassa credentials are not configured");
@@ -110,20 +140,31 @@ function getYooKassaAuthHeader() {
   return `Basic ${Buffer.from(`${YOOKASSA_SHOP_ID}:${YOOKASSA_SECRET_KEY}`).toString("base64")}`;
 }
 
-function getYooKassaFamilyPrice() {
-  const normalizedPrice = String(YOOKASSA_FAMILY_PRICE_RUB).trim().replace(",", ".");
+function enforceCheckoutRateLimit(userId) {
+  const now = Date.now();
+  const requestTimes = (checkoutRequestTimes.get(userId) || []).filter(
+    (time) => now - time < CHECKOUT_RATE_LIMIT_WINDOW_MS
+  );
 
-  if (!/^\d+(\.\d{2})$/.test(normalizedPrice)) {
-    throw createHttpError(500, "YOOKASSA_FAMILY_PRICE_RUB must use format 299.00");
+  if (requestTimes.length >= CHECKOUT_RATE_LIMIT_MAX_REQUESTS) {
+    const retryAfterSeconds = Math.max(
+      1,
+      Math.ceil((CHECKOUT_RATE_LIMIT_WINDOW_MS - (now - requestTimes[0])) / 1000)
+    );
+    throw createHttpError(
+      429,
+      `Слишком много попыток начать оплату. Повторите через ${retryAfterSeconds} сек.`
+    );
   }
 
-  return normalizedPrice;
+  requestTimes.push(now);
+  checkoutRequestTimes.set(userId, requestTimes);
 }
 
 async function createYooKassaPayment(user) {
   const paymentBody = {
     amount: {
-      value: getYooKassaFamilyPrice(),
+      value: FAMILY_PRICE_RUB,
       currency: "RUB"
     },
     capture: true,
@@ -131,11 +172,13 @@ async function createYooKassaPayment(user) {
       type: "redirect",
       return_url: YOOKASSA_RETURN_URL
     },
-    description: "Семейный тариф Ежонок и Лисёнок",
+    description: "Ежонок и Лисёнок: семейный доступ на 30 дней",
     save_payment_method: false,
     metadata: {
       userId: user.id,
-      plan: "family",
+      plan: FAMILY_PLAN,
+      accessDays: String(FAMILY_ACCESS_DAYS),
+      generationLimit: String(FAMILY_GENERATION_LIMIT),
       subscriptionStatus: "active"
     }
   };
@@ -159,10 +202,13 @@ async function createYooKassaPayment(user) {
   return {
     checkoutUrl,
     provider: "yookassa",
-    plan: "family",
+    plan: FAMILY_PLAN,
     providerPaymentId: payment.id,
     status: payment.status,
-    amount: payment.amount
+    amount: payment.amount,
+    accessDays: FAMILY_ACCESS_DAYS,
+    generationLimit: FAMILY_GENERATION_LIMIT,
+    autoRenew: false
   };
 }
 
@@ -212,7 +258,14 @@ async function handler(req, res) {
   }
 
   try {
-    const user = await getAuthenticatedUser(getBearerToken(req));
+    const accessToken = getBearerToken(req);
+    const user = await getAuthenticatedUser(accessToken);
+
+    if (await hasActiveFamilySubscription(user, accessToken)) {
+      throw createHttpError(409, "Семейный тариф уже активен для этого аккаунта.");
+    }
+
+    enforceCheckoutRateLimit(user.id);
     const checkout = await getCheckoutPayload(user);
 
     sendJson(req, res, 200, {

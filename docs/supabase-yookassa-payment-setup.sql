@@ -51,8 +51,8 @@ begin
     raise exception 'Unsupported payment plan';
   end if;
 
-  if p_currency <> 'RUB' or p_amount <= 0 then
-    raise exception 'Invalid payment amount';
+  if p_currency <> 'RUB' or p_amount <> 299.00 then
+    raise exception 'Unexpected payment amount';
   end if;
 
   insert into public.payment_events (

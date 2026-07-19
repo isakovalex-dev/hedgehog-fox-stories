@@ -534,7 +534,7 @@
         pageNumber: Number(pageRow.page_number || index + 1),
         text: pageRow.text || "",
         sceneTag: pageRow.scene_tag || "forest_day",
-        imageUrl: await resolveStoryImageUrl(pageRow.image_url || ""),
+        imageUrl: await resolveStoryImageUrl(pageRow.image_url || "", storyRow.id),
         imagePrompt: pageRow.image_prompt || ""
       }))
     );
@@ -602,11 +602,22 @@
       .join("/");
   }
 
-  async function resolveStoryImageUrl(imageUrl) {
+  async function resolveStoryImageUrl(imageUrl, storyId = "") {
     const reference = parseStorageReference(imageUrl);
     if (!reference) return imageUrl || "";
 
     try {
+      if (config.ILLUSTRATION_SIGNING_API_URL && storyId) {
+        const session = await ensureFreshSession();
+        const response = await window.fetch(config.ILLUSTRATION_SIGNING_API_URL, {
+          method: "POST",
+          headers: getAuthHeaders(session?.access_token || ""),
+          body: JSON.stringify({ imageReference: imageUrl, storyId })
+        });
+        const payload = await parseResponse(response);
+        if (payload?.signedUrl) return payload.signedUrl;
+      }
+
       const payload = await rest(
         `/storage/v1/object/sign/${encodeURIComponent(reference.bucket)}/${encodeStoragePath(reference.objectPath)}`,
         {

@@ -48,7 +48,7 @@ Vercel Functions
 - [x] Generation usage limits exist.
 - [x] Account UI shows account, storage, tariff, payment status, and manual sync.
 - [x] My Library has search, sorting, counts, and empty states.
-- [x] YooKassa backend scaffold exists but is not active for production.
+- [x] YooKassa checkout and verified webhook flow exist; activation requires production variables and SQL.
 
 ## Must Check Before Public Sharing
 
@@ -96,8 +96,8 @@ Payments are intentionally deferred until the owner is ready for legal payment a
 - [x] Confirm self-employed status for payment acceptance.
 - [x] Publish public requisites, INN, contact, and fixed tariff details.
 - [ ] Submit the requisites page to YooKassa.
-- [ ] Enable `PAYMENTS_ENABLED=true` only after YooKassa approval.
-- [ ] Confirm Vercel has production YooKassa credentials.
+- [ ] Configure `PAYMENTS_ENABLED=true` and `PAYMENT_PROVIDER=yookassa` in Vercel.
+- [ ] Confirm Vercel has `YOOKASSA_SHOP_ID`, `YOOKASSA_SECRET_KEY`, and `SUPABASE_SECRET_KEY`.
 - [ ] Run the protected YooKassa payment-events SQL in Supabase.
 - [ ] Configure YooKassa webhook:
 

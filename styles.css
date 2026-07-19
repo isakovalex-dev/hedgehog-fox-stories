@@ -2772,6 +2772,23 @@ h2 {
   color: var(--brown) !important;
 }
 
+.payment-action-status {
+  width: 100%;
+  margin: 0 !important;
+  color: var(--muted) !important;
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.payment-action-status.success {
+  color: var(--green) !important;
+}
+
+.payment-action-status.warning {
+  color: #8a4a2e !important;
+}
+
 .value-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
