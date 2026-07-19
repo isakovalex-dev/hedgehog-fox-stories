@@ -613,16 +613,22 @@
     const reference = parseStorageReference(imageUrl);
     if (!reference) return imageUrl || "";
 
+    // The backend signer is preferred because the bucket remains private. Do not
+    // let a transient backend failure prevent the authenticated Storage fallback.
     try {
       if (config.ILLUSTRATION_SIGNING_API_URL && storyId) {
-        const session = await ensureFreshSession();
-        const response = await window.fetch(config.ILLUSTRATION_SIGNING_API_URL, {
-          method: "POST",
-          headers: getAuthHeaders(session?.access_token || ""),
-          body: JSON.stringify({ imageReference: imageUrl, storyId })
-        });
-        const payload = await parseResponse(response);
-        if (payload?.signedUrl) return payload.signedUrl;
+        try {
+          const session = await ensureFreshSession();
+          const response = await window.fetch(config.ILLUSTRATION_SIGNING_API_URL, {
+            method: "POST",
+            headers: getAuthHeaders(session?.access_token || ""),
+            body: JSON.stringify({ imageReference: imageUrl, storyId })
+          });
+          const payload = await parseResponse(response);
+          if (payload?.signedUrl) return payload.signedUrl;
+        } catch (signingError) {
+          console.warn("[supabaseService] Backend illustration signing failed; trying Storage fallback", signingError);
+        }
       }
 
       const payload = await rest(

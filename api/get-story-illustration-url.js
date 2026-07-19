@@ -38,6 +38,10 @@ function createHttpError(statusCode, message) {
   return error;
 }
 
+function logSigningEvent(event, details = {}) {
+  console.log("[get-story-illustration-url]", JSON.stringify({ event, ...details }));
+}
+
 function getBearerToken(req) {
   const authorization = req.headers?.authorization || req.headers?.Authorization || "";
   const match = String(authorization).match(/^Bearer\s+(.+)$/i);
@@ -199,8 +203,13 @@ async function handler(req, res) {
     await verifyStoryOwnership(body.storyId, accessToken);
     const signedUrl = await createSignedUrl(objectPath);
 
+    logSigningEvent("signed_url_created", { storyId: body.storyId, objectPath });
     sendJson(req, res, 200, { signedUrl, expiresIn: SIGNED_URL_TTL_SECONDS });
   } catch (error) {
+    logSigningEvent("signed_url_failed", {
+      statusCode: error.statusCode || 500,
+      message: error.message || "Unknown error"
+    });
     sendJson(req, res, error.statusCode || 500, {
       error: "Illustration URL request failed",
       message: error.message || "Unknown error"
