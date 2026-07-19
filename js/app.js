@@ -10,6 +10,7 @@
   const { EVENTS, trackEvent } = analyticsService;
   const BACKEND_GENERATION_TIMEOUT_MS = 30000;
   const PAYMENT_CHECKOUT_TIMEOUT_MS = 20000;
+  const generationMiniGamesEnabled = appConfig.GENERATION_MINI_GAMES_ENABLED === true;
   const paymentReturnIntent = new URLSearchParams(window.location.search).get("payment") === "return";
 
   const storyList = document.querySelector("#storyList");
@@ -550,16 +551,25 @@
     if (!generationWaitPanel) return;
 
     generationWaitStartedAt = Date.now();
-    window.HFMiniGames?.open?.(getFormValue(formData, "ageGroup", "5-7"));
+    generationWaitPanel.classList.toggle("is-simple", !generationMiniGamesEnabled);
     generationWaitPanel.classList.remove("hidden");
-    renderGenerationTask(buildGenerationTask(formData));
     updateGenerationWaitTitle();
 
     window.clearInterval(generationTaskTimerId);
     window.clearInterval(generationProgressTimerId);
-    generationTaskTimerId = window.setInterval(() => {
+
+    if (generationMiniGamesEnabled) {
+      window.HFMiniGames?.open?.(getFormValue(formData, "ageGroup", "5-7"));
       renderGenerationTask(buildGenerationTask(formData));
-    }, 18000);
+      generationTaskTimerId = window.setInterval(() => {
+        renderGenerationTask(buildGenerationTask(formData));
+      }, 18000);
+    } else {
+      // Код мини-игр остаётся подключённым, но экран и задания временно не запускаются.
+      window.HFMiniGames?.close?.();
+      activeGenerationTask = null;
+    }
+
     generationProgressTimerId = window.setInterval(updateGenerationWaitTitle, 1000);
   }
 
@@ -1846,12 +1856,16 @@
         meta: generated.meta,
         fallbackReason: generated.fallbackReason
       });
-      window.HFMiniGames?.storyReady?.(savedStory.id);
+      if (generationMiniGamesEnabled) {
+        window.HFMiniGames?.storyReady?.(savedStory.id);
+      }
     } catch (error) {
       console.warn("[app] Cannot save generated story", error);
       updateGenerationStatus(`Не удалось создать историю: ${error.message || "ошибка"}`);
       renderAuthPanel();
-      window.HFMiniGames?.storyError?.();
+      if (generationMiniGamesEnabled) {
+        window.HFMiniGames?.storyError?.();
+      }
     } finally {
       stopGenerationWaiting();
     }

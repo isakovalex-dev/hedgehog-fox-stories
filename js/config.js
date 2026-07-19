@@ -5,6 +5,8 @@
     SUPABASE_URL: "https://ynidvdesfolavhngubqv.supabase.co",
     SUPABASE_ANON_KEY: "sb_publishable_nQg--YaINF8OoBd4wceHkA_yo76Z5hy",
     SUPABASE_ENABLED: true,
+    // Временный флаг: поменяйте на true, чтобы вернуть мини-игры во время генерации.
+    GENERATION_MINI_GAMES_ENABLED: false,
     GENERATION_API_ENABLED: true,
     GENERATION_API_URL: "https://hedgehog-fox-stories.vercel.app/api/generate-story",
     ILLUSTRATION_API_ENABLED: true,

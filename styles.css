@@ -799,6 +799,10 @@ h2 {
   gap: 0.8rem;
 }
 
+.generation-wait-panel.is-simple .generation-task {
+  display: none;
+}
+
 .generation-task p {
   margin: 0;
 }
