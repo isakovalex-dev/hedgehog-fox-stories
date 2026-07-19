@@ -118,8 +118,8 @@
   let passwordRecoverySession = null;
   let activeGenerationTask = null;
   let generationTaskTimerId = null;
-  let generationProgressTimerId = null;
-  let generationWaitStartedAt = 0;
+  let generationMessageTimerId = null;
+  let generationWaitMessageIndex = 0;
   let librarySearchQuery = "";
   let librarySortMode = "newest";
   let activeRoute = "home";
@@ -537,48 +537,44 @@
   }
 
   function updateGenerationWaitTitle() {
-    if (!generationWaitTitle || !generationWaitStartedAt) return;
+    if (!generationWaitTitle) return;
 
-    const elapsedSeconds = Math.max(0, Math.round((Date.now() - generationWaitStartedAt) / 1000));
-    const messageIndex = Math.floor(elapsedSeconds / 12) % generationWaitMessages.length;
-    const minutes = Math.floor(elapsedSeconds / 60);
-    const seconds = String(elapsedSeconds % 60).padStart(2, "0");
-
-    generationWaitTitle.textContent = `${generationWaitMessages[messageIndex]} ${minutes}:${seconds}`;
+    generationWaitTitle.textContent = generationWaitMessages[generationWaitMessageIndex];
+    generationWaitMessageIndex = (generationWaitMessageIndex + 1) % generationWaitMessages.length;
   }
 
   function startGenerationWaiting(formData) {
     if (!generationWaitPanel) return;
 
-    generationWaitStartedAt = Date.now();
+    generationWaitMessageIndex = 0;
     generationWaitPanel.classList.toggle("is-simple", !generationMiniGamesEnabled);
     generationWaitPanel.classList.remove("hidden");
     updateGenerationWaitTitle();
 
     window.clearInterval(generationTaskTimerId);
-    window.clearInterval(generationProgressTimerId);
+    window.clearInterval(generationMessageTimerId);
+
+    renderGenerationTask(buildGenerationTask(formData));
+    generationTaskTimerId = window.setInterval(() => {
+      renderGenerationTask(buildGenerationTask(formData));
+    }, 18000);
 
     if (generationMiniGamesEnabled) {
       window.HFMiniGames?.open?.(getFormValue(formData, "ageGroup", "5-7"));
-      renderGenerationTask(buildGenerationTask(formData));
-      generationTaskTimerId = window.setInterval(() => {
-        renderGenerationTask(buildGenerationTask(formData));
-      }, 18000);
     } else {
-      // Код мини-игр остаётся подключённым, но экран и задания временно не запускаются.
+      // Полноэкранные мини-игры отключены, а компактные задания под формой остаются.
       window.HFMiniGames?.close?.();
-      activeGenerationTask = null;
     }
 
-    generationProgressTimerId = window.setInterval(updateGenerationWaitTitle, 1000);
+    generationMessageTimerId = window.setInterval(updateGenerationWaitTitle, 12000);
   }
 
   function stopGenerationWaiting() {
     window.clearInterval(generationTaskTimerId);
-    window.clearInterval(generationProgressTimerId);
+    window.clearInterval(generationMessageTimerId);
     generationTaskTimerId = null;
-    generationProgressTimerId = null;
-    generationWaitStartedAt = 0;
+    generationMessageTimerId = null;
+    generationWaitMessageIndex = 0;
     activeGenerationTask = null;
     generationWaitPanel?.classList.add("hidden");
   }
