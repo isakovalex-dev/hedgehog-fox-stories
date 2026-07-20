@@ -1053,7 +1053,9 @@
 
   function renderStoryCard(story, options = {}) {
     const [top, mid, bottom] = story.colors;
-    const sourcePill = story.source === "user" ? `<span class="pill user-pill">Моя история</span>` : "";
+    const sourceBadge = story.source === "user"
+      ? `<span class="story-source-badge story-source-badge--user"><span class="story-source-badge__icon" aria-hidden="true">✎</span><span>Моя история</span></span>`
+      : `<span class="story-source-badge story-source-badge--author"><span class="story-source-badge__icon" aria-hidden="true">✦</span><span>История от автора</span></span>`;
     const deleteButton = options.canDelete
       ? `<button class="button quiet" data-delete-story="${escapeAttribute(story.id)}" type="button">Удалить</button>`
       : "";
@@ -1077,14 +1079,16 @@
           <div class="story-meta">
             <span class="pill">${escapeHtml(story.age)} лет</span>
             <span class="pill">${escapeHtml(story.time)}</span>
-            ${sourcePill}
             ${renderLikeButton(story, "compact")}
           </div>
           <p>${escapeHtml(story.description)}</p>
-          <div class="card-actions">
-            <button class="button primary" data-read="${escapeAttribute(story.id)}" type="button">Читать</button>
-            ${illustrateButton}
-            ${deleteButton}
+          <div class="card-footer">
+            <div class="card-actions">
+              <button class="button primary" data-read="${escapeAttribute(story.id)}" type="button">Читать</button>
+              ${illustrateButton}
+              ${deleteButton}
+            </div>
+            ${sourceBadge}
           </div>
         </div>
       </article>

@@ -2658,6 +2658,55 @@ h2 {
   font-size: 0.82rem;
 }
 
+.card-footer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.7rem;
+  margin-top: auto;
+}
+
+.card-footer .card-actions {
+  flex: 1 1 auto;
+  margin-top: 0;
+}
+
+.story-source-badge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 0.38rem;
+  min-height: 2.45rem;
+  border: 1px solid rgba(126, 119, 63, 0.62);
+  border-radius: 999px;
+  padding: 0.5rem 0.82rem;
+  color: var(--brown);
+  background: rgba(255, 252, 241, 0.92);
+  box-shadow: 0 2px 5px rgba(75, 61, 37, 0.1);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.story-source-badge__icon {
+  color: var(--olive);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.story-source-badge--user {
+  border-color: rgba(117, 142, 94, 0.78);
+  background: rgba(236, 242, 224, 0.94);
+}
+
+.story-source-badge--author {
+  border-color: rgba(167, 133, 77, 0.46);
+  background: rgba(255, 249, 232, 0.94);
+}
+
 .reading-values {
   width: min(1180px, calc(100% - 2.5rem));
   margin: clamp(2rem, 5vw, 4.5rem) auto;
