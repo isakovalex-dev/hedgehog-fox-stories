@@ -31,6 +31,8 @@
   const navLoginButton = document.querySelector("#navLoginButton");
   const navStoriesButton = document.querySelector("#navStoriesButton");
   const navMemoryButton = document.querySelector("#navMemoryButton");
+  const navPricingButton = document.querySelector("#navPricingButton");
+  const navParentsButton = document.querySelector("#navParentsButton");
   const navGeneratorButton = document.querySelector("#navGeneratorButton");
   const navLibraryButton = document.querySelector("#navLibraryButton");
   const navAboutButton = document.querySelector("#navAboutButton");
@@ -80,6 +82,7 @@
   const memoryPromo = document.querySelector("#games");
   const memoryGameSection = document.querySelector("#memoryGameSection");
   const readingValuesSection = document.querySelector("#why-read");
+  const pricingSection = document.querySelector("#pricing");
   const generatorSection = document.querySelector("#generator");
   const librarySection = document.querySelector("#library");
   const aboutSection = document.querySelector("#about");
@@ -280,8 +283,9 @@
   }
 
   function navigateTo(route, options = {}) {
-    const url = getRouteUrl(route);
-    const currentUrl = `${window.location.pathname}${window.location.search}`;
+    const anchor = options.hash ? `#${String(options.hash).replace(/^#/, "")}` : "";
+    const url = `${getRouteUrl(route)}${anchor}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     const method = options.replace ? "replaceState" : "pushState";
 
     if (currentUrl !== url) {
@@ -335,7 +339,7 @@
     setSectionVisibility(memoryPromo, route.name === "home");
     setSectionVisibility(memoryGameSection, route.name === "memory");
     setSectionVisibility(readingValuesSection, route.name === "home");
-    setSectionVisibility(document.querySelector("#pricing"), route.name === "home");
+    setSectionVisibility(pricingSection, route.name === "home");
     setSectionVisibility(generatorSection, route.name === "create");
     setSectionVisibility(librarySection, route.name === "library");
     setSectionVisibility(aboutSection, route.name === "home");
@@ -348,7 +352,16 @@
       window.HFMemoryGame?.initialize?.();
     }
 
-    if (options.focus) {
+    const anchorTarget =
+      route.name === "home" && window.location.hash
+        ? document.getElementById(decodeURIComponent(window.location.hash.slice(1)))
+        : null;
+
+    if (anchorTarget) {
+      window.setTimeout(() => {
+        anchorTarget.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 0);
+    } else if (options.focus) {
       window.setTimeout(() => {
         mainContent?.focus({ preventScroll: true });
         mainContent?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -397,12 +410,6 @@
       : "forest_day";
   }
 
-  function scrollToSection(section, eventName) {
-    if (!section) return;
-    section.scrollIntoView({ behavior: "smooth", block: "start" });
-    if (eventName) trackEvent(eventName);
-  }
-
   function setNavigationMenuOpen(isOpen) {
     if (!navMenuButton || !siteNavMenu) return;
 
@@ -430,8 +437,13 @@
   }
 
   function openAboutSection() {
-    navigateTo({ name: "home" }, { focus: false });
-    window.setTimeout(() => scrollToSection(aboutSection, EVENTS.ABOUT_OPENED), 0);
+    openHomeSection(aboutSection, EVENTS.ABOUT_OPENED);
+  }
+
+  function openHomeSection(section, eventName) {
+    if (!section?.id) return;
+    navigateTo({ name: "home" }, { focus: false, hash: section.id });
+    if (eventName) trackEvent(eventName);
   }
 
   function getTariffLabel(status) {
@@ -2454,8 +2466,17 @@
 
   navMemoryButton?.addEventListener("click", (event) => {
     event.preventDefault();
-    navigateTo({ name: "home" }, { focus: false });
-    window.setTimeout(() => memoryPromo?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+    openHomeSection(memoryPromo);
+  });
+
+  navPricingButton?.addEventListener("click", (event) => {
+    event.preventDefault();
+    openHomeSection(pricingSection);
+  });
+
+  navParentsButton?.addEventListener("click", (event) => {
+    event.preventDefault();
+    openHomeSection(readingValuesSection);
   });
 
   navGeneratorButton.addEventListener("click", (event) => {

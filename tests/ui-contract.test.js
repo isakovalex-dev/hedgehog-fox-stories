@@ -21,6 +21,8 @@ test("index keeps application DOM contracts", () => {
     "navLoginButton",
     "navStoriesButton",
     "navMemoryButton",
+    "navPricingButton",
+    "navParentsButton",
     "navGeneratorButton",
     "navLibraryButton",
     "navAboutButton",
