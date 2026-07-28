@@ -30,12 +30,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Infant:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=PT+Mono&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css?v=25" />
+    <link rel="stylesheet" href="styles/journey-tokens.css?v=1" />
+    <link rel="stylesheet" href="styles/journey-theme.css?v=1" />
   </head>
-  <body>
+  <body class="journey-theme">
     <a class="skip-link" href="#mainContent">Перейти к содержанию</a>
     <div class="progress-shell" aria-hidden="true">
       <div class="reading-progress" id="readingProgress"></div>
@@ -61,7 +63,7 @@
       <div class="nav-menu" id="siteNavMenu">
         <div class="nav-links">
           <a class="nav-link" id="navStoriesButton" href="/stories">Истории</a>
-          <a class="nav-link" id="navMemoryButton" href="/games/memory">Игры</a>
+          <a class="nav-link" id="navMemoryButton" href="/#games">Игры</a>
           <a class="nav-link" id="navAboutButton" href="/#about">О проекте</a>
           <a class="nav-link" href="/#pricing">Тарифы</a>
           <a class="nav-link" id="navLibraryButton" href="/library">Библиотека</a>
@@ -75,25 +77,25 @@
     </nav>
 
     <main id="mainContent" tabindex="-1">
-      <section class="hero" id="top">
-        <div class="hero-content">
-          <p class="hero-brand">Ежонок и Лисёнок</p>
-          <h1>Добрые сказки<br />для детей 5–10 лет</h1>
+      <section class="hero journey-hero" id="top" aria-labelledby="heroTitle">
+        <div class="hero-content journey-hero__copy">
+          <p class="journey-meta">Семейная библиотека сказок</p>
+          <h1 id="heroTitle">Добрые истории<br />для тихих вечеров</h1>
           <p class="subtitle">
-            Приключения двух друзей, которые познают мир, помогают друг другу и учатся важным вещам.
+            Читайте готовые приключения Ежонка и Лисёнка или создайте новую сказку специально для ребёнка.
           </p>
           <div class="hero-actions" aria-label="Главные действия">
-            <button class="button primary" id="chooseStoryButton">Читать истории</button>
-            <button class="button secondary" id="openGeneratorButton">Создать сказку</button>
+            <button class="button primary" id="chooseStoryButton" type="button">Выбрать историю</button>
+            <button class="button secondary" id="openGeneratorButton" type="button">Создать свою</button>
           </div>
-          <div class="hero-legacy-actions hidden" aria-hidden="true">
+          <div class="journey-hero__quiet-actions" aria-label="Дополнительные действия">
             <button id="readFirstButton" type="button">Читать первую</button>
             <button id="openLibraryButton" type="button">Моя библиотека</button>
             <a id="openAboutButton" href="#about">О проекте</a>
           </div>
         </div>
 
-        <div class="hero-friends">
+        <div class="hero-friends journey-hero__art">
           <picture>
             <source
               type="image/avif"
@@ -111,37 +113,69 @@
             />
           </picture>
         </div>
+        <div class="journey-trail journey-trail--hero" aria-hidden="true">
+          <span class="journey-trail__paw">•</span>
+          <span class="journey-trail__paw">•</span>
+          <span class="journey-trail__paw">•</span>
+        </div>
       </section>
 
       <section class="stories-section" id="stories">
         <div class="section-heading section-heading-row">
-          <h2><span aria-hidden="true">❧</span> Новые истории <span aria-hidden="true">❧</span></h2>
+          <div>
+            <p class="journey-meta">Сегодня можно отправиться…</p>
+            <h2>Новые истории</h2>
+          </div>
           <a class="section-link" href="/stories">Все истории <span aria-hidden="true">→</span></a>
         </div>
 
         <div class="filters" id="filters" aria-label="Фильтры историй">
-          <button class="filter-button active" data-filter="all" aria-pressed="true">Все</button>
+          <button class="filter-button active" data-filter="all" aria-pressed="true">Все истории</button>
           <button class="filter-button" data-filter="5-7" aria-pressed="false">5–7 лет</button>
           <button class="filter-button" data-filter="8-10" aria-pressed="false">8–10 лет</button>
           <button class="filter-button" data-filter="bedtime" aria-pressed="false">Перед сном</button>
-          <button class="filter-button" data-filter="friendship" aria-pressed="false">Про дружбу</button>
-          <button class="filter-button" data-filter="bravery" aria-pressed="false">Про смелость</button>
+          <button class="filter-button" data-filter="friendship" aria-pressed="false">Когда нужен друг</button>
+          <button class="filter-button" data-filter="bravery" aria-pressed="false">Когда немного страшно</button>
         </div>
 
         <div class="story-list" id="storyList" aria-live="polite"></div>
       </section>
 
-      <section class="memory-promo" id="memoryPromo" aria-labelledby="memoryPromoTitle">
+      <section class="journey-map" id="journeyMap" aria-labelledby="journeyTitle">
+        <div class="journey-map__intro">
+          <p class="journey-meta">Мир историй</p>
+          <h2 id="journeyTitle">Карта маленьких открытий</h2>
+          <p>Каждая прочитанная история оставляет на карте тёплое воспоминание.</p>
+        </div>
+        <div class="journey-places" id="journeyPlaces" aria-label="Места путешествия"></div>
+        <aside class="journey-keepsakes" aria-labelledby="keepsakesTitle">
+          <p class="journey-meta">Собрано по дороге</p>
+          <h3 id="keepsakesTitle">Наши памятные находки</h3>
+          <div id="journeyKeepsakes" aria-live="polite"></div>
+        </aside>
+      </section>
+
+      <section class="memory-promo games-clearing" id="games" aria-labelledby="memoryPromoTitle">
         <div class="memory-promo__art" aria-hidden="true">
           <img src="assets/game/fox-catcher.webp?v=2" alt="" width="291" height="360" loading="lazy" />
         </div>
         <div class="memory-promo__copy">
-          <p class="eyebrow">Игровая полянка</p>
+          <p class="journey-meta">Игровая полянка</p>
           <h2 id="memoryPromoTitle">Поиграем с Лисёнком?</h2>
-          <p>Открывай карточки с героями любимых историй или отправляйся с друзьями в полёт на биплане.</p>
-          <div class="memory-promo__actions">
-            <a class="button primary" data-open-memory href="/games/memory">Играть в мемори</a>
-            <a class="button secondary" href="/endless-flight.html">Лететь на биплане</a>
+          <p>Две небольшие игры для перерыва между историями.</p>
+          <div class="games-clearing__grid" id="memoryPromo">
+            <a class="game-pass game-pass--memory" data-open-memory href="/games/memory">
+              <span class="game-pass__number">Игра 01</span>
+              <strong>Мемори</strong>
+              <span>Найди пары с героями и лесными находками.</span>
+              <span class="game-pass__action">Открыть карточки →</span>
+            </a>
+            <a class="game-pass game-pass--flight" href="/games/endless-flight">
+              <span class="game-pass__number">Игра 02</span>
+              <strong>Бесконечный полёт</strong>
+              <span>Лети на биплане над облаками вместе с друзьями.</span>
+              <span class="game-pass__action">Взлететь →</span>
+            </a>
           </div>
         </div>
       </section>
@@ -848,6 +882,7 @@
 
     <script src="js/config.js?v=16"></script>
     <script src="js/storageService.js?v=12"></script>
+    <script src="js/journeyService.js?v=1"></script>
     <script src="js/supabaseService.js?v=17"></script>
     <script src="js/storyService.js?v=13"></script>
     <script src="js/likeService.js?v=12"></script>

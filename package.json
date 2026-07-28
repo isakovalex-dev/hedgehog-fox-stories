@@ -1,6 +1,8 @@
 {
   "scripts": {
-    "build": "node scripts/build-static.mjs"
+    "build": "node scripts/build-static.mjs",
+    "test": "node --test tests/*.test.js",
+    "verify": "npm test && npm run build"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1"

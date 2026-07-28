@@ -4,6 +4,7 @@
   const scripts = [
     "js/config.js?v=9",
     "js/storageService.js?v=9",
+    "js/journeyService.js?v=1",
     "js/supabaseService.js?v=9",
     "js/storyService.js?v=9",
     "js/likeService.js?v=9",

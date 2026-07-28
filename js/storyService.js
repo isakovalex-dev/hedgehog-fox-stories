@@ -5,6 +5,13 @@
   const REMOTE_STORY_META_KEY = "hedgehogFoxSupabaseStoryMeta";
   const DEFAULT_COLORS = ["#cfeaf1", "#f8e9be", "#9fca84"];
   const DEFAULT_SCENE_TAG = "forest_day";
+  const JOURNEY_PLACES = {
+    forest: "Лес",
+    meadow: "Поляна",
+    cottage: "Домик",
+    sea: "Море",
+    "starry-hill": "Звёздная горка"
+  };
   const supabaseService = window.HFSupabaseService;
 
   // Built-in stories have curated art. User stories never borrow it: a borrowed
@@ -39,6 +46,8 @@
       ageGroup: "5-7",
       time: "5 минут",
       tags: ["5-7", "bedtime", "friendship"],
+      journeyPlace: "cottage",
+      keepsake: "feather",
       imageUrl: "assets/stories/lost-cloud.png",
       baseLikes: 12,
       colors: ["#cfeaf1", "#f8e9be", "#9fca84"],
@@ -59,6 +68,8 @@
       ageGroup: "5-7",
       time: "6 минут",
       tags: ["5-7", "bedtime", "friendship"],
+      journeyPlace: "sea",
+      keepsake: "shell",
       imageUrl: "assets/stories/sea-bench.png",
       baseLikes: 18,
       colors: ["#b9dfe9", "#efd6a6", "#d88b5b"],
@@ -79,6 +90,8 @@
       ageGroup: "5-7",
       time: "7 минут",
       tags: ["5-7", "bravery", "friendship"],
+      journeyPlace: "forest",
+      keepsake: "leaf",
       imageUrl: "assets/stories/hedgehog-bravery.png",
       baseLikes: 15,
       colors: ["#d9eac5", "#f4d39a", "#8fb779"],
@@ -99,6 +112,8 @@
       ageGroup: "8-10",
       time: "8 минут",
       tags: ["8-10", "bravery", "friendship"],
+      journeyPlace: "meadow",
+      keepsake: "feather",
       imageUrl: "assets/stories/warm-wind-map.png",
       baseLikes: 9,
       colors: ["#f5c98d", "#cfeaf1", "#d76632"],
@@ -119,6 +134,8 @@
       ageGroup: "8-10",
       time: "7 минут",
       tags: ["8-10", "friendship"],
+      journeyPlace: "meadow",
+      keepsake: "leaf",
       imageUrl: "assets/stories/rustling-grass.png",
       baseLikes: 11,
       colors: ["#b8d79a", "#fff2bd", "#7ebccc"],
@@ -139,6 +156,8 @@
       ageGroup: "8-10",
       time: "6 минут",
       tags: ["8-10", "bedtime", "friendship"],
+      journeyPlace: "starry-hill",
+      keepsake: "star",
       imageUrl: "assets/stories/star-for-friend.png",
       baseLikes: 20,
       colors: ["#9dccd8", "#f4d39a", "#6f9a67"],
@@ -167,11 +186,30 @@
     const source = `${story.mood || ""} ${story.lesson || ""}`.toLowerCase();
     const tags = [];
 
-    if (source.includes("сон")) tags.push("bedtime");
+    if (source.includes("сон") || source.includes("сном") || source.includes("ноч")) tags.push("bedtime");
     if (source.includes("друж") || source.includes("friend")) tags.push("friendship");
     if (source.includes("смел") || source.includes("bravery")) tags.push("bravery");
 
     return tags;
+  }
+
+  function inferJourneyPlace(story, tags) {
+    if (story.journeyPlace && JOURNEY_PLACES[story.journeyPlace]) return story.journeyPlace;
+    if (tags.includes("bedtime")) return "starry-hill";
+    if (tags.includes("bravery")) return "forest";
+    if (tags.includes("friendship")) return "meadow";
+    return "cottage";
+  }
+
+  function inferKeepsake(story, journeyPlace) {
+    if (["leaf", "shell", "star", "feather"].includes(story.keepsake)) return story.keepsake;
+    return {
+      forest: "leaf",
+      meadow: "feather",
+      cottage: "feather",
+      sea: "shell",
+      "starry-hill": "star"
+    }[journeyPlace];
   }
 
   function normalizeStory(story, source) {
@@ -183,6 +221,7 @@
     const tags = Array.from(
       new Set([ageGroup, ...(Array.isArray(story.tags) ? story.tags : []), ...getLessonTags(story)])
     );
+    const journeyPlace = inferJourneyPlace(story, tags);
 
     return {
       ...story,
@@ -192,6 +231,9 @@
       ageGroup,
       time: story.time || `${Math.max(3, slides.length || 1)} минут`,
       tags,
+      journeyPlace,
+      journeyPlaceLabel: JOURNEY_PLACES[journeyPlace],
+      keepsake: inferKeepsake(story, journeyPlace),
       imageUrl: story.imageUrl || "",
       baseLikes: Number.isFinite(story.baseLikes) ? story.baseLikes : 0,
       colors: Array.isArray(story.colors) && story.colors.length >= 3 ? story.colors : DEFAULT_COLORS,

@@ -1,0 +1,31 @@
+:root {
+  --journey-paper: #f7f2e5;
+  --journey-paper-deep: #e8dcc2;
+  --journey-pine: #526658;
+  --journey-pine-dark: #3f5147;
+  --journey-fox: #c86f42;
+  --journey-lake: #bcd4d2;
+  --journey-ink: #403b34;
+  --journey-muted: #6f685f;
+  --journey-white: #fffdf7;
+  --journey-line: rgba(64, 59, 52, 0.18);
+  --journey-line-soft: rgba(64, 59, 52, 0.1);
+  --journey-focus: #2f6f68;
+  --journey-shadow: 0 14px 36px rgba(64, 59, 52, 0.1);
+  --journey-shadow-soft: 0 7px 20px rgba(64, 59, 52, 0.07);
+  --journey-radius-small: 8px;
+  --journey-radius-medium: 18px;
+  --journey-radius-large: 30px;
+  --journey-content: 1200px;
+  --journey-reading: 72ch;
+  --journey-space-1: 0.5rem;
+  --journey-space-2: 0.75rem;
+  --journey-space-3: 1rem;
+  --journey-space-4: 1.5rem;
+  --journey-space-5: 2rem;
+  --journey-space-6: 3rem;
+  --journey-space-7: 4.5rem;
+  --font-display: "Cormorant Infant", Georgia, serif;
+  --font-body: "Nunito", Arial, sans-serif;
+  --font-meta: "PT Mono", "SFMono-Regular", Consolas, monospace;
+}

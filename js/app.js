@@ -5,6 +5,7 @@
   const likeService = window.HFLikeService;
   const subscriptionService = window.HFSubscriptionService;
   const analyticsService = window.HFAnalyticsService;
+  const journeyService = window.HFJourneyService;
   const supabaseService = window.HFSupabaseService;
   const appConfig = window.HFConfig || {};
   const { EVENTS, trackEvent } = analyticsService;
@@ -73,7 +74,10 @@
   const signOutButton = document.querySelector("#signOutButton");
   const passwordToggleButtons = document.querySelectorAll("[data-password-toggle]");
   const storiesSection = document.querySelector("#stories");
-  const memoryPromo = document.querySelector("#memoryPromo");
+  const journeyMap = document.querySelector("#journeyMap");
+  const journeyPlacesElement = document.querySelector("#journeyPlaces");
+  const journeyKeepsakesElement = document.querySelector("#journeyKeepsakes");
+  const memoryPromo = document.querySelector("#games");
   const memoryGameSection = document.querySelector("#memoryGameSection");
   const readingValuesSection = document.querySelector("#why-read");
   const generatorSection = document.querySelector("#generator");
@@ -110,6 +114,19 @@
     bravery: ["autumn_path", "rainy_forest", "small_bridge", "forest_night", "campfire_evening"]
   };
   const ILLUSTRATION_GENERATION_TIMEOUT_MS = 150000;
+  const journeyPlaces = [
+    { id: "forest", label: "Тихий лес", storyId: "hedgehog-bravery", mark: "♧" },
+    { id: "meadow", label: "Солнечная поляна", storyId: "warm-wind-map", mark: "✿" },
+    { id: "cottage", label: "Домик у тропы", storyId: "lost-cloud", mark: "⌂" },
+    { id: "sea", label: "Берег моря", storyId: "sea-bench", mark: "≈" },
+    { id: "starry-hill", label: "Звёздный холм", storyId: "star-for-friend", mark: "✦" }
+  ];
+  const keepsakeLabels = {
+    feather: { label: "Пёрышко добрых вестей", mark: "❧" },
+    shell: { label: "Ракушка с голосом моря", mark: "◖" },
+    leaf: { label: "Листок смелой тропы", mark: "♧" },
+    star: { label: "Звезда для друга", mark: "✦" }
+  };
 
   let activeFilter = "all";
   let activeStory = null;
@@ -314,6 +331,7 @@
     readingProgress.style.width = "0%";
     setSectionVisibility(hero, route.name === "home");
     setSectionVisibility(storiesSection, route.name === "home" || route.name === "stories");
+    setSectionVisibility(journeyMap, route.name === "home");
     setSectionVisibility(memoryPromo, route.name === "home");
     setSectionVisibility(memoryGameSection, route.name === "memory");
     setSectionVisibility(readingValuesSection, route.name === "home");
@@ -1076,6 +1094,7 @@
         </div>
         <div class="story-content">
           <h3><a class="story-title-link" href="/stories/${encodeURIComponent(story.id)}" data-read="${escapeAttribute(story.id)}">${escapeHtml(story.title)}</a></h3>
+          <p class="story-place"><span aria-hidden="true">⌖</span> ${escapeHtml(story.journeyPlaceLabel || "Неизведанная тропа")}</p>
           <div class="story-meta">
             <span class="pill">${escapeHtml(story.age)} лет</span>
             <span class="pill">${escapeHtml(story.time)}</span>
@@ -1163,6 +1182,74 @@
     });
 
     storyList.innerHTML = visibleStories.map((story) => renderStoryCard(story)).join("");
+  }
+
+  function renderJourney() {
+    if (!journeyPlacesElement || !journeyKeepsakesElement || !journeyService) return;
+
+    const stories = storyService.getAllStories();
+    const storyById = new Map(stories.map((story) => [story.id, story]));
+    const discoveries = journeyService.getDiscoveries();
+    const discoveredStoryIds = new Set(discoveries.map((item) => item.storyId));
+
+    journeyPlacesElement.innerHTML = journeyPlaces
+      .map((place, index) => {
+        const story = storyById.get(place.storyId);
+        const isDiscovered = discoveredStoryIds.has(place.storyId);
+        const title = story?.title || place.label;
+
+        return `
+          <button
+            class="journey-place journey-place--${escapeAttribute(place.id)} ${isDiscovered ? "is-discovered" : ""}"
+            type="button"
+            data-journey-story="${escapeAttribute(place.storyId)}"
+            data-journey-place="${escapeAttribute(place.id)}"
+            style="--journey-index: ${index};"
+            aria-label="${escapeAttribute(place.label)}. Открыть историю «${escapeAttribute(title)}»"
+          >
+            <span class="journey-place__mark" aria-hidden="true">${place.mark}</span>
+            <span class="journey-place__copy">
+              <span class="journey-place__label">${escapeHtml(place.label)}</span>
+              <span class="journey-place__story">${escapeHtml(title)}</span>
+            </span>
+            <span class="journey-place__status">${isDiscovered ? "Исследовано" : "В путь"}</span>
+          </button>
+        `;
+      })
+      .join("");
+
+    if (!discoveries.length) {
+      journeyKeepsakesElement.innerHTML = `
+        <p class="journey-keepsakes__empty">
+          Пока здесь тихо. Дочитайте первую историю — и на полке появится памятная находка.
+        </p>
+      `;
+      return;
+    }
+
+    journeyKeepsakesElement.innerHTML = `
+      <ul class="journey-keepsakes__list" aria-label="Найденные памятные предметы">
+        ${discoveries
+          .map((discovery) => {
+            const keepsake = keepsakeLabels[discovery.keepsake] || {
+              label: "Тёплое воспоминание",
+              mark: "•"
+            };
+            const story = storyById.get(discovery.storyId);
+
+            return `
+              <li>
+                <span class="journey-keepsake__mark" aria-hidden="true">${keepsake.mark}</span>
+                <span>
+                  <strong>${escapeHtml(keepsake.label)}</strong>
+                  <small>${escapeHtml(story?.title || "Прочитанная история")}</small>
+                </span>
+              </li>
+            `;
+          })
+          .join("")}
+      </ul>
+    `;
   }
 
   function renderLibrary() {
@@ -1324,7 +1411,10 @@
     document.body.classList.add("reading");
     hero.classList.add("hidden");
     storiesSection.classList.add("hidden");
+    journeyMap?.classList.add("hidden");
+    memoryPromo?.classList.add("hidden");
     readingValuesSection?.classList.add("hidden");
+    document.querySelector("#pricing")?.classList.add("hidden");
     generatorSection.classList.add("hidden");
     librarySection.classList.add("hidden");
     aboutSection.classList.add("hidden");
@@ -1363,6 +1453,9 @@
         <div class="slide-card">
           <span class="slide-kicker">Конец истории</span>
           <p class="slide-text">Спасибо, что читали вместе с Ежонком и Лисёнком.</p>
+          <div class="reader-discovery" role="status">
+            Дочитайте до конца, чтобы сохранить памятную находку на карте.
+          </div>
           <div class="end-like">${renderLikeButton(activeStory)}</div>
           ${renderReaderIllustrationEndAction(activeStory)}
           <div class="end-actions">
@@ -1408,13 +1501,45 @@
     readingProgress.style.width = `${Math.min(100, Math.max(0, progress))}%`;
 
     if (activeStory && !activeStoryFinishedTracked && progress >= 98) {
-      activeStoryFinishedTracked = true;
-      trackEvent(EVENTS.STORY_FINISHED, {
+      completeActiveStory();
+    }
+  }
+
+  function completeActiveStory() {
+    if (!activeStory || activeStoryFinishedTracked) return;
+
+    activeStoryFinishedTracked = true;
+    trackEvent(EVENTS.STORY_FINISHED, {
+      storyId: activeStory.id,
+      title: activeStory.title,
+      source: activeStory.source
+    });
+
+    const discovery = journeyService?.markDiscovered?.({
+      id: activeStory.id,
+      journeyPlace: activeStory.journeyPlace,
+      keepsake: activeStory.keepsake
+    });
+    const discoveryElement = slides.querySelector(".reader-discovery");
+
+    if (discovery && discoveryElement) {
+      const keepsake = keepsakeLabels[discovery.keepsake] || {
+        label: "Тёплое воспоминание",
+        mark: "•"
+      };
+      discoveryElement.innerHTML = `
+        <span aria-hidden="true">${keepsake.mark}</span>
+        На карте появилась находка: <strong>${escapeHtml(keepsake.label)}</strong>.
+      `;
+      discoveryElement.classList.add("is-found");
+      trackEvent(EVENTS.JOURNEY_KEEPSAKE_FOUND, {
         storyId: activeStory.id,
-        title: activeStory.title,
-        source: activeStory.source
+        place: discovery.place,
+        keepsake: discovery.keepsake
       });
     }
+
+    renderJourney();
   }
 
   function getFormValue(formData, key, fallback) {
@@ -2162,6 +2287,16 @@
 
   storyList.addEventListener("click", handleStoryListClick);
   libraryList.addEventListener("click", handleLibraryClick);
+  journeyMap?.addEventListener("click", (event) => {
+    const place = event.target.closest("[data-journey-story]");
+    if (!place) return;
+
+    trackEvent(EVENTS.JOURNEY_PLACE_OPENED, {
+      storyId: place.dataset.journeyStory,
+      place: place.dataset.journeyPlace
+    });
+    openStory(place.dataset.journeyStory);
+  });
 
   if (librarySearchInput) {
     librarySearchInput.addEventListener("input", handleLibrarySearchInput);
@@ -2319,7 +2454,8 @@
 
   navMemoryButton?.addEventListener("click", (event) => {
     event.preventDefault();
-    navigateTo({ name: "memory" });
+    navigateTo({ name: "home" }, { focus: false });
+    window.setTimeout(() => memoryPromo?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
   });
 
   navGeneratorButton.addEventListener("click", (event) => {
@@ -2399,6 +2535,7 @@
     renderSubscriptionPanel();
     renderAuthPanel();
     renderAllStoryLists();
+    renderJourney();
 
     if (supabaseService?.isEnabled?.()) {
       const hasRecoveryIntent = supabaseService.hasPasswordRecoveryIntent?.();
@@ -2435,6 +2572,7 @@
       renderSubscriptionPanel();
       renderAuthPanel();
       renderAllStoryLists();
+      renderJourney();
     }
 
     await refreshAfterPaymentReturn();

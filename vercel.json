@@ -9,6 +9,10 @@
   "rewrites": [
     { "source": "/games/endless-flight", "destination": "/endless-flight.html" },
     { "source": "/games/memory", "destination": "/" },
-    { "source": "/memory", "destination": "/" }
+    { "source": "/memory", "destination": "/" },
+    { "source": "/create", "destination": "/" },
+    { "source": "/library", "destination": "/" },
+    { "source": "/stories", "destination": "/" },
+    { "source": "/stories/:path*", "destination": "/" }
   ]
 }
