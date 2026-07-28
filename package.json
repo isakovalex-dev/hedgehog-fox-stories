@@ -1,0 +1,8 @@
+{
+  "scripts": {
+    "build": "node scripts/build-static.mjs"
+  },
+  "dependencies": {
+    "@vercel/analytics": "^2.0.1"
+  }
+}

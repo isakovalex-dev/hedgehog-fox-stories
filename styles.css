@@ -3610,6 +3610,13 @@ body:not(.about-page) .about-section > :not(.home-project) {
   font-size: 0.65em;
 }
 
+.memory-promo__art img {
+  display: block;
+  width: min(46%, 132px);
+  height: auto;
+  filter: drop-shadow(0 10px 12px rgba(67, 54, 40, 0.12));
+}
+
 .memory-promo__copy {
   padding: clamp(1.5rem, 4vw, 3rem);
 }
@@ -3624,6 +3631,12 @@ body:not(.about-page) .about-section > :not(.home-project) {
   max-width: 580px;
   margin: 0 0 1.2rem;
   color: var(--muted);
+}
+
+.memory-promo__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
 }
 
 .memory-game-section {
@@ -3939,6 +3952,10 @@ body:not(.about-page) .about-section > :not(.home-project) {
 
   .memory-promo__copy {
     padding: 1.35rem;
+  }
+
+  .memory-promo__actions .button {
+    width: 100%;
   }
 
   .memory-game-section {

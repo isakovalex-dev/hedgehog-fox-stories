@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#b9dfe7" />
+    <title>Бесконечный полёт — Ёжик и Лисёнок</title>
+    <meta name="description" content="Добрая акварельная игра о полёте Ёжика и Лисёнка." />
+    <link rel="stylesheet" href="/src/games/endless-flight/styles.css" />
+  </head>
+  <body>
+    <main class="flight-shell" id="flightShell">
+      <canvas id="gameCanvas" aria-label="Игровое поле «Бесконечный полёт»"></canvas>
+
+      <div class="loading-screen" id="loadingScreen" aria-live="polite">
+        <div class="loading-plane" aria-hidden="true"></div>
+        <p>Готовим самолёт к полёту…</p>
+        <div class="loading-track"><span id="loadingBar"></span></div>
+      </div>
+
+      <section class="screen menu-screen" id="menuScreen" aria-labelledby="gameTitle">
+        <div class="menu-copy">
+          <p class="eyebrow">Ёжик и Лисёнок</p>
+          <h1 id="gameTitle">Бесконечный<br />полёт</h1>
+          <p class="lead">Помоги Ёжику и Лисёнку пролететь как можно дальше!</p>
+          <div class="best-result">Лучший полёт: <strong id="menuBest">0 м</strong></div>
+          <div class="menu-actions">
+            <button class="paint-button primary" id="playButton" type="button">Играть</button>
+            <button class="round-button sound-toggle" type="button" aria-label="Выключить звук">
+              <span class="sound-icon" aria-hidden="true"></span>
+            </button>
+            <a class="paint-button secondary" href="/" aria-label="Вернуться на сайт">На сайт</a>
+          </div>
+        </div>
+        <img class="menu-plane" src="/public/assets/endless-flight/plane-heroes.png" alt="Ёжик и Лисёнок летят на старом биплане" />
+      </section>
+
+      <div class="hud" id="hud" aria-live="polite">
+        <div class="score-card">
+          <span class="star-icon" aria-hidden="true"></span>
+          <strong id="starCount">0</strong>
+        </div>
+        <div class="distance-card"><strong id="distanceCount">0</strong> м</div>
+        <button class="round-button pause-button" id="pauseButton" type="button" aria-label="Поставить игру на паузу">
+          <span class="pause-icon" aria-hidden="true"></span>
+        </button>
+      </div>
+
+      <div class="control-hint" id="controlHint">
+        <strong>Веди самолёт</strong>
+        <span class="desktop-hint">мышью или стрелками · пробел — подняться</span>
+        <span class="touch-hint">удерживай экран, чтобы подняться</span>
+      </div>
+
+      <section class="screen modal-screen" id="pauseScreen" aria-labelledby="pauseTitle">
+        <div class="paper-card">
+          <p class="eyebrow">Небольшая передышка</p>
+          <h2 id="pauseTitle">Пауза</h2>
+          <button class="paint-button primary" id="resumeButton" type="button">Продолжить</button>
+          <button class="paint-button secondary" id="restartButton" type="button">Начать заново</button>
+          <button class="paint-button secondary menu-button" type="button">В меню</button>
+          <button class="round-button sound-toggle" type="button" aria-label="Выключить звук">
+            <span class="sound-icon" aria-hidden="true"></span>
+          </button>
+        </div>
+      </section>
+
+      <section class="screen modal-screen" id="gameOverScreen" aria-labelledby="gameOverTitle">
+        <div class="paper-card results-card">
+          <p class="record-badge" id="recordBadge">Новый рекорд!</p>
+          <h2 id="gameOverTitle">Полёт окончен!</h2>
+          <dl>
+            <div><dt>Расстояние</dt><dd><strong id="resultDistance">0</strong> м</dd></div>
+            <div><dt>Звёзды</dt><dd><strong id="resultStars">0</strong></dd></div>
+            <div><dt>Лучший полёт</dt><dd><strong id="resultBest">0</strong> м</dd></div>
+          </dl>
+          <button class="paint-button primary" id="playAgainButton" type="button">Играть снова</button>
+          <button class="paint-button secondary menu-button" type="button">В меню</button>
+        </div>
+      </section>
+
+      <div class="orientation-note" aria-live="polite">Поверни телефон горизонтально для более просторного неба — или играй так, как удобно.</div>
+    </main>
+    <script type="module" src="/src/games/endless-flight/EndlessFlightGame.js"></script>
+    <script>
+      window.va = window.va || function () {
+        (window.vaq = window.vaq || []).push(arguments);
+      };
+    </script>
+    <script defer src="/_vercel/insights/script.js"></script>
+  </body>
+</html>
