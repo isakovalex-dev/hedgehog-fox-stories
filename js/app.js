@@ -1247,6 +1247,14 @@
     const storyById = new Map(stories.map((story) => [story.id, story]));
     const discoveries = journeyService.getDiscoveries();
     const discoveredStoryIds = new Set(discoveries.map((item) => item.storyId));
+    const furthestDiscoveredIndex = journeyPlaces.reduce((furthest, place, index) => {
+      return discoveredStoryIds.has(place.storyId) ? index : furthest;
+    }, -1);
+    const journeyProgress = furthestDiscoveredIndex < 0
+      ? 0
+      : furthestDiscoveredIndex / Math.max(journeyPlaces.length - 1, 1);
+
+    journeyMap?.style.setProperty("--journey-progress", journeyProgress.toFixed(3));
 
     journeyPlacesElement.innerHTML = journeyPlaces
       .map((place, index) => {

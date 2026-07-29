@@ -184,6 +184,27 @@
           <h2 id="journeyTitle">Карта маленьких открытий</h2>
           <p>Каждая прочитанная история оставляет на карте тёплое воспоминание.</p>
         </div>
+        <div class="journey-landmarks" id="journeyLandmarks" aria-hidden="true">
+          <picture><source type="image/avif" srcset="assets/journey/landmarks/forest.avif" /><img class="journey-landmark journey-landmark--forest" src="assets/journey/landmarks/forest.webp" alt="" loading="lazy" /></picture>
+          <picture><source type="image/avif" srcset="assets/journey/landmarks/mountains.avif" /><img class="journey-landmark journey-landmark--mountains" src="assets/journey/landmarks/mountains.webp" alt="" loading="lazy" /></picture>
+          <picture><source type="image/avif" srcset="assets/journey/landmarks/boat.avif" /><img class="journey-landmark journey-landmark--boat" src="assets/journey/landmarks/boat.webp" alt="" loading="lazy" /></picture>
+          <picture><source type="image/avif" srcset="assets/journey/landmarks/lighthouse.avif" /><img class="journey-landmark journey-landmark--lighthouse" src="assets/journey/landmarks/lighthouse.webp" alt="" loading="lazy" /></picture>
+          <picture><source type="image/avif" srcset="assets/journey/landmarks/village.avif" /><img class="journey-landmark journey-landmark--village" src="assets/journey/landmarks/village.webp" alt="" loading="lazy" /></picture>
+          <picture>
+            <source type="image/avif" srcset="assets/journey/landmarks/heroes.avif" />
+            <img
+              class="journey-current-heroes"
+              id="journeyCurrentHeroes"
+              src="assets/journey/landmarks/heroes.webp"
+              alt=""
+              loading="lazy"
+            />
+          </picture>
+          <img class="journey-map__compass" src="assets/journey/compass.svg" alt="" loading="lazy" />
+        </div>
+        <svg class="journey-map__route" viewBox="0 0 1200 270" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M30 170 C155 70 230 245 350 145 S545 50 650 155 835 250 925 112 1090 70 1170 145" />
+        </svg>
         <div class="journey-places" id="journeyPlaces" aria-label="Места путешествия"></div>
         <aside class="journey-keepsakes" aria-labelledby="keepsakesTitle">
           <p class="journey-meta">Собрано по дороге</p>

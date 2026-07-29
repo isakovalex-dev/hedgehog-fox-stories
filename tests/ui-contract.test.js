@@ -312,6 +312,17 @@ test("homepage exposes the accessible journey map", () => {
   assert.match(html, /aria-live=["']polite["']/);
 });
 
+test("homepage journey map exposes watercolor landmarks and live position", () => {
+  const html = read("index.html");
+  const source = read("js/app.js");
+  ["journeyLandmarks", "journeyCurrentHeroes"].forEach((id) => {
+    assert.match(html, new RegExp(`id=["']${id}["']`));
+  });
+  assert.match(html, /class=["'][^"']*journey-map__compass/);
+  assert.match(source, /--journey-progress/);
+  assert.match(source, /discoveredStoryIds/);
+});
+
 test("homepage exposes exactly the two production games", () => {
   const html = read("index.html");
   assert.match(html, /id=["']games["']/);
