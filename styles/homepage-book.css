@@ -43,7 +43,7 @@
 }
 
 .home-page .journey-hero {
-  grid-template-columns: minmax(390px, 0.76fr) minmax(560px, 1.24fr);
+  grid-template-columns: minmax(540px, 1fr) minmax(500px, 1fr);
   gap: 0;
   width: min(100%, 1500px);
   min-height: 690px;
@@ -59,7 +59,7 @@
 .home-page .journey-hero h1 {
   max-width: 650px;
   color: var(--book-ink);
-  font-size: clamp(4.6rem, 6.8vw, 7rem);
+  font-size: clamp(4.25rem, 5.5vw, 5.5rem);
   line-height: 0.88;
 }
 
@@ -69,8 +69,8 @@
   overflow: visible;
   border-radius: 0;
   background: url("../assets/hero-friends.png") center / contain no-repeat;
-  -webkit-mask-image: radial-gradient(ellipse 73% 68% at 58% 52%, #000 64%, transparent 100%);
-  mask-image: radial-gradient(ellipse 73% 68% at 58% 52%, #000 64%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 60% 60% at 50% 50%, #000 68%, transparent 84%);
+  mask-image: radial-gradient(ellipse 60% 60% at 50% 50%, #000 68%, transparent 84%);
 }
 
 .home-page .journey-hero__art::after {
@@ -138,3 +138,21 @@
 .home-page .book-route--hero img:nth-of-type(1) { left: 10%; top: 30%; transform: rotate(-18deg); }
 .home-page .book-route--hero img:nth-of-type(2) { left: 39%; top: 43%; transform: rotate(12deg); }
 .home-page .book-route--hero img:nth-of-type(3) { left: 72%; top: 52%; transform: rotate(-10deg); }
+
+@media (max-width: 720px) {
+  .home-page .book-brand-mark {
+    width: 40px;
+    height: 40px;
+    margin-right: 0.35rem;
+  }
+
+  .home-page .journey-hero {
+    min-height: auto;
+    padding: 0 1rem 3.5rem;
+  }
+
+  .home-page .journey-hero h1 {
+    font-size: clamp(3.2rem, 14vw, 4.4rem);
+    line-height: 0.92;
+  }
+}

@@ -174,6 +174,34 @@ test("faithful homepage hero keeps actions and watercolor structure", () => {
   });
 });
 
+test("faithful homepage hero keeps desktop and mobile geometry safeguards", () => {
+  const css = read("styles/homepage-book.css");
+  assert.match(
+    css,
+    /grid-template-columns:\s*minmax\(540px,\s*1fr\)\s+minmax\(500px,\s*1fr\)/
+  );
+  assert.match(css, /font-size:\s*clamp\(4\.25rem,\s*5\.5vw,\s*5\.5rem\)/);
+
+  const mobile = css.slice(css.indexOf("@media (max-width: 720px)"));
+  assert.match(mobile, /\.home-page \.book-brand-mark\s*\{[\s\S]*?width:\s*40px;[\s\S]*?height:\s*40px;/);
+  assert.match(
+    mobile,
+    /\.home-page \.journey-hero\s*\{[\s\S]*?min-height:\s*auto;[\s\S]*?padding:\s*0 1rem 3\.5rem;/
+  );
+  assert.match(
+    mobile,
+    /\.home-page \.journey-hero h1\s*\{[\s\S]*?font-size:\s*clamp\(3\.2rem,\s*14vw,\s*4\.4rem\);/
+  );
+});
+
+test("faithful homepage hero mask dissolves every illustration edge", () => {
+  const css = read("styles/homepage-book.css");
+  assert.match(
+    css,
+    /mask-image:\s*radial-gradient\(ellipse 60% 60% at 50% 50%,\s*#000 68%,\s*transparent 84%\)/
+  );
+});
+
 test("story renderer keeps delegated card actions", () => {
   const source = read("js/app.js");
   [
