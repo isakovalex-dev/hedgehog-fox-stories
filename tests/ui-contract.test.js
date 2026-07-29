@@ -163,6 +163,17 @@ test("living book hero preserves the primary action hooks", () => {
   assert.match(html, /class=["'][^"']*journey-trail/);
 });
 
+test("faithful homepage hero keeps actions and watercolor structure", () => {
+  const html = read("index.html");
+  assert.match(html, /class=["'][^"']*book-brand-mark/);
+  assert.match(html, /class=["'][^"']*book-hero-picture/);
+  assert.match(html, /hero-coast-1800\.avif/);
+  assert.match(html, /class=["'][^"']*book-route--hero/);
+  ["chooseStoryButton", "openGeneratorButton"].forEach((id) => {
+    assert.match(html, new RegExp(`id=["']${id}["']`));
+  });
+});
+
 test("story renderer keeps delegated card actions", () => {
   const source = read("js/app.js");
   [
