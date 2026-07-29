@@ -189,10 +189,10 @@
 }
 
 .home-page .story-card__source-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.6rem;
   align-items: center;
-  justify-content: space-between;
   margin-top: auto;
 }
 
@@ -224,9 +224,13 @@
 }
 
 .home-page .stories-section .story-source-badge {
+  min-width: 0;
   border: 0;
+  padding: 0;
+  justify-content: flex-start;
   background: transparent;
   color: var(--book-moss);
+  text-align: left;
   white-space: normal;
 }
 
@@ -266,8 +270,21 @@
     font-size: clamp(2.75rem, 5.2vw, 4.5rem);
   }
 
+  .home-page .stories-section .story-list {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 0.8rem;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+
+  .home-page .stories-section .story-list::-webkit-scrollbar {
+    display: none;
+  }
+
   .home-page .stories-section .story-card {
-    flex-basis: min(86vw, 650px);
+    flex: 0 0 min(86vw, 650px);
+    scroll-snap-align: start;
   }
 }
 

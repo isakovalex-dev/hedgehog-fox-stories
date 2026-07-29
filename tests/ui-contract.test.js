@@ -256,6 +256,36 @@ test("homepage story cards expose book metadata and exact source labels", () => 
   assert.match(read("index.html"), /class=["'][^"']*book-route--stories/);
 });
 
+test("homepage story cards use horizontal scrolling at tablet widths", () => {
+  const css = read("styles/homepage-book.css");
+  const tabletStart = css.indexOf("@media (min-width: 721px) and (max-width: 1155px)");
+  const mobileStart = css.indexOf("@media (max-width: 720px)");
+  const tablet = css.slice(tabletStart, mobileStart);
+
+  assert.ok(tabletStart >= 0, "Missing homepage tablet breakpoint");
+  assert.match(
+    tablet,
+    /\.home-page \.stories-section \.story-list\s*\{[\s\S]*?display:\s*flex;[\s\S]*?overflow-x:\s*auto;[\s\S]*?scroll-snap-type:\s*x mandatory;/
+  );
+  assert.match(
+    tablet,
+    /\.home-page \.stories-section \.story-card\s*\{[\s\S]*?flex:\s*0 0 min\(86vw,\s*650px\);[\s\S]*?scroll-snap-align:\s*start;/
+  );
+});
+
+test("homepage source row reserves visible space for the source label and like action", () => {
+  const css = read("styles/homepage-book.css");
+
+  assert.match(
+    css,
+    /\.home-page \.story-card__source-row\s*\{[\s\S]*?display:\s*grid;[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto;/
+  );
+  assert.match(
+    css,
+    /\.home-page \.stories-section \.story-source-badge\s*\{[\s\S]*?min-width:\s*0;[\s\S]*?padding:\s*0;/
+  );
+});
+
 test("reader completion sends the normalized story shape to journey storage", () => {
   const source = read("js/app.js");
   assert.match(source, /markDiscovered\?\.\(\{\s*id:\s*activeStory\.id,/);
