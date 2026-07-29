@@ -105,6 +105,38 @@ test("homepage loads an isolated faithful book theme", () => {
   });
 });
 
+test("faithful homepage watercolor assets exist", () => {
+  const requiredAssets = [
+    "assets/journey/hero-coast-480.webp",
+    "assets/journey/hero-coast-768.webp",
+    "assets/journey/hero-coast-1200.webp",
+    "assets/journey/hero-coast-1800.webp",
+    "assets/journey/hero-coast-480.avif",
+    "assets/journey/hero-coast-768.avif",
+    "assets/journey/hero-coast-1200.avif",
+    "assets/journey/hero-coast-1800.avif",
+    "assets/journey/landmarks/forest.webp",
+    "assets/journey/landmarks/forest.avif",
+    "assets/journey/landmarks/mountains.webp",
+    "assets/journey/landmarks/mountains.avif",
+    "assets/journey/landmarks/boat.webp",
+    "assets/journey/landmarks/boat.avif",
+    "assets/journey/landmarks/lighthouse.webp",
+    "assets/journey/landmarks/lighthouse.avif",
+    "assets/journey/landmarks/village.webp",
+    "assets/journey/landmarks/village.avif",
+    "assets/journey/landmarks/heroes.webp",
+    "assets/journey/landmarks/heroes.avif",
+    "assets/journey/paper-grain.svg",
+    "assets/journey/compass.svg",
+    "assets/journey/paw-print.svg"
+  ];
+
+  requiredAssets.forEach((relativePath) => {
+    assert.ok(fs.existsSync(path.join(projectRoot, relativePath)), `Missing ${relativePath}`);
+  });
+});
+
 test("static page navigation uses application routes instead of hidden anchors", () => {
   ["about.html", "privacy.html", "requisites.html", "terms.html"].forEach((file) => {
     const html = read(file);
