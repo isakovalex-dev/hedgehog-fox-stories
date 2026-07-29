@@ -244,6 +244,18 @@ test("story renderer keeps delegated card actions", () => {
   ].forEach((attribute) => assert.match(source, new RegExp(attribute)));
 });
 
+test("homepage story cards expose book metadata and exact source labels", () => {
+  const source = read("js/app.js");
+  assert.match(source, /options\.sequence/);
+  assert.match(source, /story-card__book-meta/);
+  assert.match(source, /story-card__sequence/);
+  assert.match(source, /story-card__arrow/);
+  assert.match(source, />Моя история</);
+  assert.match(source, />История от автора</);
+  assert.match(source, /renderStoryCard\(story,\s*\{\s*sequence:\s*index\s*\+\s*1\s*\}\)/);
+  assert.match(read("index.html"), /class=["'][^"']*book-route--stories/);
+});
+
 test("reader completion sends the normalized story shape to journey storage", () => {
   const source = read("js/app.js");
   assert.match(source, /markDiscovered\?\.\(\{\s*id:\s*activeStory\.id,/);

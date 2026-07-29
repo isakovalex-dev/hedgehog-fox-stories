@@ -1082,6 +1082,12 @@
   }
 
   function renderStoryCard(story, options = {}) {
+    const homepageSequence = Number.isInteger(options.sequence) ? options.sequence : null;
+    const sequenceLabel = homepageSequence
+      ? String(homepageSequence).padStart(2, "0")
+      : "";
+    const primaryTagKey = story.tags?.find((tag) => moodLabels[tag]) || "";
+    const primaryTag = moodLabels[primaryTagKey] || story.mood || "история";
     const [top, mid, bottom] = story.colors;
     const sourceBadge = story.source === "user"
       ? `<span class="story-source-badge story-source-badge--user"><span class="story-source-badge__icon" aria-hidden="true">✎</span><span>Моя история</span></span>`
@@ -1093,6 +1099,53 @@
     const illustrateButton = options.canDelete && story.storage === "supabase" && story.useIllustrations !== false
       ? `<button class="button secondary" data-illustrate-story="${escapeAttribute(story.id)}" data-force-illustrations="${hasIllustrations}" type="button">${hasIllustrations ? "Перерисовать иллюстрации" : "Нарисовать иллюстрации"}</button>`
       : "";
+    const homepageMeta = homepageSequence
+      ? `
+      <div class="story-card__book-meta">
+        <span class="story-card__sequence">№ ${sequenceLabel}</span>
+        <span aria-hidden="true">•</span>
+        <span>${escapeHtml(story.time)}</span>
+      </div>
+    `
+      : "";
+    const standardMeta = homepageSequence
+      ? ""
+      : `
+        <p class="story-place"><span aria-hidden="true">⌖</span> ${escapeHtml(story.journeyPlaceLabel || "Неизведанная тропа")}</p>
+        <div class="story-meta">
+          <span class="pill">${escapeHtml(story.age)} лет</span>
+          <span class="pill">${escapeHtml(story.time)}</span>
+          ${renderLikeButton(story, "compact")}
+        </div>
+      `;
+    const cardFooter = homepageSequence
+      ? `
+      <div class="story-card__source-row">
+        ${sourceBadge}
+        ${renderLikeButton(story, "compact")}
+      </div>
+      <div class="story-card__book-footer">
+        <span>${escapeHtml(story.age)} лет</span>
+        <span aria-hidden="true">•</span>
+        <span>${escapeHtml(primaryTag)}</span>
+        <a
+          class="story-card__arrow"
+          href="/stories/${encodeURIComponent(story.id)}"
+          data-read="${escapeAttribute(story.id)}"
+          aria-label="Читать историю «${escapeAttribute(story.title)}»"
+        >→</a>
+      </div>
+    `
+      : `
+      <div class="card-footer">
+        <div class="card-actions">
+          <button class="button primary" data-read="${escapeAttribute(story.id)}" type="button">Читать</button>
+          ${illustrateButton}
+          ${deleteButton}
+        </div>
+        ${sourceBadge}
+      </div>
+      `;
 
     return `
       <article class="story-card" style="--wash-color: ${top}88;" data-story-card="${escapeAttribute(story.id)}">
@@ -1105,22 +1158,11 @@
           ${renderStoryArt(story)}
         </div>
         <div class="story-content">
+          ${homepageMeta}
           <h3><a class="story-title-link" href="/stories/${encodeURIComponent(story.id)}" data-read="${escapeAttribute(story.id)}">${escapeHtml(story.title)}</a></h3>
-          <p class="story-place"><span aria-hidden="true">⌖</span> ${escapeHtml(story.journeyPlaceLabel || "Неизведанная тропа")}</p>
-          <div class="story-meta">
-            <span class="pill">${escapeHtml(story.age)} лет</span>
-            <span class="pill">${escapeHtml(story.time)}</span>
-            ${renderLikeButton(story, "compact")}
-          </div>
+          ${standardMeta}
           <p>${escapeHtml(story.description)}</p>
-          <div class="card-footer">
-            <div class="card-actions">
-              <button class="button primary" data-read="${escapeAttribute(story.id)}" type="button">Читать</button>
-              ${illustrateButton}
-              ${deleteButton}
-            </div>
-            ${sourceBadge}
-          </div>
+          ${cardFooter}
         </div>
       </article>
     `;
@@ -1193,7 +1235,9 @@
       return activeFilter === "all" || story.tags.includes(activeFilter);
     });
 
-    storyList.innerHTML = visibleStories.map((story) => renderStoryCard(story)).join("");
+    storyList.innerHTML = visibleStories
+      .map((story, index) => renderStoryCard(story, { sequence: index + 1 }))
+      .join("");
   }
 
   function renderJourney() {
