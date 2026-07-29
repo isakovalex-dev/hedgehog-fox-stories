@@ -1,0 +1,23 @@
+.home-page {
+  --book-paper: #f4ebd4;
+  --book-paper-light: #fbf5e6;
+  --book-ink: #344438;
+  --book-moss: #536b57;
+  --book-gold: #b49a69;
+  --book-sea: #afc8c5;
+  --book-rust: #b96f47;
+  --book-line: rgba(91, 75, 48, 0.24);
+  --book-shadow: 0 10px 26px rgba(76, 61, 37, 0.11);
+  color: var(--book-ink);
+  background-color: var(--book-paper);
+  background-image: url("../assets/journey/paper-grain.svg");
+  background-size: 420px 420px;
+}
+
+.home-page main {
+  overflow: clip;
+}
+
+.home-page :where(h1, h2, h3) {
+  color: var(--book-ink);
+}

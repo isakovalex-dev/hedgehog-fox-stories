@@ -95,6 +95,16 @@ test("shared pages load the journey theme after legacy CSS", () => {
   );
 });
 
+test("homepage loads an isolated faithful book theme", () => {
+  const homepage = read("index.html");
+  assert.match(homepage, /<body[^>]*class=["'][^"']*\bhome-page\b/);
+  assert.match(homepage, /styles\/homepage-book\.css/);
+
+  ["about.html", "privacy.html", "requisites.html", "terms.html", "404.html"].forEach((file) => {
+    assert.doesNotMatch(read(file), /styles\/homepage-book\.css/, `${file} must keep the shared theme`);
+  });
+});
+
 test("static page navigation uses application routes instead of hidden anchors", () => {
   ["about.html", "privacy.html", "requisites.html", "terms.html"].forEach((file) => {
     const html = read(file);
