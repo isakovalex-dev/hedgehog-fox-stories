@@ -182,15 +182,46 @@ test("faithful homepage hero keeps desktop and mobile geometry safeguards", () =
   );
   assert.match(css, /font-size:\s*clamp\(4\.25rem,\s*5\.5vw,\s*5\.5rem\)/);
 
+  const tabletStart = css.indexOf("@media (min-width: 721px) and (max-width: 1155px)");
+  const mobileStart = css.indexOf("@media (max-width: 720px)");
+  const tablet = css.slice(tabletStart, mobileStart);
+  assert.ok(tabletStart >= 0, "Missing faithful tablet breakpoint");
+  assert.match(
+    tablet,
+    /\.home-page \.journey-hero\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/
+  );
+  assert.match(tablet, /\.home-page \.journey-hero__copy\s*\{[\s\S]*?min-width:\s*0;/);
+  assert.match(
+    tablet,
+    /\.home-page \.journey-hero__art\s*\{[\s\S]*?width:\s*100%;[\s\S]*?margin-left:\s*0;/
+  );
+  assert.match(
+    tablet,
+    /\.home-page \.journey-hero h1\s*\{[\s\S]*?font-size:\s*clamp\(2\.75rem,\s*5\.2vw,\s*4\.5rem\);/
+  );
+
   const mobile = css.slice(css.indexOf("@media (max-width: 720px)"));
-  assert.match(mobile, /\.home-page \.book-brand-mark\s*\{[\s\S]*?width:\s*40px;[\s\S]*?height:\s*40px;/);
+  assert.match(
+    mobile,
+    /\.home-page \.site-nav\s*\{[\s\S]*?flex-direction:\s*row;[\s\S]*?flex-wrap:\s*nowrap;/
+  );
+  assert.match(
+    mobile,
+    /\.home-page \.nav-brand\s*\{[\s\S]*?flex:\s*1 1 auto;[\s\S]*?min-width:\s*0;[\s\S]*?font-size:\s*1\.25rem;/
+  );
+  assert.match(mobile, /\.home-page \.brand-leaf\s*\{[\s\S]*?display:\s*none;/);
+  assert.match(mobile, /\.home-page \.book-brand-mark\s*\{[\s\S]*?width:\s*36px;[\s\S]*?height:\s*36px;/);
+  assert.match(
+    mobile,
+    /\.home-page \.nav-menu-button\s*\{[\s\S]*?flex:\s*0 0 42px;[\s\S]*?margin-left:\s*0;/
+  );
   assert.match(
     mobile,
     /\.home-page \.journey-hero\s*\{[\s\S]*?min-height:\s*auto;[\s\S]*?padding:\s*0 1rem 3\.5rem;/
   );
   assert.match(
     mobile,
-    /\.home-page \.journey-hero h1\s*\{[\s\S]*?font-size:\s*clamp\(3\.2rem,\s*14vw,\s*4\.4rem\);/
+    /\.home-page \.journey-hero h1\s*\{[\s\S]*?font-size:\s*clamp\(2\.75rem,\s*11\.8vw,\s*3\.25rem\);/
   );
 });
 

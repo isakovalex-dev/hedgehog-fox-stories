@@ -139,11 +139,58 @@
 .home-page .book-route--hero img:nth-of-type(2) { left: 39%; top: 43%; transform: rotate(12deg); }
 .home-page .book-route--hero img:nth-of-type(3) { left: 72%; top: 52%; transform: rotate(-10deg); }
 
+@media (min-width: 721px) and (max-width: 1155px) {
+  .home-page .journey-hero {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .home-page .journey-hero__copy {
+    min-width: 0;
+  }
+
+  .home-page .journey-hero__art {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .home-page .journey-hero h1 {
+    font-size: clamp(2.75rem, 5.2vw, 4.5rem);
+  }
+}
+
 @media (max-width: 720px) {
+  .home-page .site-nav {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+  }
+
+  .home-page .nav-brand {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 1.25rem;
+  }
+
+  .home-page .nav-brand > span:not(.brand-leaf) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .home-page .brand-leaf {
+    display: none;
+  }
+
   .home-page .book-brand-mark {
-    width: 40px;
-    height: 40px;
-    margin-right: 0.35rem;
+    flex: 0 0 36px;
+    width: 36px;
+    height: 36px;
+    margin-right: 0.25rem;
+  }
+
+  .home-page .nav-menu-button {
+    flex: 0 0 42px;
+    margin-left: 0;
   }
 
   .home-page .journey-hero {
@@ -152,7 +199,7 @@
   }
 
   .home-page .journey-hero h1 {
-    font-size: clamp(3.2rem, 14vw, 4.4rem);
+    font-size: clamp(2.75rem, 11.8vw, 3.25rem);
     line-height: 0.92;
   }
 }
