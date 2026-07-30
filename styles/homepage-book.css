@@ -282,6 +282,10 @@
   align-self: center;
 }
 
+.home-page .journey-map__intro h2 {
+  font-size: clamp(2.5rem, 3vw, 3.25rem);
+}
+
 .home-page .journey-route-stage,
 .home-page .journey-landmarks,
 .home-page .journey-places {
@@ -468,6 +472,15 @@
   border-color: var(--book-line);
   border-radius: 8px;
   background: rgba(251, 245, 230, 0.48);
+}
+
+.home-page .nav-menu-button,
+.home-page .nav-link,
+.home-page .like-button.compact,
+.home-page .site-footer a,
+.home-page .story-card__arrow {
+  min-width: 44px;
+  min-height: 44px;
 }
 
 @media (max-width: 980px) {
@@ -682,5 +695,141 @@
     height: auto;
     min-height: 210px;
     aspect-ratio: 4 / 3;
+  }
+}
+
+@media (max-width: 1100px) {
+  .home-page .journey-hero {
+    grid-template-columns: minmax(310px, 0.85fr) minmax(430px, 1.15fr);
+    min-height: 620px;
+  }
+
+  .home-page .journey-hero h1 {
+    font-size: clamp(3.8rem, 7vw, 5.4rem);
+  }
+
+  .home-page .stories-section .story-list {
+    display: grid;
+    grid-auto-columns: minmax(430px, 72vw);
+    grid-auto-flow: column;
+    grid-template-columns: none;
+    overflow-x: auto;
+    padding-bottom: 1rem;
+    scroll-snap-type: x mandatory;
+  }
+
+  .home-page .stories-section .story-card {
+    scroll-snap-align: start;
+  }
+}
+
+@media (max-width: 768px) {
+  .home-page .site-nav {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+  }
+
+  .home-page .nav-brand {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .home-page .nav-menu-button {
+    flex: 0 0 44px;
+    margin-left: auto;
+  }
+
+  .home-page .journey-hero {
+    grid-template-columns: 1fr;
+    padding-top: 1rem;
+  }
+
+  .home-page .journey-hero__art {
+    order: -1;
+    width: 116%;
+    margin: 0 -8% -10%;
+  }
+
+  .home-page .journey-hero__copy {
+    width: min(100%, 560px);
+    margin-inline: auto;
+    text-align: center;
+  }
+
+  .home-page .hero-actions,
+  .home-page .journey-hero__quiet-actions {
+    justify-content: center;
+  }
+
+  .home-page .journey-map {
+    grid-template-columns: 1fr;
+    min-height: 760px;
+  }
+
+  .home-page .journey-map__intro,
+  .home-page .journey-places {
+    grid-column: 1;
+  }
+
+  .home-page .journey-landmarks,
+  .home-page .journey-map__route {
+    opacity: 0.52;
+  }
+
+  .home-page .value-item + .value-item::before {
+    display: none;
+  }
+
+  .home-page .games-clearing__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .home-page .book-brand-mark {
+    width: 44px;
+    height: 44px;
+  }
+
+  .home-page .journey-hero h1 {
+    font-size: clamp(3.15rem, 15vw, 4.2rem);
+  }
+
+  .home-page .book-route--hero {
+    right: 0.5rem;
+    left: 0.5rem;
+  }
+
+  .home-page .stories-section .story-list {
+    display: grid;
+    grid-auto-flow: row;
+    grid-template-columns: 1fr;
+    overflow: visible;
+  }
+
+  .home-page .stories-section .story-card {
+    grid-template-columns: 1fr;
+  }
+
+  .home-page .stories-section .story-art {
+    min-height: 210px;
+    aspect-ratio: 4 / 3;
+  }
+
+  .home-page .journey-map {
+    min-height: 980px;
+  }
+
+  .home-page .journey-places {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-page .journey-current-heroes,
+  .home-page .story-card,
+  .home-page .game-pass {
+    transition: none;
   }
 }

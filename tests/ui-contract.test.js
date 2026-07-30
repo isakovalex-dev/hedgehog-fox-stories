@@ -399,6 +399,34 @@ test("homepage book layout preserves and restyles lower-section functionality", 
   assert.match(css, /\.home-page\s+\.pricing-card/);
 });
 
+test("homepage book theme defines responsive and reduced-motion fallbacks", () => {
+  const css = read("styles/homepage-book.css");
+  ["1100px", "768px", "520px"].forEach((breakpoint) => {
+    assert.match(css, new RegExp(`@media\\s*\\(max-width:\\s*${breakpoint.replace(".", "\\.")}\\)`));
+  });
+  assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)/);
+  assert.match(css, /scroll-snap-type/);
+});
+
+test("homepage book theme keeps compact controls touchable and map copy contained", () => {
+  const css = read("styles/homepage-book.css");
+  assert.match(
+    css,
+    /\.home-page \.nav-menu-button,[\s\S]*?\.home-page \.story-card__arrow\s*\{[\s\S]*?min-width:\s*44px;[\s\S]*?min-height:\s*44px;/
+  );
+  assert.match(
+    css,
+    /\.home-page \.journey-map__intro h2\s*\{[\s\S]*?font-size:\s*clamp\(2\.5rem,\s*3vw,\s*3\.25rem\);/
+  );
+
+  const tablet = css.slice(css.indexOf("@media (max-width: 768px)"), css.indexOf("@media (max-width: 520px)"));
+  assert.match(tablet, /\.home-page \.site-nav\s*\{[\s\S]*?flex-direction:\s*row;[\s\S]*?flex-wrap:\s*nowrap;/);
+  assert.match(
+    tablet,
+    /\.home-page \.games-clearing__grid\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\);/
+  );
+});
+
 test("sitemap lists only the two public games", () => {
   const sitemap = read("sitemap.xml");
   const gameUrls = [...sitemap.matchAll(/<loc>[^<]+\/games\/([^<]+)<\/loc>/g)].map((match) => match[1]);
