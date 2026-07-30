@@ -190,6 +190,23 @@
           <picture><source type="image/avif" srcset="assets/journey/landmarks/boat.avif" /><img class="journey-landmark journey-landmark--boat" src="assets/journey/landmarks/boat.webp" alt="" loading="lazy" /></picture>
           <picture><source type="image/avif" srcset="assets/journey/landmarks/lighthouse.avif" /><img class="journey-landmark journey-landmark--lighthouse" src="assets/journey/landmarks/lighthouse.webp" alt="" loading="lazy" /></picture>
           <picture><source type="image/avif" srcset="assets/journey/landmarks/village.avif" /><img class="journey-landmark journey-landmark--village" src="assets/journey/landmarks/village.webp" alt="" loading="lazy" /></picture>
+          <img class="journey-map__compass" src="assets/journey/compass.svg" alt="" loading="lazy" />
+        </div>
+        <div class="journey-route-stage" id="journeyRouteStage" aria-hidden="true">
+          <svg class="journey-map__route" viewBox="0 0 1200 600" preserveAspectRatio="none">
+            <path
+              class="journey-map__route-path journey-map__route-path--landscape"
+              d="M30 300 C220 300 330 300 470 300 S720 300 880 300 1040 300 1170 300"
+            />
+            <path
+              class="journey-map__route-path journey-map__route-path--vertical"
+              d="M102 60 C102 185 102 265 102 330 S102 440 102 540"
+            />
+          </svg>
+          <img class="journey-route__paw" src="assets/journey/paw-print.svg" alt="" loading="lazy" />
+          <img class="journey-route__paw" src="assets/journey/paw-print.svg" alt="" loading="lazy" />
+          <img class="journey-route__paw" src="assets/journey/paw-print.svg" alt="" loading="lazy" />
+          <img class="journey-route__paw" src="assets/journey/paw-print.svg" alt="" loading="lazy" />
           <picture>
             <source type="image/avif" srcset="assets/journey/landmarks/heroes.avif" />
             <img
@@ -200,11 +217,7 @@
               loading="lazy"
             />
           </picture>
-          <img class="journey-map__compass" src="assets/journey/compass.svg" alt="" loading="lazy" />
         </div>
-        <svg class="journey-map__route" viewBox="0 0 1200 270" preserveAspectRatio="none" aria-hidden="true">
-          <path d="M30 170 C155 70 230 245 350 145 S545 50 650 155 835 250 925 112 1090 70 1170 145" />
-        </svg>
         <div class="journey-places" id="journeyPlaces" aria-label="Места путешествия"></div>
         <aside class="journey-keepsakes" aria-labelledby="keepsakesTitle">
           <p class="journey-meta">Собрано по дороге</p>

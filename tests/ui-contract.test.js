@@ -323,6 +323,38 @@ test("homepage journey map exposes watercolor landmarks and live position", () =
   assert.match(source, /discoveredStoryIds/);
 });
 
+test("journey route keeps paws and the live heroes marker in one decorative stage", () => {
+  const html = read("index.html");
+  const source = read("js/app.js");
+
+  assert.match(html, /id=["']journeyRouteStage["']/);
+  assert.match(html, /class=["'][^"']*journey-map__route-path--landscape/);
+  assert.match(html, /class=["'][^"']*journey-map__route-path--vertical/);
+  assert.equal((html.match(/class=["'][^"']*journey-route__paw/g) || []).length, 4);
+  assert.match(source, /--journey-progress-landscape/);
+  assert.match(source, /--journey-progress-vertical/);
+});
+
+test("homepage journey map switches to an unclipped one-column vertical trail", () => {
+  const css = read("styles/homepage-book.css");
+  const responsiveStart = css.indexOf("@media (max-width: 980px)");
+  const responsiveEnd = css.indexOf("@media (min-width: 721px)", responsiveStart);
+  const responsive = css.slice(responsiveStart, responsiveEnd);
+
+  assert.match(
+    responsive,
+    /\.home-page \.journey-map\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\);/
+  );
+  assert.match(
+    responsive,
+    /\.home-page \.journey-route-stage,[\s\S]*?\.home-page \.journey-places\s*\{[\s\S]*?grid-column:\s*1;[\s\S]*?grid-row:\s*2;[\s\S]*?min-width:\s*0;/
+  );
+  assert.match(
+    responsive,
+    /\.home-page \.journey-keepsakes\s*\{[\s\S]*?grid-row:\s*3;/
+  );
+});
+
 test("homepage exposes exactly the two production games", () => {
   const html = read("index.html");
   assert.match(html, /id=["']games["']/);

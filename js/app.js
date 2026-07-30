@@ -1253,8 +1253,12 @@
     const journeyProgress = furthestDiscoveredIndex < 0
       ? 0
       : furthestDiscoveredIndex / Math.max(journeyPlaces.length - 1, 1);
+    const journeyLandscapeProgress = 2.5 + journeyProgress * 95;
+    const journeyVerticalProgress = 10 + journeyProgress * 80;
 
     journeyMap?.style.setProperty("--journey-progress", journeyProgress.toFixed(3));
+    journeyMap?.style.setProperty("--journey-progress-landscape", `${journeyLandscapeProgress.toFixed(3)}%`);
+    journeyMap?.style.setProperty("--journey-progress-vertical", `${journeyVerticalProgress.toFixed(3)}%`);
 
     journeyPlacesElement.innerHTML = journeyPlaces
       .map((place, index) => {
