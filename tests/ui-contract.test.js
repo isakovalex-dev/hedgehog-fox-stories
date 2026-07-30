@@ -174,6 +174,23 @@ test("faithful homepage hero keeps actions and watercolor structure", () => {
   });
 });
 
+test("homepage hero sources size AVIF and WebP for the actual one-column breakpoint", () => {
+  const html = read("index.html");
+  const expectedSizes = "(max-width: 768px) 100vw, (max-width: 1100px) 58vw, 900px";
+  const sourceTags = [...html.matchAll(/<source\b[\s\S]*?\/>/g)].map((match) => match[0]);
+
+  ["avif", "webp"].forEach((format) => {
+    const source = sourceTags.find(
+      (tag) => tag.includes(`type="image/${format}"`) && tag.includes(`hero-coast-480.${format}`)
+    );
+    assert.ok(source, `Missing ${format.toUpperCase()} hero source`);
+    assert.match(source, new RegExp(`sizes=["']${expectedSizes.replace(/[().]/g, "\\$&")}["']`));
+    ["480", "768", "1200", "1800"].forEach((width) => {
+      assert.match(source, new RegExp(`hero-coast-${width}\\.${format}\\s+${width}w`));
+    });
+  });
+});
+
 test("faithful homepage hero keeps desktop and mobile geometry safeguards", () => {
   const css = read("styles/homepage-book.css");
   assert.match(
@@ -417,6 +434,10 @@ test("homepage book theme keeps compact controls touchable and map copy containe
   assert.match(
     css,
     /\.home-page \.journey-map__intro h2\s*\{[\s\S]*?font-size:\s*clamp\(2\.5rem,\s*3vw,\s*3\.25rem\);/
+  );
+  assert.match(
+    css,
+    /\.home-page \.story-title-link\s*\{[\s\S]*?display:\s*inline-flex;[\s\S]*?align-items:\s*center;[\s\S]*?min-height:\s*44px;/
   );
 
   const tablet = css.slice(css.indexOf("@media (max-width: 768px)"), css.indexOf("@media (max-width: 520px)"));
