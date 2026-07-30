@@ -551,7 +551,7 @@
   }
 
   .home-page .stories-section .story-art {
-    min-height: 214px;
+    min-height: 0;
   }
 
   .home-page .stories-section .story-content {
@@ -590,6 +590,68 @@
   .home-page .journey-map {
     margin: -2rem auto clamp(4rem, 7vw, 7rem);
     padding-top: 1rem;
+  }
+}
+
+@media (min-width: 1101px) and (max-width: 1155px) {
+  .home-page .site-nav {
+    min-height: 62px;
+  }
+
+  .home-page .nav-brand {
+    font-size: 1.65rem;
+  }
+
+  .home-page .nav-menu-button {
+    display: block;
+    margin-left: auto;
+  }
+
+  .home-page .nav-menu-button[aria-expanded="true"] span:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+  }
+
+  .home-page .nav-menu-button[aria-expanded="true"] span:nth-child(2) {
+    opacity: 0;
+  }
+
+  .home-page .nav-menu-button[aria-expanded="true"] span:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+  }
+
+  .home-page .nav-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 0;
+    display: none;
+    align-items: stretch;
+    padding: 1rem 1.25rem 1.25rem;
+    border-bottom: 1px solid var(--book-line);
+    background: rgba(244, 235, 212, 0.98);
+    box-shadow: var(--book-shadow);
+  }
+
+  .home-page .nav-menu.open {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .home-page .nav-links,
+  .home-page .nav-actions {
+    display: grid;
+    width: 100%;
+  }
+
+  .home-page .nav-link,
+  .home-page .nav-action {
+    width: 100%;
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .home-page .nav-action {
+    text-align: center;
   }
 }
 

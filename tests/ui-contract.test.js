@@ -332,9 +332,35 @@ test("desktop homepage keeps the concept sequence in one 1000px composition", ()
   );
   assert.match(
     desktop,
+    /\.home-page \.stories-section \.story-art\s*\{[\s\S]*?min-height:\s*0;/
+  );
+  assert.match(
+    desktop,
     /\.home-page \.journey-map\s*\{[\s\S]*?margin:\s*-2rem auto clamp\(4rem,\s*7vw,\s*7rem\);/
   );
   assert.doesNotMatch(desktop, /(?:transform:\s*scale|zoom:|display:\s*none|visibility:\s*hidden)/);
+});
+
+test("homepage keeps the collapsed navigation through the narrow desktop boundary", () => {
+  const css = read("styles/homepage-book.css");
+  const boundaryStart = css.indexOf("@media (min-width: 1101px) and (max-width: 1155px)");
+  const boundaryEnd = css.indexOf("@media", boundaryStart + 1);
+  const boundary = css.slice(boundaryStart, boundaryEnd);
+
+  assert.ok(boundaryStart >= 0, "Missing homepage narrow-desktop navigation boundary");
+  assert.match(
+    boundary,
+    /\.home-page \.nav-menu-button\s*\{[\s\S]*?display:\s*block;[\s\S]*?margin-left:\s*auto;/
+  );
+  assert.match(
+    boundary,
+    /\.home-page \.nav-menu\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?display:\s*none;/
+  );
+  assert.match(boundary, /\.home-page \.nav-menu\.open\s*\{[\s\S]*?display:\s*grid;/);
+  assert.match(
+    boundary,
+    /\.home-page \.nav-link,[\s\S]*?\.home-page \.nav-action\s*\{[\s\S]*?width:\s*100%;/
+  );
 });
 
 test("reader completion sends the normalized story shape to journey storage", () => {
