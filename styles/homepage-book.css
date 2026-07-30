@@ -402,6 +402,72 @@
   background: transparent;
 }
 
+.home-page :where(.games-clearing, .reading-values, .pricing-section) {
+  border: 0;
+  border-top: 1px solid var(--book-line);
+  border-bottom: 1px solid var(--book-line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.home-page .games-clearing {
+  position: relative;
+  width: min(100%, 1320px);
+}
+
+.home-page .game-pass {
+  border-color: var(--book-line);
+  border-radius: 10px;
+  background: rgba(251, 245, 230, 0.72);
+  box-shadow: 0 6px 18px rgba(76, 61, 37, 0.07);
+}
+
+.home-page .game-pass--flight {
+  background:
+    linear-gradient(145deg, rgba(175, 200, 197, 0.34), rgba(251, 245, 230, 0.78));
+}
+
+.home-page .reading-values {
+  width: min(100%, 1320px);
+}
+
+.home-page .value-item {
+  position: relative;
+  padding-inline: 1rem;
+}
+
+.home-page .value-item + .value-item::before {
+  position: absolute;
+  top: 8%;
+  bottom: 8%;
+  left: 0;
+  width: 1px;
+  background: var(--book-line);
+  content: "";
+}
+
+.home-page .pricing-section {
+  width: min(100%, 1180px);
+}
+
+.home-page .pricing-card {
+  border-color: var(--book-line);
+  border-radius: 10px;
+  background: rgba(251, 245, 230, 0.64);
+  box-shadow: none;
+}
+
+.home-page .about-section {
+  border-top: 1px solid var(--book-line);
+}
+
+.home-page .character-card {
+  border-color: var(--book-line);
+  border-radius: 8px;
+  background: rgba(251, 245, 230, 0.48);
+}
+
 @media (max-width: 980px) {
   .home-page .journey-map {
     --journey-heroes-baseline: var(--journey-heroes-baseline-vertical);

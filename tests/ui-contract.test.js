@@ -380,6 +380,21 @@ test("homepage exposes exactly the two production games", () => {
   assert.doesNotMatch(html, /forest-catcher/i);
 });
 
+test("homepage book layout preserves and restyles lower-section functionality", () => {
+  const html = read("index.html");
+  const css = read("styles/homepage-book.css");
+  ["games", "why-read", "pricing", "about"].forEach((id) => {
+    assert.match(html, new RegExp(`id=["']${id}["']`));
+  });
+  assert.match(html, /href=["']\/games\/memory["']/);
+  assert.match(html, /href=["']\/games\/endless-flight["']/);
+  assert.match(html, /data-start-checkout/);
+  assert.match(html, /href=["']about\.html["']/);
+  assert.match(css, /\.home-page\s+:where\(\.games-clearing,\s*\.reading-values,\s*\.pricing-section\)/);
+  assert.match(css, /\.home-page\s+\.game-pass/);
+  assert.match(css, /\.home-page\s+\.pricing-card/);
+});
+
 test("sitemap lists only the two public games", () => {
   const sitemap = read("sitemap.xml");
   const gameUrls = [...sitemap.matchAll(/<loc>[^<]+\/games\/([^<]+)<\/loc>/g)].map((match) => match[1]);
