@@ -592,7 +592,7 @@
   }
 }
 
-@media (min-width: 1101px) and (max-width: 1279px) {
+@media (min-width: 981px) and (max-width: 1279px) {
   .home-page .site-nav {
     min-height: 62px;
   }

@@ -12,6 +12,12 @@ function read(relativePath) {
   return fs.readFileSync(path.join(projectRoot, relativePath), "utf8");
 }
 
+function getBuiltInStories() {
+  const context = { window: {} };
+  vm.runInNewContext(read("js/storyService.js"), context);
+  return context.window.HFStoryService.getBuiltInStories();
+}
+
 function readCssColor(source, propertyName) {
   const match = source.match(new RegExp(`${propertyName}:\\s*(#[0-9a-f]{6})`, "i"));
   assert.ok(match, `Missing ${propertyName}`);
@@ -342,20 +348,41 @@ test("story renderer keeps delegated card actions", () => {
   ].forEach((attribute) => assert.match(source, new RegExp(attribute)));
 });
 
-test("source HTML offers ordinary links to every built-in story without JavaScript", () => {
+test("source HTML sends no-JavaScript readers to the static story archive", () => {
   const html = read("index.html");
   const storyList = html.match(/<div class="story-list" id="storyList"[^>]*>([\s\S]*?)<\/div>/)?.[1] || "";
-  const storyLinks = [...storyList.matchAll(/href="(\/stories\/[^"]+)"/g)].map((match) => match[1]);
+  const storyLinks = [...storyList.matchAll(/href="([^"]+)"/g)].map((match) => match[1]);
 
   assert.deepEqual(storyLinks, [
-    "/stories/lost-cloud",
-    "/stories/sea-bench",
-    "/stories/hedgehog-bravery",
-    "/stories/warm-wind-map",
-    "/stories/rustling-grass",
-    "/stories/star-for-friend"
+    "/stories-static.html#lost-cloud",
+    "/stories-static.html#sea-bench",
+    "/stories-static.html#hedgehog-bravery",
+    "/stories-static.html#warm-wind-map",
+    "/stories-static.html#rustling-grass",
+    "/stories-static.html#star-for-friend"
   ]);
   assert.doesNotMatch(storyList, /onclick=|javascript:/i);
+});
+
+test("static story archive contains the unchanged readable text of every built-in story", () => {
+  const archivePath = path.join(projectRoot, "stories-static.html");
+  assert.ok(fs.existsSync(archivePath), "Missing stories-static.html");
+
+  const html = fs.readFileSync(archivePath, "utf8");
+  assert.equal((html.match(/<h1\b/g) || []).length, 1);
+  assert.match(html, /<a class="skip-link" href="#mainContent">/);
+  assert.match(html, /<nav\b[^>]*aria-label=/);
+
+  getBuiltInStories().forEach((story) => {
+    const article = html.match(
+      new RegExp(`<article[^>]+id="${story.id}"[^>]*>([\\s\\S]*?)<\\/article>`)
+    )?.[1];
+    assert.ok(article, `Missing readable article for ${story.id}`);
+    assert.match(article, new RegExp(`<h2[^>]*>${story.title}</h2>`));
+    story.slides.forEach((slide) => {
+      assert.ok(article.includes(`<p>${slide}</p>`), `Changed or missing text in ${story.id}`);
+    });
+  });
 });
 
 test("homepage story cards expose book metadata and exact source labels", () => {
@@ -458,7 +485,7 @@ test("desktop homepage keeps the concept sequence in one 1000px composition", ()
 
 test("homepage keeps the collapsed navigation through the narrow desktop boundary", () => {
   const css = read("styles/homepage-book.css");
-  const boundaryStart = css.indexOf("@media (min-width: 1101px) and (max-width: 1279px)");
+  const boundaryStart = css.indexOf("@media (min-width: 981px) and (max-width: 1279px)");
   const boundaryEnd = css.indexOf("@media", boundaryStart + 1);
   const boundary = css.slice(boundaryStart, boundaryEnd);
 
@@ -484,6 +511,24 @@ test("homepage keeps the collapsed navigation through the narrow desktop boundar
   assert.match(
     fullNav,
     /\.home-page \.nav-menu\s*\{[\s\S]*?gap:\s*clamp\(1\.2rem,\s*3vw,\s*2\.5rem\);/
+  );
+});
+
+test("shared navigation collapses at 980px while only the homepage extends to 1279px", () => {
+  const sharedCss = read("styles.css");
+  const homepageCss = read("styles/homepage-book.css");
+
+  assert.match(
+    sharedCss,
+    /@media \(max-width: 980px\) \{\s*\.site-nav\s*\{[\s\S]*?\.nav-menu-button\s*\{[\s\S]*?display:\s*block;/
+  );
+  assert.doesNotMatch(
+    sharedCss,
+    /@media \(max-width: 1100px\) \{\s*\.site-nav\s*\{[\s\S]*?\.nav-menu-button\s*\{/
+  );
+  assert.match(
+    homepageCss,
+    /@media \(min-width: 981px\) and \(max-width: 1279px\) \{[\s\S]*?\.home-page \.nav-menu-button\s*\{[\s\S]*?display:\s*block;/
   );
 });
 
