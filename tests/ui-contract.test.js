@@ -280,6 +280,8 @@ test("homepage hero does not eagerly request the legacy PNG fallback", () => {
 
 test("faithful homepage hero uses one full-bleed watercolor layer without an oval mask", () => {
   const css = read("styles/homepage-book.css");
+  const heroArtwork = css.match(/\.home-page \.journey-hero__art\s*\{([\s\S]*?)\n\}/)?.[1] || "";
+
   assert.match(
     css,
     /\.home-page \.journey-hero__art\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?inset:\s*0;[\s\S]*?width:\s*100%;[\s\S]*?height:\s*100%;/
@@ -288,7 +290,16 @@ test("faithful homepage hero uses one full-bleed watercolor layer without an ova
     css,
     /\.home-page \.book-hero-picture img\s*\{[\s\S]*?height:\s*100%;[\s\S]*?object-fit:\s*cover;[\s\S]*?object-position:\s*center 46%;/
   );
-  assert.doesNotMatch(css, /mask-image:\s*radial-gradient/);
+  assert.doesNotMatch(heroArtwork, /mask-image:\s*radial-gradient/);
+});
+
+test("journey landmarks retain their watercolor edge masks", () => {
+  const css = read("styles/homepage-book.css");
+
+  assert.match(
+    css,
+    /\.home-page \.journey-landmark,\s*\.home-page \.journey-current-heroes\s*\{[\s\S]*?-webkit-mask-image:\s*radial-gradient\(ellipse, #000 55%, transparent 78%\);[\s\S]*?mask-image:\s*radial-gradient\(ellipse, #000 55%, transparent 78%\);/
+  );
 });
 
 test("mobile homepage returns the watercolor illustration to document flow", () => {

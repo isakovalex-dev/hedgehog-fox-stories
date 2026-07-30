@@ -351,6 +351,8 @@
   position: absolute;
   width: clamp(110px, 12vw, 190px);
   mix-blend-mode: multiply;
+  -webkit-mask-image: radial-gradient(ellipse, #000 55%, transparent 78%);
+  mask-image: radial-gradient(ellipse, #000 55%, transparent 78%);
 }
 
 .home-page .journey-landmark--forest { left: 0; bottom: 22%; }
