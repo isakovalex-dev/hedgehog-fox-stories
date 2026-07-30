@@ -593,7 +593,7 @@
   }
 }
 
-@media (min-width: 1101px) and (max-width: 1155px) {
+@media (min-width: 1101px) and (max-width: 1279px) {
   .home-page .site-nav {
     min-height: 62px;
   }
@@ -652,6 +652,12 @@
 
   .home-page .nav-action {
     text-align: center;
+  }
+}
+
+@media (min-width: 1280px) {
+  .home-page .nav-menu {
+    gap: clamp(1.2rem, 3vw, 2.5rem);
   }
 }
 

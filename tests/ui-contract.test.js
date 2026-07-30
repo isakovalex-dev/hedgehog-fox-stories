@@ -343,7 +343,7 @@ test("desktop homepage keeps the concept sequence in one 1000px composition", ()
 
 test("homepage keeps the collapsed navigation through the narrow desktop boundary", () => {
   const css = read("styles/homepage-book.css");
-  const boundaryStart = css.indexOf("@media (min-width: 1101px) and (max-width: 1155px)");
+  const boundaryStart = css.indexOf("@media (min-width: 1101px) and (max-width: 1279px)");
   const boundaryEnd = css.indexOf("@media", boundaryStart + 1);
   const boundary = css.slice(boundaryStart, boundaryEnd);
 
@@ -360,6 +360,15 @@ test("homepage keeps the collapsed navigation through the narrow desktop boundar
   assert.match(
     boundary,
     /\.home-page \.nav-link,[\s\S]*?\.home-page \.nav-action\s*\{[\s\S]*?width:\s*100%;/
+  );
+
+  const fullNavStart = css.indexOf("@media (min-width: 1280px)");
+  const fullNavEnd = css.indexOf("@media", fullNavStart + 1);
+  const fullNav = css.slice(fullNavStart, fullNavEnd);
+  assert.ok(fullNavStart >= 0, "Missing measured full desktop navigation boundary");
+  assert.match(
+    fullNav,
+    /\.home-page \.nav-menu\s*\{[\s\S]*?gap:\s*clamp\(1\.2rem,\s*3vw,\s*2\.5rem\);/
   );
 });
 
