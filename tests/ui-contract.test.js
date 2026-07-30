@@ -335,6 +335,21 @@ test("journey route keeps paws and the live heroes marker in one decorative stag
   assert.match(source, /--journey-progress-vertical/);
 });
 
+test("journey heroes calibrate their painted baseline instead of the image box", () => {
+  const css = read("styles/homepage-book.css");
+
+  assert.match(css, /--journey-heroes-baseline-landscape:\s*-66\.2%;/);
+  assert.match(css, /--journey-heroes-baseline-vertical:\s*-66\.2%;/);
+  assert.match(
+    css,
+    /\.home-page \.journey-current-heroes\s*\{[\s\S]*?transform:\s*translate\(-50%,\s*var\(--journey-heroes-baseline\)\);/
+  );
+  assert.match(
+    css,
+    /@media \(max-width: 980px\) \{[\s\S]*?--journey-heroes-baseline:\s*var\(--journey-heroes-baseline-vertical\);/
+  );
+});
+
 test("homepage journey map switches to an unclipped one-column vertical trail", () => {
   const css = read("styles/homepage-book.css");
   const responsiveStart = css.indexOf("@media (max-width: 980px)");

@@ -253,6 +253,9 @@
 .home-page .book-route--stories img:nth-of-type(3) { left: 84%; top: 42%; transform: rotate(18deg); }
 
 .home-page .journey-map {
+  --journey-heroes-baseline-landscape: -66.2%;
+  --journey-heroes-baseline-vertical: -66.2%;
+  --journey-heroes-baseline: var(--journey-heroes-baseline-landscape);
   position: relative;
   display: grid;
   grid-template-columns: minmax(230px, 0.35fr) minmax(0, 1.65fr);
@@ -342,7 +345,7 @@
   left: var(--journey-progress-landscape, 2.5%);
   top: 50%;
   width: clamp(100px, 9vw, 145px);
-  transform: translate(-50%, -100%);
+  transform: translate(-50%, var(--journey-heroes-baseline));
   transition: left 420ms ease, top 420ms ease;
 }
 
@@ -401,6 +404,7 @@
 
 @media (max-width: 980px) {
   .home-page .journey-map {
+    --journey-heroes-baseline: var(--journey-heroes-baseline-vertical);
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(560px, auto) auto;
     gap: 1.5rem;
