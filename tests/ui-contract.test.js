@@ -199,7 +199,7 @@ test("faithful homepage hero keeps desktop and mobile geometry safeguards", () =
   );
   assert.match(css, /font-size:\s*clamp\(4\.25rem,\s*5\.5vw,\s*5\.5rem\)/);
 
-  const tabletStart = css.indexOf("@media (min-width: 721px) and (max-width: 1155px)");
+  const tabletStart = css.indexOf("@media (min-width: 721px) and (max-width: 1100px)");
   const mobileStart = css.indexOf("@media (max-width: 720px)");
   const tablet = css.slice(tabletStart, mobileStart);
   assert.ok(tabletStart >= 0, "Missing faithful tablet breakpoint");
@@ -275,7 +275,7 @@ test("homepage story cards expose book metadata and exact source labels", () => 
 
 test("homepage story cards use horizontal scrolling at tablet widths", () => {
   const css = read("styles/homepage-book.css");
-  const tabletStart = css.indexOf("@media (min-width: 721px) and (max-width: 1155px)");
+  const tabletStart = css.indexOf("@media (min-width: 721px) and (max-width: 1100px)");
   const mobileStart = css.indexOf("@media (max-width: 720px)");
   const tablet = css.slice(tabletStart, mobileStart);
 
