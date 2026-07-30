@@ -303,6 +303,40 @@ test("homepage source row reserves visible space for the source label and like a
   );
 });
 
+test("desktop homepage keeps the concept sequence in one 1000px composition", () => {
+  const css = read("styles/homepage-book.css");
+  const desktopStart = css.indexOf("@media (min-width: 1101px)");
+  const desktopEnd = css.indexOf("@media", desktopStart + 1);
+  const desktop = css.slice(desktopStart, desktopEnd);
+
+  assert.ok(desktopStart >= 0, "Missing desktop-only concept composition");
+  assert.match(
+    desktop,
+    /\.home-page \.journey-hero\s*\{[\s\S]*?min-height:\s*425px;[\s\S]*?padding:\s*1rem clamp\(1\.5rem,\s*5vw,\s*4\.5rem\) 2rem;/
+  );
+  assert.match(
+    desktop,
+    /\.home-page \.journey-hero__art\s*\{[\s\S]*?width:\s*88%;[\s\S]*?margin-left:\s*0;/
+  );
+  assert.match(
+    desktop,
+    /\.home-page \.stories-section\s*\{[\s\S]*?padding-top:\s*0\.25rem;[\s\S]*?padding-bottom:\s*1\.25rem;/
+  );
+  assert.match(
+    desktop,
+    /\.home-page \.stories-section \.story-list\s*\{[\s\S]*?grid-auto-columns:\s*calc\(\(100% - 2\.2rem\) \/ 3\);[\s\S]*?grid-auto-flow:\s*column;[\s\S]*?grid-template-columns:\s*none;[\s\S]*?overflow-x:\s*auto;/
+  );
+  assert.match(
+    desktop,
+    /\.home-page \.stories-section \.story-card\s*\{[\s\S]*?height:\s*230px;[\s\S]*?min-height:\s*230px;/
+  );
+  assert.match(
+    desktop,
+    /\.home-page \.journey-map\s*\{[\s\S]*?margin:\s*-2rem auto clamp\(4rem,\s*7vw,\s*7rem\);/
+  );
+  assert.doesNotMatch(desktop, /(?:transform:\s*scale|zoom:|display:\s*none|visibility:\s*hidden)/);
+});
+
 test("reader completion sends the normalized story shape to journey storage", () => {
   const source = read("js/app.js");
   assert.match(source, /markDiscovered\?\.\(\{\s*id:\s*activeStory\.id,/);
