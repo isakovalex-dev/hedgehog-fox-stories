@@ -250,9 +250,9 @@ test("faithful homepage hero keeps actions and watercolor structure", () => {
   });
 });
 
-test("homepage hero sources size AVIF and WebP for the actual one-column breakpoint", () => {
+test("homepage hero sources size AVIF and WebP for the full-width scene", () => {
   const html = read("index.html");
-  const expectedSizes = "(max-width: 768px) 100vw, (max-width: 1100px) 58vw, 900px";
+  const expectedSizes = "(max-width: 1500px) 100vw, 1500px";
   const sourceTags = [...html.matchAll(/<source\b[\s\S]*?\/>/g)].map((match) => match[0]);
 
   ["avif", "webp"].forEach((format) => {
@@ -278,62 +278,30 @@ test("homepage hero does not eagerly request the legacy PNG fallback", () => {
   assert.match(picture, /<img[\s\S]*?src="assets\/journey\/hero-coast-1200\.webp"/);
 });
 
-test("faithful homepage hero keeps desktop and mobile geometry safeguards", () => {
+test("faithful homepage hero uses one full-bleed watercolor layer without an oval mask", () => {
   const css = read("styles/homepage-book.css");
   assert.match(
     css,
-    /grid-template-columns:\s*minmax\(540px,\s*1fr\)\s+minmax\(500px,\s*1fr\)/
-  );
-  assert.match(css, /font-size:\s*clamp\(4\.25rem,\s*5\.5vw,\s*5\.5rem\)/);
-
-  const tabletStart = css.indexOf("@media (min-width: 721px) and (max-width: 1100px)");
-  const mobileStart = css.indexOf("@media (max-width: 720px)");
-  const tablet = css.slice(tabletStart, mobileStart);
-  assert.ok(tabletStart >= 0, "Missing faithful tablet breakpoint");
-  assert.match(
-    tablet,
-    /\.home-page \.journey-hero\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/
-  );
-  assert.match(tablet, /\.home-page \.journey-hero__copy\s*\{[\s\S]*?min-width:\s*0;/);
-  assert.match(
-    tablet,
-    /\.home-page \.journey-hero__art\s*\{[\s\S]*?width:\s*100%;[\s\S]*?margin-left:\s*0;/
+    /\.home-page \.journey-hero__art\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?inset:\s*0;[\s\S]*?width:\s*100%;[\s\S]*?height:\s*100%;/
   );
   assert.match(
-    tablet,
-    /\.home-page \.journey-hero h1\s*\{[\s\S]*?font-size:\s*clamp\(2\.75rem,\s*5\.2vw,\s*4\.5rem\);/
+    css,
+    /\.home-page \.book-hero-picture img\s*\{[\s\S]*?height:\s*100%;[\s\S]*?object-fit:\s*cover;[\s\S]*?object-position:\s*center 46%;/
   );
-
-  const mobile = css.slice(css.indexOf("@media (max-width: 720px)"));
-  assert.match(
-    mobile,
-    /\.home-page \.site-nav\s*\{[\s\S]*?flex-direction:\s*row;[\s\S]*?flex-wrap:\s*nowrap;/
-  );
-  assert.match(
-    mobile,
-    /\.home-page \.nav-brand\s*\{[\s\S]*?flex:\s*1 1 auto;[\s\S]*?min-width:\s*0;[\s\S]*?font-size:\s*1\.25rem;/
-  );
-  assert.match(mobile, /\.home-page \.brand-leaf\s*\{[\s\S]*?display:\s*none;/);
-  assert.match(mobile, /\.home-page \.book-brand-mark\s*\{[\s\S]*?width:\s*36px;[\s\S]*?height:\s*36px;/);
-  assert.match(
-    mobile,
-    /\.home-page \.nav-menu-button\s*\{[\s\S]*?flex:\s*0 0 42px;[\s\S]*?margin-left:\s*0;/
-  );
-  assert.match(
-    mobile,
-    /\.home-page \.journey-hero\s*\{[\s\S]*?min-height:\s*auto;[\s\S]*?padding:\s*0 1rem 3\.5rem;/
-  );
-  assert.match(
-    mobile,
-    /\.home-page \.journey-hero h1\s*\{[\s\S]*?font-size:\s*clamp\(2\.75rem,\s*11\.8vw,\s*3\.25rem\);/
-  );
+  assert.doesNotMatch(css, /mask-image:\s*radial-gradient/);
 });
 
-test("faithful homepage hero mask dissolves every illustration edge", () => {
+test("mobile homepage returns the watercolor illustration to document flow", () => {
   const css = read("styles/homepage-book.css");
+  const mobile = css.slice(css.lastIndexOf("@media (max-width: 768px)"));
+
   assert.match(
-    css,
-    /mask-image:\s*radial-gradient\(ellipse 60% 60% at 50% 50%,\s*#000 68%,\s*transparent 84%\)/
+    mobile,
+    /\.home-page \.journey-hero__art\s*\{[\s\S]*?position:\s*relative;[\s\S]*?inset:\s*auto;[\s\S]*?order:\s*-1;[\s\S]*?height:\s*auto;/
+  );
+  assert.match(
+    mobile,
+    /\.home-page \.book-hero-picture img\s*\{[\s\S]*?height:\s*auto;[\s\S]*?object-fit:\s*contain;/
   );
 });
 
@@ -445,7 +413,7 @@ test("homepage source row reserves visible space for the source label and like a
   );
 });
 
-test("desktop homepage keeps the concept sequence in one 1000px composition", () => {
+test("desktop homepage overlaps three story cards with the watercolor first screen", () => {
   const css = read("styles/homepage-book.css");
   const desktopStart = css.indexOf("@media (min-width: 1101px)");
   const desktopEnd = css.indexOf("@media", desktopStart + 1);
@@ -454,33 +422,25 @@ test("desktop homepage keeps the concept sequence in one 1000px composition", ()
   assert.ok(desktopStart >= 0, "Missing desktop-only concept composition");
   assert.match(
     desktop,
-    /\.home-page \.journey-hero\s*\{[\s\S]*?min-height:\s*425px;[\s\S]*?padding:\s*1rem clamp\(1\.5rem,\s*5vw,\s*4\.5rem\) 2rem;/
+    /\.home-page \.journey-hero\s*\{[\s\S]*?min-height:\s*500px;[\s\S]*?padding:\s*clamp\(2rem,\s*5vw,\s*4\.5rem\)\s+clamp\(1\.5rem,\s*5vw,\s*4\.5rem\)\s+5rem;/
   );
   assert.match(
     desktop,
-    /\.home-page \.journey-hero__art\s*\{[\s\S]*?width:\s*88%;[\s\S]*?margin-left:\s*0;/
+    /\.home-page \.stories-section\s*\{[\s\S]*?z-index:\s*4;[\s\S]*?margin-top:\s*-80px;/
   );
   assert.match(
     desktop,
-    /\.home-page \.stories-section\s*\{[\s\S]*?padding-top:\s*0\.25rem;[\s\S]*?padding-bottom:\s*1\.25rem;/
+    /\.home-page \.stories-section \.section-heading,[\s\S]*?\.home-page \.stories-section \.filters\s*\{[\s\S]*?display:\s*none;/
   );
   assert.match(
     desktop,
-    /\.home-page \.stories-section \.story-list\s*\{[\s\S]*?grid-auto-columns:\s*calc\(\(100% - 2\.2rem\) \/ 3\);[\s\S]*?grid-auto-flow:\s*column;[\s\S]*?grid-template-columns:\s*none;[\s\S]*?overflow-x:\s*auto;/
+    /\.home-page \.stories-section \.story-list\s*\{[\s\S]*?grid-auto-columns:\s*calc\(\(100% - 2\.2rem\) \/ 3\);[\s\S]*?grid-auto-flow:\s*column;/
   );
   assert.match(
     desktop,
     /\.home-page \.stories-section \.story-card\s*\{[\s\S]*?height:\s*230px;[\s\S]*?min-height:\s*230px;/
   );
-  assert.match(
-    desktop,
-    /\.home-page \.stories-section \.story-art\s*\{[\s\S]*?min-height:\s*0;/
-  );
-  assert.match(
-    desktop,
-    /\.home-page \.journey-map\s*\{[\s\S]*?margin:\s*-2rem auto clamp\(4rem,\s*7vw,\s*7rem\);/
-  );
-  assert.doesNotMatch(desktop, /(?:transform:\s*scale|zoom:|display:\s*none|visibility:\s*hidden)/);
+  assert.doesNotMatch(desktop, /(?:transform:\s*scale|zoom:|visibility:\s*hidden)/);
 });
 
 test("homepage keeps the collapsed navigation through the narrow desktop boundary", () => {
