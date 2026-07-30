@@ -402,7 +402,9 @@
   background: transparent;
 }
 
-.home-page :where(.games-clearing, .reading-values, .pricing-section) {
+.home-page .games-clearing,
+.home-page .reading-values,
+.home-page .pricing-section {
   border: 0;
   border-top: 1px solid var(--book-line);
   border-bottom: 1px solid var(--book-line);

@@ -390,7 +390,11 @@ test("homepage book layout preserves and restyles lower-section functionality", 
   assert.match(html, /href=["']\/games\/endless-flight["']/);
   assert.match(html, /data-start-checkout/);
   assert.match(html, /href=["']about\.html["']/);
-  assert.match(css, /\.home-page\s+:where\(\.games-clearing,\s*\.reading-values,\s*\.pricing-section\)/);
+  assert.match(
+    css,
+    /\.home-page\s+\.games-clearing,\s*\.home-page\s+\.reading-values,\s*\.home-page\s+\.pricing-section\s*\{[\s\S]*?border:\s*0;[\s\S]*?border-top:\s*1px solid var\(--book-line\);[\s\S]*?border-bottom:\s*1px solid var\(--book-line\);[\s\S]*?border-radius:\s*0;[\s\S]*?background:\s*transparent;/
+  );
+  assert.doesNotMatch(css, /\.home-page\s+:where\(\.games-clearing,\s*\.reading-values,\s*\.pricing-section\)/);
   assert.match(css, /\.home-page\s+\.game-pass/);
   assert.match(css, /\.home-page\s+\.pricing-card/);
 });
