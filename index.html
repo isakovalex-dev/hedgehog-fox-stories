@@ -39,6 +39,27 @@
     <link rel="stylesheet" href="styles/homepage-book.css?v=1" />
   </head>
   <body class="journey-theme home-page">
+    <script id="homeRouteBootstrap">
+      (function () {
+        var path;
+        try {
+          path = decodeURIComponent(window.location.pathname || "/").replace(/\/+$/, "") || "/";
+        } catch (error) {
+          path = (window.location.pathname || "/").replace(/\/+$/, "") || "/";
+        }
+
+        var fallbackRoute = new URLSearchParams(window.location.search).get("route");
+        if (path === "/" && fallbackRoute) {
+          try {
+            path = new URL(fallbackRoute, window.location.origin).pathname.replace(/\/+$/, "") || "/";
+          } catch (error) {
+            path = "/";
+          }
+        }
+
+        document.body.classList.toggle("home-page", path === "/" || path === "/index.html");
+      })();
+    </script>
     <a class="skip-link" href="#mainContent">Перейти к содержанию</a>
     <div class="progress-shell" aria-hidden="true">
       <div class="reading-progress" id="readingProgress"></div>
@@ -167,7 +188,19 @@
           <button class="filter-button" data-filter="bravery" aria-pressed="false">Когда немного страшно</button>
         </div>
 
-        <div class="story-list" id="storyList" aria-live="polite"></div>
+        <div class="story-list" id="storyList" aria-live="polite">
+          <nav class="story-fallback" aria-label="Готовые истории">
+            <p>Выберите историю для чтения:</p>
+            <ul>
+              <li><a href="/stories/lost-cloud">Облако, которое заблудилось <small>История от автора</small></a></li>
+              <li><a href="/stories/sea-bench">Скамейка на краю моря <small>История от автора</small></a></li>
+              <li><a href="/stories/hedgehog-bravery">Как Ежонок искал смелость <small>История от автора</small></a></li>
+              <li><a href="/stories/warm-wind-map">Лисёнок и карта тёплого ветра <small>История от автора</small></a></li>
+              <li><a href="/stories/rustling-grass">Тайна шуршащей травы <small>История от автора</small></a></li>
+              <li><a href="/stories/star-for-friend">Звезда для маленького друга <small>История от автора</small></a></li>
+            </ul>
+          </nav>
+        </div>
         <div class="book-route book-route--stories" aria-hidden="true">
           <svg viewBox="0 0 1200 95" preserveAspectRatio="none">
             <path d="M0 52 C170 98 300 4 470 46 S760 92 905 38 1070 18 1200 58" />

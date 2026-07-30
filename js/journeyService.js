@@ -30,6 +30,24 @@
     return getDiscoveries().some((item) => item.storyId === storyId);
   }
 
+  function getDiscoveredPlaceIds() {
+    return new Set(getDiscoveries().map((item) => String(item.place || "cottage")));
+  }
+
+  function getJourneyProgress(places) {
+    if (!Array.isArray(places) || !places.length) return 0;
+
+    const discoveredPlaceIds = getDiscoveredPlaceIds();
+    const furthestDiscoveredIndex = places.reduce((furthest, place, index) => {
+      return discoveredPlaceIds.has(String(place?.id || "")) ? index : furthest;
+    }, -1);
+
+    if (furthestDiscoveredIndex < 0) return 0;
+
+    const progress = furthestDiscoveredIndex / Math.max(places.length - 1, 1);
+    return Math.min(1, Math.max(0, progress));
+  }
+
   function clearDiscoveries() {
     return storage.removeItem(STORAGE_KEY);
   }
@@ -38,6 +56,8 @@
     getDiscoveries,
     markDiscovered,
     isDiscovered,
+    getDiscoveredPlaceIds,
+    getJourneyProgress,
     clearDiscoveries
   };
 })(window);

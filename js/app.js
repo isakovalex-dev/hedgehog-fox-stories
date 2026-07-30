@@ -142,7 +142,7 @@
   let generationWaitMessageIndex = 0;
   let librarySearchQuery = "";
   let librarySortMode = "newest";
-  let activeRoute = "home";
+  let activeRoute = getRouteFromLocation().name;
   let paymentCheckoutInProgress = false;
   let paymentCheckoutMessage = "";
   let paymentCheckoutTone = "";
@@ -317,6 +317,7 @@
   function applyRoute(options = {}) {
     const route = getRouteFromLocation();
     activeRoute = route.name;
+    document.body.classList.toggle("home-page", route.name === "home");
 
     if (route.filter && route.filter !== activeFilter) {
       setFilter(route.filter, { updateUrl: false });
@@ -343,6 +344,7 @@
     setSectionVisibility(generatorSection, route.name === "create");
     setSectionVisibility(librarySection, route.name === "library");
     setSectionVisibility(aboutSection, route.name === "home");
+    if (route.name === "home" || route.name === "stories") renderStories();
     navStoriesButton?.classList.toggle("active", route.name === "stories");
     navMemoryButton?.classList.toggle("active", route.name === "memory");
     navLibraryButton?.classList.toggle("active", route.name === "library");
@@ -1236,7 +1238,9 @@
     });
 
     storyList.innerHTML = visibleStories
-      .map((story, index) => renderStoryCard(story, { sequence: index + 1 }))
+      .map((story, index) =>
+        renderStoryCard(story, activeRoute === "home" ? { sequence: index + 1 } : {})
+      )
       .join("");
   }
 
@@ -1246,13 +1250,8 @@
     const stories = storyService.getAllStories();
     const storyById = new Map(stories.map((story) => [story.id, story]));
     const discoveries = journeyService.getDiscoveries();
-    const discoveredStoryIds = new Set(discoveries.map((item) => item.storyId));
-    const furthestDiscoveredIndex = journeyPlaces.reduce((furthest, place, index) => {
-      return discoveredStoryIds.has(place.storyId) ? index : furthest;
-    }, -1);
-    const journeyProgress = furthestDiscoveredIndex < 0
-      ? 0
-      : furthestDiscoveredIndex / Math.max(journeyPlaces.length - 1, 1);
+    const discoveredPlaceIds = journeyService.getDiscoveredPlaceIds();
+    const journeyProgress = journeyService.getJourneyProgress(journeyPlaces);
     const journeyLandscapeProgress = 2.5 + journeyProgress * 95;
     const journeyVerticalProgress = 10 + journeyProgress * 80;
 
@@ -1263,8 +1262,9 @@
     journeyPlacesElement.innerHTML = journeyPlaces
       .map((place, index) => {
         const story = storyById.get(place.storyId);
-        const isDiscovered = discoveredStoryIds.has(place.storyId);
+        const isDiscovered = discoveredPlaceIds.has(place.id);
         const title = story?.title || place.label;
+        const status = isDiscovered ? "Исследовано" : "В путь";
 
         return `
           <button
@@ -1273,14 +1273,14 @@
             data-journey-story="${escapeAttribute(place.storyId)}"
             data-journey-place="${escapeAttribute(place.id)}"
             style="--journey-index: ${index};"
-            aria-label="${escapeAttribute(place.label)}. Открыть историю «${escapeAttribute(title)}»"
+            aria-label="${escapeAttribute(place.label)}. ${escapeAttribute(status)}. Открыть историю «${escapeAttribute(title)}»"
           >
             <span class="journey-place__mark" aria-hidden="true">${place.mark}</span>
             <span class="journey-place__copy">
               <span class="journey-place__label">${escapeHtml(place.label)}</span>
               <span class="journey-place__story">${escapeHtml(title)}</span>
             </span>
-            <span class="journey-place__status">${isDiscovered ? "Исследовано" : "В путь"}</span>
+            <span class="journey-place__status">${escapeHtml(status)}</span>
           </button>
         `;
       })

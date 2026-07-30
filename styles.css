@@ -1315,6 +1315,17 @@ body.about-page {
   mix-blend-mode: multiply;
 }
 
+.about-page .note-sketch,
+.about-page .sketch-thumb img,
+.about-page .draft-image,
+.about-page .future-sketch img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: auto !important;
+  object-fit: contain;
+}
+
 .notes-stack {
   display: grid;
   gap: 1rem;

@@ -73,6 +73,10 @@
   box-shadow: none;
 }
 
+.journey-theme:not(.home-page) :where(.book-brand-picture, .book-route) {
+  display: none;
+}
+
 .journey-theme :where(
   #stories,
   #journeyMap,

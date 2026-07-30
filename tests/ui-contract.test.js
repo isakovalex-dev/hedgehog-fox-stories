@@ -4,11 +4,39 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
+const vm = require("node:vm");
 
 const projectRoot = path.join(__dirname, "..");
 
 function read(relativePath) {
   return fs.readFileSync(path.join(projectRoot, relativePath), "utf8");
+}
+
+function readCssColor(source, propertyName) {
+  const match = source.match(new RegExp(`${propertyName}:\\s*(#[0-9a-f]{6})`, "i"));
+  assert.ok(match, `Missing ${propertyName}`);
+  return match[1];
+}
+
+function relativeLuminance(hexColor) {
+  const channels = hexColor
+    .slice(1)
+    .match(/.{2}/g)
+    .map((channel) => Number.parseInt(channel, 16) / 255)
+    .map((channel) => {
+      return channel <= 0.04045
+        ? channel / 12.92
+        : ((channel + 0.055) / 1.055) ** 2.4;
+    });
+
+  return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+}
+
+function contrastRatio(foreground, background) {
+  const luminances = [relativeLuminance(foreground), relativeLuminance(background)].sort(
+    (left, right) => right - left
+  );
+  return (luminances[0] + 0.05) / (luminances[1] + 0.05);
 }
 
 test("index keeps application DOM contracts", () => {
@@ -73,26 +101,25 @@ test("about page keeps analytics hooks and one h1", () => {
 });
 
 test("about artwork keeps its intrinsic proportions", () => {
-  const theme = read("styles/journey-theme.css");
-  assert.match(theme, /\.about-page[\s\S]*aspect-ratio:\s*auto\s*!important/);
-  assert.match(theme, /\.about-page[\s\S]*height:\s*auto/);
-  assert.match(theme, /\.about-page[\s\S]*object-fit:\s*contain/);
+  const legacyStyles = read("styles.css");
+  assert.match(legacyStyles, /\.about-page[\s\S]*aspect-ratio:\s*auto\s*!important/);
+  assert.match(legacyStyles, /\.about-page[\s\S]*height:\s*auto/);
+  assert.match(legacyStyles, /\.about-page[\s\S]*object-fit:\s*contain/);
 });
 
-test("shared pages load the journey theme after legacy CSS", () => {
-  ["index.html", "about.html", "privacy.html", "requisites.html", "terms.html", "404.html"].forEach(
-    (file) => {
-      const html = read(file);
-      const legacyIndex = html.indexOf("styles.css");
-      const tokensIndex = html.indexOf("styles/journey-tokens.css");
-      const themeIndex = html.indexOf("styles/journey-theme.css");
+test("standalone about and legal pages retain their legacy theme", () => {
+  const app = read("index.html");
+  assert.match(app, /styles\/journey-tokens\.css/);
+  assert.match(app, /styles\/journey-theme\.css/);
+  assert.match(app, /<body[^>]*class=["'][^"']*journey-theme/);
 
-      assert.ok(legacyIndex >= 0, `${file} must load legacy CSS`);
-      assert.ok(tokensIndex > legacyIndex, `${file} must load journey tokens after legacy CSS`);
-      assert.ok(themeIndex > tokensIndex, `${file} must load journey theme after tokens`);
-      assert.match(html, /<body[^>]*class=["'][^"']*journey-theme/);
-    }
-  );
+  ["about.html", "privacy.html", "requisites.html", "terms.html"].forEach((file) => {
+    const html = read(file);
+    assert.match(html, /styles\.css/);
+    assert.match(html, /family=Cormorant\+Garamond/);
+    assert.doesNotMatch(html, /styles\/journey-(?:tokens|theme)\.css/);
+    assert.doesNotMatch(html, /<body[^>]*class=["'][^"']*journey-theme/);
+  });
 });
 
 test("homepage loads an isolated faithful book theme", () => {
@@ -103,6 +130,49 @@ test("homepage loads an isolated faithful book theme", () => {
   ["about.html", "privacy.html", "requisites.html", "terms.html", "404.html"].forEach((file) => {
     assert.doesNotMatch(read(file), /styles\/homepage-book\.css/, `${file} must keep the shared theme`);
   });
+});
+
+test("homepage route state excludes every internal application route", () => {
+  const html = read("index.html");
+  const bootstrap = html.match(
+    /<script id="homeRouteBootstrap">([\s\S]*?)<\/script>/
+  )?.[1];
+  assert.ok(bootstrap, "Missing synchronous home-route bootstrap");
+
+  function hasHomeClass(pathname, search = "") {
+    const classes = new Set(["journey-theme", "home-page"]);
+    const context = {
+      URL,
+      URLSearchParams,
+      document: {
+        body: {
+          classList: {
+            toggle(className, enabled) {
+              if (enabled) classes.add(className);
+              else classes.delete(className);
+            }
+          }
+        }
+      },
+      window: {
+        location: {
+          origin: "https://example.test",
+          pathname,
+          search
+        }
+      }
+    };
+
+    vm.runInNewContext(bootstrap, context);
+    return classes.has("home-page");
+  }
+
+  assert.equal(hasHomeClass("/"), true);
+  assert.equal(hasHomeClass("/index.html"), true);
+  ["/stories", "/create", "/library", "/stories/sea-bench"].forEach((route) => {
+    assert.equal(hasHomeClass(route), false, `${route} must not use homepage-book.css`);
+  });
+  assert.equal(hasHomeClass("/", "?route=%2Fstories%2Fsea-bench"), false);
 });
 
 test("faithful homepage watercolor assets exist", () => {
@@ -272,6 +342,22 @@ test("story renderer keeps delegated card actions", () => {
   ].forEach((attribute) => assert.match(source, new RegExp(attribute)));
 });
 
+test("source HTML offers ordinary links to every built-in story without JavaScript", () => {
+  const html = read("index.html");
+  const storyList = html.match(/<div class="story-list" id="storyList"[^>]*>([\s\S]*?)<\/div>/)?.[1] || "";
+  const storyLinks = [...storyList.matchAll(/href="(\/stories\/[^"]+)"/g)].map((match) => match[1]);
+
+  assert.deepEqual(storyLinks, [
+    "/stories/lost-cloud",
+    "/stories/sea-bench",
+    "/stories/hedgehog-bravery",
+    "/stories/warm-wind-map",
+    "/stories/rustling-grass",
+    "/stories/star-for-friend"
+  ]);
+  assert.doesNotMatch(storyList, /onclick=|javascript:/i);
+});
+
 test("homepage story cards expose book metadata and exact source labels", () => {
   const source = read("js/app.js");
   assert.match(source, /options\.sequence/);
@@ -280,8 +366,26 @@ test("homepage story cards expose book metadata and exact source labels", () => 
   assert.match(source, /story-card__arrow/);
   assert.match(source, />Моя история</);
   assert.match(source, />История от автора</);
-  assert.match(source, /renderStoryCard\(story,\s*\{\s*sequence:\s*index\s*\+\s*1\s*\}\)/);
+  assert.match(source, /activeRoute === "home"\s*\?\s*\{\s*sequence:\s*index\s*\+\s*1\s*\}/);
   assert.match(read("index.html"), /class=["'][^"']*book-route--stories/);
+});
+
+test("SPA route changes synchronize book styling before rendering route content", () => {
+  const source = read("js/app.js");
+  const theme = read("styles/journey-theme.css");
+
+  assert.match(
+    source,
+    /function applyRoute[\s\S]*?document\.body\.classList\.toggle\("home-page", route\.name === "home"\)[\s\S]*?if \(route\.name === "story"\)/
+  );
+  assert.match(
+    source,
+    /function renderStories[\s\S]*?activeRoute === "home"\s*\?\s*\{\s*sequence:\s*index\s*\+\s*1\s*\}\s*:\s*\{\}/
+  );
+  assert.match(
+    theme,
+    /\.journey-theme:not\(\.home-page\)\s+:where\(\.book-brand-picture,\s*\.book-route\)\s*\{[\s\S]*?display:\s*none;/
+  );
 });
 
 test("homepage story cards use horizontal scrolling at tablet widths", () => {
@@ -409,6 +513,37 @@ test("homepage exposes the accessible journey map", () => {
   assert.match(html, /aria-live=["']polite["']/);
 });
 
+test("journey place accessible names include their visible live state", () => {
+  const source = read("js/app.js");
+
+  assert.match(source, /const status = isDiscovered \? "Исследовано" : "В путь"/);
+  assert.match(source, /aria-label="[^"]*\$\{escapeAttribute\(status\)\}[^"]*"/);
+  assert.match(source, /journey-place__status">\$\{escapeHtml\(status\)\}</);
+});
+
+test("small rust text reaches WCAG AA contrast on every paper surface", () => {
+  const tokens = read("styles/journey-tokens.css");
+  const homepage = read("styles/homepage-book.css");
+  const journeyRust = readCssColor(tokens, "--journey-fox");
+  const journeyPaper = readCssColor(tokens, "--journey-paper");
+  const bookRust = readCssColor(homepage, "--book-rust");
+  const bookPaper = readCssColor(homepage, "--book-paper");
+  const bookPaperLight = readCssColor(homepage, "--book-paper-light");
+
+  [
+    ["journey rust on journey paper", journeyRust, journeyPaper],
+    ["journey rust on homepage paper", journeyRust, bookPaper],
+    ["journey rust on light homepage paper", journeyRust, bookPaperLight],
+    ["homepage rust on homepage paper", bookRust, bookPaper],
+    ["homepage rust on light homepage paper", bookRust, bookPaperLight]
+  ].forEach(([label, foreground, background]) => {
+    assert.ok(
+      contrastRatio(foreground, background) >= 4.5,
+      `${label} must reach 4.5:1, got ${contrastRatio(foreground, background).toFixed(2)}:1`
+    );
+  });
+});
+
 test("homepage journey map exposes watercolor landmarks and live position", () => {
   const html = read("index.html");
   const source = read("js/app.js");
@@ -417,7 +552,8 @@ test("homepage journey map exposes watercolor landmarks and live position", () =
   });
   assert.match(html, /class=["'][^"']*journey-map__compass/);
   assert.match(source, /--journey-progress/);
-  assert.match(source, /discoveredStoryIds/);
+  assert.match(source, /discoveredPlaceIds/);
+  assert.match(source, /getJourneyProgress\(journeyPlaces\)/);
 });
 
 test("journey route keeps paws and the live heroes marker in one decorative stage", () => {

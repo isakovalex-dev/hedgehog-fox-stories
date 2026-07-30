@@ -55,6 +55,42 @@ test("journey stores one normalized discovery per story", () => {
   assert.equal(service.isDiscovered("sea-bench"), true);
 });
 
+test("journey advances by a shared place for built-in and user stories", () => {
+  const { service, readSaved } = loadService();
+  const sharedPlaceStories = [
+    {
+      id: "warm-wind-map",
+      journeyPlace: "meadow",
+      keepsake: "feather"
+    },
+    {
+      id: "rustling-grass",
+      journeyPlace: "meadow",
+      keepsake: "leaf"
+    },
+    {
+      id: "user-meadow-story",
+      journeyPlace: "meadow",
+      keepsake: "feather"
+    }
+  ];
+
+  sharedPlaceStories.forEach((story) => service.markDiscovered(story));
+
+  assert.equal(readSaved().length, 3);
+  assert.deepEqual([...service.getDiscoveredPlaceIds()], ["meadow"]);
+  assert.equal(
+    service.getJourneyProgress([
+      { id: "forest" },
+      { id: "meadow" },
+      { id: "cottage" },
+      { id: "sea" },
+      { id: "starry-hill" }
+    ]),
+    0.25
+  );
+});
+
 test("journey treats malformed storage as empty", () => {
   const { service } = loadService({ unexpected: true });
   assert.deepEqual(service.getDiscoveries(), []);
