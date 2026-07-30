@@ -68,7 +68,6 @@
   margin-left: -12%;
   overflow: visible;
   border-radius: 0;
-  background: url("../assets/hero-friends.png") center / contain no-repeat;
   -webkit-mask-image: radial-gradient(ellipse 60% 60% at 50% 50%, #000 68%, transparent 84%);
   mask-image: radial-gradient(ellipse 60% 60% at 50% 50%, #000 68%, transparent 84%);
 }

@@ -191,6 +191,17 @@ test("homepage hero sources size AVIF and WebP for the actual one-column breakpo
   });
 });
 
+test("homepage hero does not eagerly request the legacy PNG fallback", () => {
+  const css = read("styles/homepage-book.css");
+  const html = read("index.html");
+  const picture = html.match(/<picture class="book-hero-picture">[\s\S]*?<\/picture>/)?.[0] || "";
+
+  assert.doesNotMatch(css, /hero-friends\.png/);
+  assert.match(picture, /<source[\s\S]*?type="image\/avif"[\s\S]*?hero-coast-1800\.avif/);
+  assert.match(picture, /<source[\s\S]*?type="image\/webp"[\s\S]*?hero-coast-1800\.webp/);
+  assert.match(picture, /<img[\s\S]*?src="assets\/journey\/hero-coast-1200\.webp"/);
+});
+
 test("faithful homepage hero keeps desktop and mobile geometry safeguards", () => {
   const css = read("styles/homepage-book.css");
   assert.match(
