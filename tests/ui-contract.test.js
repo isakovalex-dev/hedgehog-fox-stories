@@ -8,6 +8,24 @@ const vm = require("node:vm");
 
 const projectRoot = path.join(__dirname, "..");
 
+test("approved reference artwork is committed in fallback and modern formats", () => {
+  [
+    "brand-lockup",
+    "map-strip",
+    "map-copy-mobile",
+    "map-route-mobile",
+    "paper-texture"
+  ].forEach((asset) => {
+    ["png", "webp", "avif"].forEach((extension) => {
+      assert.equal(
+        fs.existsSync(path.join(projectRoot, `assets/journey/reference/${asset}.${extension}`)),
+        true,
+        `${asset}.${extension} must exist`
+      );
+    });
+  });
+});
+
 function read(relativePath) {
   return fs.readFileSync(path.join(projectRoot, relativePath), "utf8");
 }
