@@ -339,11 +339,79 @@
 
 .home-page .games-clearing {
   position: relative;
+  display: grid;
+  grid-template-columns: minmax(260px, 0.56fr) minmax(0, 1fr);
+  gap: clamp(1.5rem, 3.5vw, 4rem);
+  align-items: center;
   width: min(100%, 1320px);
+  padding: clamp(2rem, 4vw, 3.75rem) clamp(1rem, 4vw, 3.75rem);
+  overflow: visible;
+}
+
+.home-page .memory-promo__art {
+  display: block;
+  min-width: 0;
+  min-height: 0;
+  background: transparent;
+}
+
+.home-page .memory-promo__art picture,
+.home-page .memory-promo__art img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.home-page .games-clearing .memory-promo__art img {
+  width: 100%;
+  max-width: 540px;
+  margin-inline: auto;
+  object-fit: contain;
+  filter: none;
+  mix-blend-mode: multiply;
+  -webkit-mask-image: radial-gradient(
+    ellipse at 50% 54%,
+    #000 45%,
+    rgba(0, 0, 0, 0.9) 55%,
+    rgba(0, 0, 0, 0.38) 65%,
+    transparent 75%
+  );
+  mask-image: radial-gradient(
+    ellipse at 50% 54%,
+    #000 45%,
+    rgba(0, 0, 0, 0.9) 55%,
+    rgba(0, 0, 0, 0.38) 65%,
+    transparent 75%
+  );
+}
+
+.home-page .memory-promo__copy {
+  min-width: 0;
+  padding: 0;
+}
+
+.home-page .memory-promo__copy h2 {
+  max-width: 100%;
+  font-size: clamp(2.4rem, 4.2vw, 4.25rem);
+  line-height: 0.98;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.home-page .memory-promo__copy > p:not(.eyebrow) {
+  max-width: 62ch;
+  color: var(--book-ink);
+  overflow-wrap: anywhere;
+}
+
+.home-page .games-clearing__grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(0.75rem, 1.6vw, 1.25rem);
 }
 
 .home-page .game-pass {
-  border-color: var(--book-line);
+  min-height: 220px;
+  border: 1px solid var(--book-line);
   border-radius: 10px;
   background: rgba(251, 245, 230, 0.72);
   box-shadow: 0 6px 18px rgba(76, 61, 37, 0.07);
@@ -352,6 +420,20 @@
 .home-page .game-pass--flight {
   background:
     linear-gradient(145deg, rgba(175, 200, 197, 0.34), rgba(251, 245, 230, 0.78));
+}
+
+.home-page .game-pass__number {
+  color: var(--book-moss);
+}
+
+.home-page .game-pass__action {
+  min-height: 44px;
+  color: var(--book-rust);
+}
+
+.home-page .game-pass:focus-visible {
+  outline: 3px solid var(--book-rust);
+  outline-offset: 4px;
 }
 
 .home-page .reading-values {
@@ -725,6 +807,24 @@
 
   .home-page .value-item + .value-item::before {
     display: none;
+  }
+
+  .home-page .games-clearing {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+
+  .home-page .games-clearing .memory-promo__art {
+    display: block;
+  }
+
+  .home-page .memory-promo__art {
+    width: min(100%, 620px);
+    margin-inline: auto;
+  }
+
+  .home-page .memory-promo__copy {
+    width: 100%;
   }
 
   .home-page .games-clearing__grid {

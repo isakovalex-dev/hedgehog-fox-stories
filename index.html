@@ -239,8 +239,17 @@
       </section>
 
       <section class="memory-promo games-clearing" id="games" aria-labelledby="memoryPromoTitle">
-        <div class="memory-promo__art" aria-hidden="true">
-          <img src="assets/game/fox-catcher.webp?v=2" alt="" width="291" height="360" loading="lazy" />
+        <div class="memory-promo__art">
+          <picture>
+            <source type="image/avif" srcset="assets/journey/reference/games-clearing.avif" />
+            <source type="image/webp" srcset="assets/journey/reference/games-clearing.webp" />
+            <img
+              src="assets/journey/reference/games-clearing.png"
+              alt="Ежонок раскладывает карточки мемори, а Лисёнок запускает бумажный самолётик"
+              loading="lazy"
+              decoding="async"
+            />
+          </picture>
         </div>
         <div class="memory-promo__copy">
           <p class="journey-meta">Игровая полянка</p>

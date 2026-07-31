@@ -236,6 +236,16 @@ test("faithful homepage watercolor assets exist", () => {
   });
 });
 
+test("games clearing uses one paper-edge watercolor while preserving both game routes", () => {
+  const html = read("index.html");
+  assert.match(html, /assets\/journey\/reference\/games-clearing\.avif/);
+  assert.match(html, /assets\/journey\/reference\/games-clearing\.webp/);
+  assert.match(html, /assets\/journey\/reference\/games-clearing\.png/);
+  assert.match(html, /href=["']\/games\/memory["']/);
+  assert.match(html, /href=["']\/games\/endless-flight["']/);
+  assert.doesNotMatch(html, /assets\/game\/fox-catcher\.webp/);
+});
+
 test("static page navigation uses application routes instead of hidden anchors", () => {
   ["about.html", "privacy.html", "requisites.html", "terms.html"].forEach((file) => {
     const html = read(file);
