@@ -282,11 +282,15 @@
   width: 100%;
   margin: clamp(4rem, 7vw, 7rem) auto;
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
   border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+}
+
+.home-page .journey-map::before {
+  display: none;
 }
 
 .home-page .journey-map__desktop,
@@ -302,7 +306,8 @@
 
 .home-page .journey-map__link {
   position: absolute;
-  top: 72%;
+  z-index: 1;
+  top: 64%;
   left: 2%;
   display: block;
   width: 12%;

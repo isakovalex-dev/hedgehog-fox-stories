@@ -564,19 +564,46 @@ test("homepage journey map is the approved static artwork with one real link", (
   assert.match(html, /assets\/journey\/reference\/map-route-mobile\.avif/);
   assert.match(html, /id=["']journeyMapLink["'][^>]*href=["']\/map["']/);
   assert.equal((html.match(/href=["']\/map["']/g) || []).length, 1);
+  ["map-strip", "map-copy-mobile", "map-route-mobile"].forEach((asset) => {
+    ["avif", "webp", "png"].forEach((extension) => {
+      assert.match(html, new RegExp(`assets/journey/reference/${asset}\\.${extension}`));
+    });
+  });
   ["journeyPlaces", "journeyKeepsakes", "journeyLandmarks", "journeyRouteStage"].forEach((id) => {
     assert.doesNotMatch(html, new RegExp(`id=["']${id}["']`));
   });
+
+  const section = html.match(/<section[^>]*id=["']journeyMap["'][^>]*>([\s\S]*?)<\/section>/)?.[1] || "";
+  assert.equal((section.match(/<(?:a|button|input|select|textarea)\b/g) || []).length, 1);
 });
 
 test("map placeholder is built and routed", () => {
   const page = read("map.html");
   const vercel = JSON.parse(read("vercel.json"));
   assert.match(page, /Карта путешествий скоро откроется/);
+  assert.match(page, /Мы прокладываем тропинки, расставляем маяки и собираем памятные находки\./);
   assert.match(page, /href=["']\/["']/);
   assert.ok(
     vercel.rewrites.some((rewrite) => rewrite.source === "/map" && rewrite.destination === "/map.html")
   );
+});
+
+test("static journey map keeps an unclipped, responsive accessible action", () => {
+  const css = read("styles/homepage-book.css");
+  const mapRule = css.match(/\.home-page \.journey-map\s*\{([\s\S]*?)\n\}/)?.[1] || "";
+  const actionRule = css.match(/\.home-page \.journey-map__link\s*\{([\s\S]*?)\n\}/)?.[1] || "";
+  const focusRule = css.match(/\.home-page \.journey-map__link:focus-visible\s*\{([\s\S]*?)\n\}/)?.[1] || "";
+  const mobile = css.slice(css.indexOf("@media (max-width: 767px)"));
+
+  assert.match(mapRule, /overflow:\s*visible;/);
+  assert.match(css, /\.home-page \.journey-map::before\s*\{\s*display:\s*none;/);
+  assert.match(actionRule, /top:\s*64%;/);
+  assert.match(actionRule, /min-width:\s*44px;/);
+  assert.match(actionRule, /min-height:\s*44px;/);
+  assert.match(actionRule, /z-index:\s*1;/);
+  assert.match(focusRule, /outline:\s*3px solid var\(--book-rust\);/);
+  assert.match(mobile, /\.home-page \.journey-map__desktop\s*\{\s*display:\s*none;/);
+  assert.match(mobile, /\.home-page \.journey-map__mobile\s*\{\s*display:\s*grid;/);
 });
 
 test("small rust text reaches WCAG AA contrast on every paper surface", () => {
