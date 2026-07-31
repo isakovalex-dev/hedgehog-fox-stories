@@ -10,12 +10,22 @@
   --book-shadow: 0 10px 26px rgba(76, 61, 37, 0.11);
   color: var(--book-ink);
   background-color: var(--book-paper);
-  background-image: url("../assets/journey/paper-grain.svg");
-  background-size: 420px 420px;
+  background-image: image-set(
+    url("../assets/journey/reference/paper-texture.avif") type("image/avif"),
+    url("../assets/journey/reference/paper-texture.webp") type("image/webp"),
+    url("../assets/journey/reference/paper-texture.png") type("image/png")
+  );
+  background-repeat: repeat;
+  background-size: 128px 256px;
 }
 
 .home-page main {
   overflow: clip;
+  background: transparent;
+}
+
+.home-page main > section {
+  background: transparent;
 }
 
 .home-page :where(h1, h2, h3) {
@@ -29,17 +39,15 @@
   backdrop-filter: blur(12px);
 }
 
-.home-page .book-brand-mark {
-  width: 54px;
-  height: 54px;
-  margin-right: 0.55rem;
-  object-fit: cover;
-  border-radius: 50%;
-  mix-blend-mode: multiply;
+.home-page .book-brand-lockup {
+  display: block;
+  width: clamp(280px, 27vw, 410px);
 }
 
-.home-page .book-brand-picture {
-  display: contents;
+.home-page .book-brand-lockup img {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .home-page .journey-hero {
@@ -523,7 +531,7 @@
   .home-page .stories-section {
     position: relative;
     z-index: 4;
-    margin-top: -80px;
+    margin-top: -20px;
     padding-top: 0;
     padding-bottom: 1.25rem;
   }
@@ -596,10 +604,6 @@
 @media (min-width: 981px) and (max-width: 1279px) {
   .home-page .site-nav {
     min-height: 62px;
-  }
-
-  .home-page .nav-brand {
-    font-size: 1.65rem;
   }
 
   .home-page .nav-menu-button {
@@ -823,24 +827,6 @@
   .home-page .nav-brand {
     flex: 1 1 auto;
     min-width: 0;
-    font-size: 1.25rem;
-  }
-
-  .home-page .nav-brand > span:not(.brand-leaf) {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .home-page .brand-leaf {
-    display: none;
-  }
-
-  .home-page .book-brand-mark {
-    flex: 0 0 36px;
-    width: 36px;
-    height: 36px;
-    margin-right: 0.25rem;
   }
 
   .home-page .nav-menu-button {
@@ -986,11 +972,6 @@
 }
 
 @media (max-width: 520px) {
-  .home-page .book-brand-mark {
-    width: 44px;
-    height: 44px;
-  }
-
   .home-page .journey-hero h1 {
     font-size: clamp(3.15rem, 15vw, 4.2rem);
   }

@@ -221,7 +221,12 @@ test("faithful homepage watercolor assets exist", () => {
     "assets/journey/landmarks/village.avif",
     "assets/journey/landmarks/heroes.webp",
     "assets/journey/landmarks/heroes.avif",
-    "assets/journey/paper-grain.svg",
+    "assets/journey/reference/brand-lockup.avif",
+    "assets/journey/reference/brand-lockup.webp",
+    "assets/journey/reference/brand-lockup.png",
+    "assets/journey/reference/paper-texture.avif",
+    "assets/journey/reference/paper-texture.webp",
+    "assets/journey/reference/paper-texture.png",
     "assets/journey/compass.svg",
     "assets/journey/paw-print.svg"
   ];
@@ -259,7 +264,7 @@ test("living book hero preserves the primary action hooks", () => {
 
 test("faithful homepage hero keeps actions and watercolor structure", () => {
   const html = read("index.html");
-  assert.match(html, /class=["'][^"']*book-brand-mark/);
+  assert.match(html, /class=["'][^"']*book-brand-lockup/);
   assert.match(html, /class=["'][^"']*book-hero-picture/);
   assert.match(html, /hero-coast-1800\.avif/);
   assert.match(html, /class=["'][^"']*book-route--hero/);
@@ -442,7 +447,28 @@ test("homepage source row reserves visible space for the source label and like a
   );
 });
 
-test("desktop homepage overlaps three story cards with the watercolor first screen", () => {
+test("homepage uses the approved brand lockup and reference paper", () => {
+  const html = read("index.html");
+  const css = read("styles/homepage-book.css");
+
+  assert.match(html, /class=["'][^"']*book-brand-lockup/);
+  assert.match(html, /assets\/journey\/reference\/brand-lockup\.avif/);
+  assert.match(html, /assets\/journey\/reference\/brand-lockup\.webp/);
+  assert.match(html, /assets\/journey\/reference\/brand-lockup\.png/);
+  assert.match(css, /assets\/journey\/reference\/paper-texture\.avif/);
+  assert.doesNotMatch(css, /assets\/journey\/paper-grain\.svg/);
+});
+
+test("desktop story cards sit below the hero trail instead of covering the painting", () => {
+  const css = read("styles/homepage-book.css");
+  assert.match(
+    css,
+    /@media \(min-width: 1101px\) \{[\s\S]*?\.home-page \.stories-section\s*\{[\s\S]*?margin-top:\s*-20px;/
+  );
+  assert.doesNotMatch(css, /margin-top:\s*-80px;/);
+});
+
+test("desktop homepage positions three story cards below the watercolor first screen", () => {
   const css = read("styles/homepage-book.css");
   const desktopStart = css.indexOf("@media (min-width: 1101px)");
   const desktopEnd = css.indexOf("@media", desktopStart + 1);
@@ -455,7 +481,7 @@ test("desktop homepage overlaps three story cards with the watercolor first scre
   );
   assert.match(
     desktop,
-    /\.home-page \.stories-section\s*\{[\s\S]*?z-index:\s*4;[\s\S]*?margin-top:\s*-80px;/
+    /\.home-page \.stories-section\s*\{[\s\S]*?z-index:\s*4;[\s\S]*?margin-top:\s*-20px;/
   );
   assert.match(
     desktop,
