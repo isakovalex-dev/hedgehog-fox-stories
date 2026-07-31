@@ -50,6 +50,18 @@
   height: auto;
 }
 
+.journey-theme:not(.home-page) .book-brand-lockup {
+  display: block;
+  width: clamp(180px, 18vw, 270px);
+  max-width: 100%;
+}
+
+.journey-theme:not(.home-page) .book-brand-lockup img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .home-page .journey-hero {
   position: relative;
   isolation: isolate;

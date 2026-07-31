@@ -578,6 +578,19 @@ test("homepage uses the approved brand lockup and reference paper", () => {
   assert.doesNotMatch(css, /assets\/journey\/paper-grain\.svg/);
 });
 
+test("approved brand lockup stays bounded on client-side application routes", () => {
+  const css = read("styles/homepage-book.css");
+
+  assert.match(
+    css,
+    /\.journey-theme:not\(\.home-page\) \.book-brand-lockup\s*\{[\s\S]*?width:\s*clamp\(180px,\s*18vw,\s*270px\);[\s\S]*?max-width:\s*100%;/
+  );
+  assert.match(
+    css,
+    /\.journey-theme:not\(\.home-page\) \.book-brand-lockup img\s*\{[\s\S]*?width:\s*100%;[\s\S]*?height:\s*auto;/
+  );
+});
+
 test("desktop story cards sit below the hero trail instead of covering the painting", () => {
   const css = read("styles/homepage-book.css");
   assert.match(
