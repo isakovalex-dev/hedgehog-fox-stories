@@ -316,15 +316,6 @@ test("faithful homepage hero uses one full-bleed watercolor layer without an ova
   assert.doesNotMatch(heroArtwork, /mask-image:\s*radial-gradient/);
 });
 
-test("journey landmarks retain their watercolor edge masks", () => {
-  const css = read("styles/homepage-book.css");
-
-  assert.match(
-    css,
-    /\.home-page \.journey-landmark,\s*\.home-page \.journey-current-heroes\s*\{[\s\S]*?-webkit-mask-image:\s*radial-gradient\(ellipse, #000 55%, transparent 78%\);[\s\S]*?mask-image:\s*radial-gradient\(ellipse, #000 55%, transparent 78%\);/
-  );
-});
-
 test("mobile homepage returns the watercolor illustration to document flow", () => {
   const css = read("styles/homepage-book.css");
   const mobile = css.slice(css.lastIndexOf("@media (max-width: 768px)"));
@@ -564,21 +555,28 @@ test("journey service loads after storage and before app", () => {
   assert.ok(appIndex > journeyIndex);
 });
 
-test("homepage exposes the accessible journey map", () => {
+test("homepage journey map is the approved static artwork with one real link", () => {
   const html = read("index.html");
-  ["journeyMap", "journeyPlaces", "journeyKeepsakes"].forEach((id) => {
-    assert.match(html, new RegExp(`id=["']${id}["']`));
+  assert.match(html, /id=["']journeyMap["']/);
+  assert.match(html, /class=["'][^"']*journey-map__desktop/);
+  assert.match(html, /assets\/journey\/reference\/map-strip\.avif/);
+  assert.match(html, /assets\/journey\/reference\/map-copy-mobile\.avif/);
+  assert.match(html, /assets\/journey\/reference\/map-route-mobile\.avif/);
+  assert.match(html, /id=["']journeyMapLink["'][^>]*href=["']\/map["']/);
+  assert.equal((html.match(/href=["']\/map["']/g) || []).length, 1);
+  ["journeyPlaces", "journeyKeepsakes", "journeyLandmarks", "journeyRouteStage"].forEach((id) => {
+    assert.doesNotMatch(html, new RegExp(`id=["']${id}["']`));
   });
-  assert.match(html, /aria-labelledby=["']journeyTitle["']/);
-  assert.match(html, /aria-live=["']polite["']/);
 });
 
-test("journey place accessible names include their visible live state", () => {
-  const source = read("js/app.js");
-
-  assert.match(source, /const status = isDiscovered \? "Исследовано" : "В путь"/);
-  assert.match(source, /aria-label="[^"]*\$\{escapeAttribute\(status\)\}[^"]*"/);
-  assert.match(source, /journey-place__status">\$\{escapeHtml\(status\)\}</);
+test("map placeholder is built and routed", () => {
+  const page = read("map.html");
+  const vercel = JSON.parse(read("vercel.json"));
+  assert.match(page, /Карта путешествий скоро откроется/);
+  assert.match(page, /href=["']\/["']/);
+  assert.ok(
+    vercel.rewrites.some((rewrite) => rewrite.source === "/map" && rewrite.destination === "/map.html")
+  );
 });
 
 test("small rust text reaches WCAG AA contrast on every paper surface", () => {
@@ -602,65 +600,6 @@ test("small rust text reaches WCAG AA contrast on every paper surface", () => {
       `${label} must reach 4.5:1, got ${contrastRatio(foreground, background).toFixed(2)}:1`
     );
   });
-});
-
-test("homepage journey map exposes watercolor landmarks and live position", () => {
-  const html = read("index.html");
-  const source = read("js/app.js");
-  ["journeyLandmarks", "journeyCurrentHeroes"].forEach((id) => {
-    assert.match(html, new RegExp(`id=["']${id}["']`));
-  });
-  assert.match(html, /class=["'][^"']*journey-map__compass/);
-  assert.match(source, /--journey-progress/);
-  assert.match(source, /discoveredPlaceIds/);
-  assert.match(source, /getJourneyProgress\(journeyPlaces\)/);
-});
-
-test("journey route keeps paws and the live heroes marker in one decorative stage", () => {
-  const html = read("index.html");
-  const source = read("js/app.js");
-
-  assert.match(html, /id=["']journeyRouteStage["']/);
-  assert.match(html, /class=["'][^"']*journey-map__route-path--landscape/);
-  assert.match(html, /class=["'][^"']*journey-map__route-path--vertical/);
-  assert.equal((html.match(/class=["'][^"']*journey-route__paw/g) || []).length, 4);
-  assert.match(source, /--journey-progress-landscape/);
-  assert.match(source, /--journey-progress-vertical/);
-});
-
-test("journey heroes calibrate their painted baseline instead of the image box", () => {
-  const css = read("styles/homepage-book.css");
-
-  assert.match(css, /--journey-heroes-baseline-landscape:\s*-66\.2%;/);
-  assert.match(css, /--journey-heroes-baseline-vertical:\s*-66\.2%;/);
-  assert.match(
-    css,
-    /\.home-page \.journey-current-heroes\s*\{[\s\S]*?transform:\s*translate\(-50%,\s*var\(--journey-heroes-baseline\)\);/
-  );
-  assert.match(
-    css,
-    /@media \(max-width: 980px\) \{[\s\S]*?--journey-heroes-baseline:\s*var\(--journey-heroes-baseline-vertical\);/
-  );
-});
-
-test("homepage journey map switches to an unclipped one-column vertical trail", () => {
-  const css = read("styles/homepage-book.css");
-  const responsiveStart = css.indexOf("@media (max-width: 980px)");
-  const responsiveEnd = css.indexOf("@media (min-width: 721px)", responsiveStart);
-  const responsive = css.slice(responsiveStart, responsiveEnd);
-
-  assert.match(
-    responsive,
-    /\.home-page \.journey-map\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\);/
-  );
-  assert.match(
-    responsive,
-    /\.home-page \.journey-route-stage,[\s\S]*?\.home-page \.journey-places\s*\{[\s\S]*?grid-column:\s*1;[\s\S]*?grid-row:\s*2;[\s\S]*?min-width:\s*0;/
-  );
-  assert.match(
-    responsive,
-    /\.home-page \.journey-keepsakes\s*\{[\s\S]*?grid-row:\s*3;/
-  );
 });
 
 test("homepage exposes exactly the two production games", () => {
@@ -701,16 +640,13 @@ test("homepage book theme defines responsive and reduced-motion fallbacks", () =
   assert.match(css, /scroll-snap-type/);
 });
 
-test("homepage book theme keeps compact controls touchable and map copy contained", () => {
+test("homepage book theme keeps compact controls and map action touchable", () => {
   const css = read("styles/homepage-book.css");
   assert.match(
     css,
     /\.home-page \.nav-menu-button,[\s\S]*?\.home-page \.story-card__arrow\s*\{[\s\S]*?min-width:\s*44px;[\s\S]*?min-height:\s*44px;/
   );
-  assert.match(
-    css,
-    /\.home-page \.journey-map__intro h2\s*\{[\s\S]*?font-size:\s*clamp\(2\.5rem,\s*3vw,\s*3\.25rem\);/
-  );
+  assert.match(css, /\.home-page \.journey-map__link\s*\{[\s\S]*?min-width:\s*44px;[\s\S]*?min-height:\s*44px;/);
   assert.match(
     css,
     /\.home-page \.story-title-link\s*\{[\s\S]*?display:\s*inline-flex;[\s\S]*?align-items:\s*center;[\s\S]*?min-height:\s*44px;/

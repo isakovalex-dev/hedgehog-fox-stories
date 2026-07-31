@@ -210,52 +210,32 @@
         </div>
       </section>
 
-      <section class="journey-map" id="journeyMap" aria-labelledby="journeyTitle">
-        <div class="journey-map__intro">
-          <p class="journey-meta">Мир историй</p>
-          <h2 id="journeyTitle">Карта маленьких открытий</h2>
-          <p>Каждая прочитанная история оставляет на карте тёплое воспоминание.</p>
-        </div>
-        <div class="journey-landmarks" id="journeyLandmarks" aria-hidden="true">
-          <picture><source type="image/avif" srcset="assets/journey/landmarks/forest.avif" /><img class="journey-landmark journey-landmark--forest" src="assets/journey/landmarks/forest.webp" alt="" loading="lazy" /></picture>
-          <picture><source type="image/avif" srcset="assets/journey/landmarks/mountains.avif" /><img class="journey-landmark journey-landmark--mountains" src="assets/journey/landmarks/mountains.webp" alt="" loading="lazy" /></picture>
-          <picture><source type="image/avif" srcset="assets/journey/landmarks/boat.avif" /><img class="journey-landmark journey-landmark--boat" src="assets/journey/landmarks/boat.webp" alt="" loading="lazy" /></picture>
-          <picture><source type="image/avif" srcset="assets/journey/landmarks/lighthouse.avif" /><img class="journey-landmark journey-landmark--lighthouse" src="assets/journey/landmarks/lighthouse.webp" alt="" loading="lazy" /></picture>
-          <picture><source type="image/avif" srcset="assets/journey/landmarks/village.avif" /><img class="journey-landmark journey-landmark--village" src="assets/journey/landmarks/village.webp" alt="" loading="lazy" /></picture>
-          <img class="journey-map__compass" src="assets/journey/compass.svg" alt="" loading="lazy" />
-        </div>
-        <div class="journey-route-stage" id="journeyRouteStage" aria-hidden="true">
-          <svg class="journey-map__route" viewBox="0 0 1200 600" preserveAspectRatio="none">
-            <path
-              class="journey-map__route-path journey-map__route-path--landscape"
-              d="M30 300 C220 300 330 300 470 300 S720 300 880 300 1040 300 1170 300"
-            />
-            <path
-              class="journey-map__route-path journey-map__route-path--vertical"
-              d="M102 60 C102 185 102 265 102 330 S102 440 102 540"
-            />
-          </svg>
-          <img class="journey-route__paw" src="assets/journey/paw-print.svg" alt="" loading="lazy" />
-          <img class="journey-route__paw" src="assets/journey/paw-print.svg" alt="" loading="lazy" />
-          <img class="journey-route__paw" src="assets/journey/paw-print.svg" alt="" loading="lazy" />
-          <img class="journey-route__paw" src="assets/journey/paw-print.svg" alt="" loading="lazy" />
+      <section class="journey-map journey-map--reference" id="journeyMap" aria-label="Карта путешествий">
+        <picture class="journey-map__desktop">
+          <source type="image/avif" srcset="assets/journey/reference/map-strip.avif" />
+          <source type="image/webp" srcset="assets/journey/reference/map-strip.webp" />
+          <img
+            src="assets/journey/reference/map-strip.png"
+            alt="Карта путешествий Ежонка и Лисёнка: лес, горы, море, маяк и дом"
+            width="2494"
+            height="374"
+            loading="lazy"
+            decoding="async"
+          />
+        </picture>
+        <div class="journey-map__mobile" aria-hidden="true">
           <picture>
-            <source type="image/avif" srcset="assets/journey/landmarks/heroes.avif" />
-            <img
-              class="journey-current-heroes"
-              id="journeyCurrentHeroes"
-              src="assets/journey/landmarks/heroes.webp"
-              alt=""
-              loading="lazy"
-            />
+            <source type="image/avif" srcset="assets/journey/reference/map-copy-mobile.avif" />
+            <source type="image/webp" srcset="assets/journey/reference/map-copy-mobile.webp" />
+            <img src="assets/journey/reference/map-copy-mobile.png" alt="" width="520" height="374" loading="lazy" />
+          </picture>
+          <picture>
+            <source type="image/avif" srcset="assets/journey/reference/map-route-mobile.avif" />
+            <source type="image/webp" srcset="assets/journey/reference/map-route-mobile.webp" />
+            <img src="assets/journey/reference/map-route-mobile.png" alt="" width="2064" height="374" loading="lazy" />
           </picture>
         </div>
-        <div class="journey-places" id="journeyPlaces" aria-label="Места путешествия"></div>
-        <aside class="journey-keepsakes" aria-labelledby="keepsakesTitle">
-          <p class="journey-meta">Собрано по дороге</p>
-          <h3 id="keepsakesTitle">Наши памятные находки</h3>
-          <div id="journeyKeepsakes" aria-live="polite"></div>
-        </aside>
+        <a class="journey-map__link" id="journeyMapLink" href="/map">Открыть карту</a>
       </section>
 
       <section class="memory-promo games-clearing" id="games" aria-labelledby="memoryPromoTitle">

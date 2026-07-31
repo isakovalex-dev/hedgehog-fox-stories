@@ -7,6 +7,7 @@
     }
   },
   "rewrites": [
+    { "source": "/map", "destination": "/map.html" },
     { "source": "/games/endless-flight", "destination": "/endless-flight.html" },
     { "source": "/games/memory", "destination": "/" },
     { "source": "/memory", "destination": "/" },
