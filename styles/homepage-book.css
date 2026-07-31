@@ -369,20 +369,6 @@
   object-fit: contain;
   filter: none;
   mix-blend-mode: multiply;
-  -webkit-mask-image: radial-gradient(
-    ellipse at 50% 54%,
-    #000 45%,
-    rgba(0, 0, 0, 0.9) 55%,
-    rgba(0, 0, 0, 0.38) 65%,
-    transparent 75%
-  );
-  mask-image: radial-gradient(
-    ellipse at 50% 54%,
-    #000 45%,
-    rgba(0, 0, 0, 0.9) 55%,
-    rgba(0, 0, 0, 0.38) 65%,
-    transparent 75%
-  );
 }
 
 .home-page .memory-promo__copy {

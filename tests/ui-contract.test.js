@@ -5,6 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
+const zlib = require("node:zlib");
 
 const projectRoot = path.join(__dirname, "..");
 
@@ -28,6 +29,95 @@ test("approved reference artwork is committed in fallback and modern formats", (
 
 function read(relativePath) {
   return fs.readFileSync(path.join(projectRoot, relativePath), "utf8");
+}
+
+function readPngAlpha(relativePath) {
+  const source = fs.readFileSync(path.join(projectRoot, relativePath));
+  assert.equal(source.subarray(0, 8).toString("hex"), "89504e470d0a1a0a", `${relativePath} must be a PNG`);
+
+  let offset = 8;
+  let width = 0;
+  let height = 0;
+  let bitDepth = 0;
+  let colorType = 0;
+  const compressedRows = [];
+
+  while (offset < source.length) {
+    const length = source.readUInt32BE(offset);
+    const type = source.subarray(offset + 4, offset + 8).toString("ascii");
+    const data = source.subarray(offset + 8, offset + 8 + length);
+    offset += length + 12;
+
+    if (type === "IHDR") {
+      width = data.readUInt32BE(0);
+      height = data.readUInt32BE(4);
+      bitDepth = data[8];
+      colorType = data[9];
+    } else if (type === "IDAT") {
+      compressedRows.push(data);
+    } else if (type === "IEND") {
+      break;
+    }
+  }
+
+  assert.equal(bitDepth, 8, `${relativePath} must use 8-bit channels`);
+  assert.equal(colorType, 6, `${relativePath} must contain native RGBA pixels`);
+
+  const bytesPerPixel = 4;
+  const stride = width * bytesPerPixel;
+  const rows = zlib.inflateSync(Buffer.concat(compressedRows));
+  const alpha = new Uint8Array(width * height);
+  let previous = Buffer.alloc(stride);
+  let sourceOffset = 0;
+
+  function paeth(left, above, upperLeft) {
+    const estimate = left + above - upperLeft;
+    const leftDistance = Math.abs(estimate - left);
+    const aboveDistance = Math.abs(estimate - above);
+    const upperLeftDistance = Math.abs(estimate - upperLeft);
+    if (leftDistance <= aboveDistance && leftDistance <= upperLeftDistance) return left;
+    if (aboveDistance <= upperLeftDistance) return above;
+    return upperLeft;
+  }
+
+  for (let y = 0; y < height; y += 1) {
+    const filter = rows[sourceOffset];
+    sourceOffset += 1;
+    const current = Buffer.alloc(stride);
+
+    for (let x = 0; x < stride; x += 1) {
+      const raw = rows[sourceOffset + x];
+      const left = x >= bytesPerPixel ? current[x - bytesPerPixel] : 0;
+      const above = previous[x];
+      const upperLeft = x >= bytesPerPixel ? previous[x - bytesPerPixel] : 0;
+      if (filter === 0) current[x] = raw;
+      else if (filter === 1) current[x] = (raw + left) & 255;
+      else if (filter === 2) current[x] = (raw + above) & 255;
+      else if (filter === 3) current[x] = (raw + Math.floor((left + above) / 2)) & 255;
+      else if (filter === 4) current[x] = (raw + paeth(left, above, upperLeft)) & 255;
+      else assert.fail(`Unsupported PNG row filter ${filter}`);
+    }
+
+    for (let x = 0; x < width; x += 1) {
+      alpha[y * width + x] = current[x * bytesPerPixel + 3];
+    }
+    sourceOffset += stride;
+    previous = current;
+  }
+
+  return { width, height, alpha };
+}
+
+function averageAlpha(image, left, top, right, bottom) {
+  let total = 0;
+  let count = 0;
+  for (let y = top; y < bottom; y += 1) {
+    for (let x = left; x < right; x += 1) {
+      total += image.alpha[y * image.width + x];
+      count += 1;
+    }
+  }
+  return total / count;
 }
 
 function getBuiltInStories() {
@@ -244,6 +334,34 @@ test("games clearing uses one paper-edge watercolor while preserving both game r
   assert.match(html, /href=["']\/games\/memory["']/);
   assert.match(html, /href=["']\/games\/endless-flight["']/);
   assert.doesNotMatch(html, /assets\/game\/fox-catcher\.webp/);
+});
+
+test("games clearing owns soft transparent edges without hiding the paper airplane", () => {
+  const image = readPngAlpha("assets/journey/reference/games-clearing.png");
+  const cornerSize = 32;
+  const cornerAverages = [
+    averageAlpha(image, 0, 0, cornerSize, cornerSize),
+    averageAlpha(image, image.width - cornerSize, 0, image.width, cornerSize),
+    averageAlpha(image, 0, image.height - cornerSize, cornerSize, image.height),
+    averageAlpha(image, image.width - cornerSize, image.height - cornerSize, image.width, image.height)
+  ];
+  const airplaneAverage = averageAlpha(
+    image,
+    Math.floor(image.width * 0.64),
+    Math.floor(image.height * 0.08),
+    Math.ceil(image.width * 0.82),
+    Math.ceil(image.height * 0.3)
+  );
+
+  cornerAverages.forEach((average) => assert.ok(average < 8, `Corner alpha must be transparent, got ${average}`));
+  assert.ok(airplaneAverage > 220, `Paper airplane region must stay materially opaque, got ${airplaneAverage}`);
+});
+
+test("games clearing CSS does not depend on a clipping mask", () => {
+  const css = read("styles/homepage-book.css");
+  const imageRule = css.match(/\.home-page \.games-clearing \.memory-promo__art img\s*\{([\s\S]*?)\}/);
+  assert.ok(imageRule, "Missing games clearing image rule");
+  assert.doesNotMatch(imageRule[1], /(?:-webkit-)?mask-image|clip-path/);
 });
 
 test("static page navigation uses application routes instead of hidden anchors", () => {
