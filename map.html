@@ -49,11 +49,17 @@
         text-align: center;
       }
 
-      .brand-lockup {
+      .brand-link {
         display: block;
         width: min(100%, 410px);
-        height: auto;
         margin: 0 auto clamp(2.5rem, 6vw, 4rem);
+        color: inherit;
+      }
+
+      .brand-lockup {
+        display: block;
+        width: 100%;
+        height: auto;
       }
 
       .journey-meta {
@@ -79,6 +85,20 @@
         line-height: 1.6;
       }
 
+      .map-fragment {
+        display: block;
+        width: min(100%, 640px);
+        margin: 0 auto 2rem;
+        pointer-events: none;
+      }
+
+      .map-fragment img {
+        display: block;
+        width: 100%;
+        height: auto;
+        mix-blend-mode: multiply;
+      }
+
       .button {
         display: inline-flex;
         min-width: 44px;
@@ -94,6 +114,7 @@
 
       .primary { background: #536b57; }
 
+      .brand-link:focus-visible,
       .button:focus-visible {
         outline: 3px solid #9a4f2f;
         outline-offset: 4px;
@@ -102,15 +123,29 @@
   </head>
   <body>
     <div class="map-page">
-      <picture>
-        <source type="image/avif" srcset="assets/journey/reference/brand-lockup.avif" />
-        <source type="image/webp" srcset="assets/journey/reference/brand-lockup.webp" />
-        <img class="brand-lockup" src="assets/journey/reference/brand-lockup.png" alt="Ёжик и Лисёнок" width="832" height="212" />
-      </picture>
+      <a class="brand-link" href="/" aria-label="Ёжик и Лисёнок — на главную">
+        <picture>
+          <source type="image/avif" srcset="assets/journey/reference/brand-lockup.avif" />
+          <source type="image/webp" srcset="assets/journey/reference/brand-lockup.webp" />
+          <img class="brand-lockup" src="assets/journey/reference/brand-lockup.png" alt="" width="832" height="212" />
+        </picture>
+      </a>
       <main class="map-placeholder">
         <p class="journey-meta">Карта путешествий</p>
         <h1>Карта путешествий скоро откроется</h1>
         <p>Мы прокладываем тропинки, расставляем маяки и собираем памятные находки.</p>
+        <picture class="map-fragment" aria-hidden="true">
+          <source type="image/avif" srcset="assets/journey/reference/map-route-mobile.avif" />
+          <source type="image/webp" srcset="assets/journey/reference/map-route-mobile.webp" />
+          <img
+            src="assets/journey/reference/map-route-mobile.png"
+            alt=""
+            width="1974"
+            height="374"
+            loading="lazy"
+            decoding="async"
+          />
+        </picture>
         <a class="button primary" href="/">Вернуться на главную</a>
       </main>
     </div>

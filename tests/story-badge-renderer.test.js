@@ -52,9 +52,18 @@ class FakeElement {
     this.checked = false;
     this.scrollHeight = 0;
     this.clientHeight = 0;
+    this.scrollTop = 0;
+    this.listeners = new Map();
   }
 
-  addEventListener() {}
+  addEventListener(type, listener) {
+    if (!this.listeners.has(type)) this.listeners.set(type, []);
+    this.listeners.get(type).push(listener);
+  }
+
+  dispatch(type, event = {}) {
+    (this.listeners.get(type) || []).forEach((listener) => listener({ currentTarget: this, ...event }));
+  }
 
   querySelector() {
     return null;
@@ -155,7 +164,7 @@ function getRenderedCard(html, storyId) {
   return html.slice(articleStart, articleEnd + "</article>".length);
 }
 
-function createRuntime({ seedFixture }) {
+function createRuntime({ seedFixture, pathname = "/stories", journeyService = null }) {
   const document = new FakeDocument();
   const localStorage = new FakeLocalStorage();
   const fixtureStory = {
@@ -180,11 +189,11 @@ function createRuntime({ seedFixture }) {
     document,
     localStorage,
     location: {
-      pathname: "/stories",
+      pathname,
       search: "",
       hash: "",
       origin: "https://test.local",
-      href: "https://test.local/stories",
+      href: `https://test.local${pathname}`,
       assign() {}
     },
     history: {
@@ -237,7 +246,7 @@ function createRuntime({ seedFixture }) {
       trackEvent() {},
       recordGenerationResult() {}
     },
-    HFJourneyService: null
+    HFJourneyService: journeyService
   };
   window.window = window;
 
@@ -261,6 +270,94 @@ function createRuntime({ seedFixture }) {
 
   return { context, document, fixtureStory, localStorage, window };
 }
+
+test("reader saves a keepsake for the future map without claiming it is already visible", async () => {
+  const savedDiscoveries = [];
+  const journeyService = {
+    markDiscovered(story) {
+      savedDiscoveries.push(JSON.parse(JSON.stringify(story)));
+      return {
+        storyId: story.id,
+        place: story.journeyPlace,
+        keepsake: story.keepsake
+      };
+    },
+    getDiscoveries: () => [],
+    getDiscoveredPlaceIds: () => new Set(),
+    getJourneyProgress: () => 0
+  };
+  const { context, document } = createRuntime({
+    seedFixture: false,
+    pathname: "/stories/lost-cloud",
+    journeyService
+  });
+
+  loadScript("js/storageService.js", context);
+  loadScript("js/storyService.js", context);
+  loadScript("js/app.js", context);
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const slides = document.querySelector("#slides");
+  assert.match(
+    slides.innerHTML,
+    /Дочитайте до конца, чтобы сохранить памятную находку для будущей карты\./
+  );
+
+  const discoveryElement = new FakeElement();
+  slides.querySelector = (selector) => selector === ".reader-discovery" ? discoveryElement : null;
+  slides.scrollHeight = 100;
+  slides.clientHeight = 0;
+  slides.scrollTop = 100;
+  slides.dispatch("scroll");
+
+  assert.deepEqual(savedDiscoveries, [
+    { id: "lost-cloud", journeyPlace: "cottage", keepsake: "feather" }
+  ]);
+  assert.match(
+    discoveryElement.innerHTML,
+    /Находка сохранена для будущей карты: <strong>Пёрышко добрых вестей<\/strong>\./
+  );
+  assert.doesNotMatch(discoveryElement.innerHTML, /на карте появилась|появилась на карте/i);
+  assert.equal(discoveryElement.classList.contains("is-found"), true);
+});
+
+test("static homepage map initializes no interactive journey presentation", async () => {
+  const presentationReads = [];
+  const journeyService = {
+    markDiscovered() {
+      throw new Error("Reader discovery is not expected during homepage initialization");
+    },
+    getDiscoveries() {
+      presentationReads.push("discoveries");
+      return [];
+    },
+    getDiscoveredPlaceIds() {
+      presentationReads.push("places");
+      return new Set();
+    },
+    getJourneyProgress() {
+      presentationReads.push("progress");
+      return 0;
+    }
+  };
+  const { context, document } = createRuntime({
+    seedFixture: false,
+    pathname: "/",
+    journeyService
+  });
+
+  loadScript("js/storageService.js", context);
+  loadScript("js/storyService.js", context);
+  loadScript("js/app.js", context);
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.deepEqual(presentationReads, []);
+  assert.equal(
+    document.querySelector("#journeyMap").listeners.get("click")?.length || 0,
+    0,
+    "The approved static map must not install the removed place-opening handler"
+  );
+});
 
 test("local user story renders the user badge and cleanup removes the fixture", async () => {
   const runtime = createRuntime({ seedFixture: true });

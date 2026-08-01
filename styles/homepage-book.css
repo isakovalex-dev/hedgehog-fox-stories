@@ -415,11 +415,6 @@
   box-shadow: 0 6px 18px rgba(76, 61, 37, 0.07);
 }
 
-.home-page .game-pass--flight {
-  background:
-    linear-gradient(145deg, rgba(175, 200, 197, 0.34), rgba(251, 245, 230, 0.78));
-}
-
 .home-page .game-pass__number {
   color: var(--book-moss);
 }
@@ -865,7 +860,7 @@
   }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 768px) {
   .home-page .journey-map__desktop {
     display: none;
   }

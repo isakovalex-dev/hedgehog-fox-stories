@@ -27,11 +27,43 @@ test("approved reference artwork is committed in fallback and modern formats", (
   });
 });
 
+test("mobile route artwork starts at the reviewed clean edge of the approved strip", () => {
+  const cleanCropLeft = 520;
+  const expectedDimensions = { width: 1974, height: 374 };
+  const source = readPngPixels("assets/journey/reference/map-strip.png");
+  const crop = readPngPixels("assets/journey/reference/map-route-mobile.png");
+  const html = read("index.html");
+  const routeImage = html.match(/<img\b[^>]*map-route-mobile\.png[^>]*>/)?.[0] || "";
+
+  ["png", "webp", "avif"].forEach((extension) => {
+    assert.deepEqual(
+      readImageDimensions(`assets/journey/reference/map-route-mobile.${extension}`),
+      expectedDimensions,
+      `map-route-mobile.${extension} must keep the reviewed crop dimensions`
+    );
+  });
+  assert.equal(crop.width, source.width - cleanCropLeft);
+  assert.equal(crop.height, source.height);
+  assert.equal(crop.bytesPerPixel, source.bytesPerPixel);
+
+  const sourceStride = source.width * source.bytesPerPixel;
+  const cropStride = crop.width * crop.bytesPerPixel;
+  for (let y = 0; y < crop.height; y += 1) {
+    const sourceStart = y * sourceStride + cleanCropLeft * source.bytesPerPixel;
+    const expectedRow = source.pixels.subarray(sourceStart, sourceStart + cropStride);
+    const actualRow = crop.pixels.subarray(y * cropStride, (y + 1) * cropStride);
+    assert.equal(Buffer.compare(Buffer.from(actualRow), Buffer.from(expectedRow)), 0, `row ${y} must match source crop`);
+  }
+
+  assert.match(routeImage, /width=["']1974["']/);
+  assert.match(routeImage, /height=["']374["']/);
+});
+
 function read(relativePath) {
   return fs.readFileSync(path.join(projectRoot, relativePath), "utf8");
 }
 
-function readPngAlpha(relativePath) {
+function readPngPixels(relativePath) {
   const source = fs.readFileSync(path.join(projectRoot, relativePath));
   assert.equal(source.subarray(0, 8).toString("hex"), "89504e470d0a1a0a", `${relativePath} must be a PNG`);
 
@@ -61,12 +93,12 @@ function readPngAlpha(relativePath) {
   }
 
   assert.equal(bitDepth, 8, `${relativePath} must use 8-bit channels`);
-  assert.equal(colorType, 6, `${relativePath} must contain native RGBA pixels`);
+  assert.ok([2, 6].includes(colorType), `${relativePath} must use RGB or RGBA pixels`);
 
-  const bytesPerPixel = 4;
+  const bytesPerPixel = colorType === 6 ? 4 : 3;
   const stride = width * bytesPerPixel;
   const rows = zlib.inflateSync(Buffer.concat(compressedRows));
-  const alpha = new Uint8Array(width * height);
+  const pixels = new Uint8Array(width * height * bytesPerPixel);
   let previous = Buffer.alloc(stride);
   let sourceOffset = 0;
 
@@ -98,14 +130,62 @@ function readPngAlpha(relativePath) {
       else assert.fail(`Unsupported PNG row filter ${filter}`);
     }
 
-    for (let x = 0; x < width; x += 1) {
-      alpha[y * width + x] = current[x * bytesPerPixel + 3];
-    }
+    pixels.set(current, y * stride);
     sourceOffset += stride;
     previous = current;
   }
 
-  return { width, height, alpha };
+  return { width, height, bytesPerPixel, colorType, pixels };
+}
+
+function readPngAlpha(relativePath) {
+  const image = readPngPixels(relativePath);
+  assert.equal(image.colorType, 6, `${relativePath} must contain native RGBA pixels`);
+  const alpha = new Uint8Array(image.width * image.height);
+
+  for (let index = 0; index < alpha.length; index += 1) {
+    alpha[index] = image.pixels[index * image.bytesPerPixel + 3];
+  }
+
+  return { width: image.width, height: image.height, alpha };
+}
+
+function readImageDimensions(relativePath) {
+  const source = fs.readFileSync(path.join(projectRoot, relativePath));
+
+  if (source.subarray(0, 8).toString("hex") === "89504e470d0a1a0a") {
+    return { width: source.readUInt32BE(16), height: source.readUInt32BE(20) };
+  }
+
+  if (source.subarray(0, 4).toString("ascii") === "RIFF" && source.subarray(8, 12).toString("ascii") === "WEBP") {
+    const chunkType = source.subarray(12, 16).toString("ascii");
+    if (chunkType === "VP8 ") {
+      return {
+        width: source.readUInt16LE(26) & 0x3fff,
+        height: source.readUInt16LE(28) & 0x3fff
+      };
+    }
+    if (chunkType === "VP8X") {
+      return {
+        width: source.readUIntLE(24, 3) + 1,
+        height: source.readUIntLE(27, 3) + 1
+      };
+    }
+    if (chunkType === "VP8L") {
+      const dimensions = source.readUInt32LE(21);
+      return {
+        width: (dimensions & 0x3fff) + 1,
+        height: ((dimensions >>> 14) & 0x3fff) + 1
+      };
+    }
+  }
+
+  const ispeOffset = source.indexOf(Buffer.from("ispe"));
+  assert.ok(ispeOffset >= 0, `${relativePath} must expose image dimensions`);
+  return {
+    width: source.readUInt32BE(ispeOffset + 8),
+    height: source.readUInt32BE(ispeOffset + 12)
+  };
 }
 
 function averageAlpha(image, left, top, right, bottom) {
@@ -236,6 +316,23 @@ test("standalone about and legal pages retain their legacy theme", () => {
   });
 });
 
+test("internal and standalone navigation targets reserve at least 44 CSS pixels", () => {
+  const journey = read("styles/journey-theme.css");
+  const shared = read("styles.css");
+
+  assert.match(
+    journey,
+    /\.journey-theme :where\(\.nav-brand, \.nav-link, \.nav-action, \.nav-menu-button, \.site-footer a\)\s*\{[\s\S]*?min-width:\s*44px;[\s\S]*?min-height:\s*44px;/
+  );
+  assert.match(
+    shared,
+    /\.nav-brand,\s*\.nav-link,\s*\.nav-action,\s*\.nav-menu-button,\s*\.site-footer a\s*\{[\s\S]*?min-width:\s*44px;[\s\S]*?min-height:\s*44px;/
+  );
+  [journey, shared].forEach((css) => {
+    assert.match(css, /\.site-footer a\s*\{[\s\S]*?display:\s*inline-flex;[\s\S]*?align-items:\s*center;/);
+  });
+});
+
 test("homepage loads an isolated faithful book theme", () => {
   const homepage = read("index.html");
   assert.match(homepage, /<body[^>]*class=["'][^"']*\bhome-page\b/);
@@ -299,25 +396,12 @@ test("faithful homepage watercolor assets exist", () => {
     "assets/journey/hero-coast-768.avif",
     "assets/journey/hero-coast-1200.avif",
     "assets/journey/hero-coast-1800.avif",
-    "assets/journey/landmarks/forest.webp",
-    "assets/journey/landmarks/forest.avif",
-    "assets/journey/landmarks/mountains.webp",
-    "assets/journey/landmarks/mountains.avif",
-    "assets/journey/landmarks/boat.webp",
-    "assets/journey/landmarks/boat.avif",
-    "assets/journey/landmarks/lighthouse.webp",
-    "assets/journey/landmarks/lighthouse.avif",
-    "assets/journey/landmarks/village.webp",
-    "assets/journey/landmarks/village.avif",
-    "assets/journey/landmarks/heroes.webp",
-    "assets/journey/landmarks/heroes.avif",
     "assets/journey/reference/brand-lockup.avif",
     "assets/journey/reference/brand-lockup.webp",
     "assets/journey/reference/brand-lockup.png",
     "assets/journey/reference/paper-texture.avif",
     "assets/journey/reference/paper-texture.webp",
     "assets/journey/reference/paper-texture.png",
-    "assets/journey/compass.svg",
     "assets/journey/paw-print.svg"
   ];
 
@@ -334,6 +418,18 @@ test("games clearing uses one paper-edge watercolor while preserving both game r
   assert.match(html, /href=["']\/games\/memory["']/);
   assert.match(html, /href=["']\/games\/endless-flight["']/);
   assert.doesNotMatch(html, /assets\/game\/fox-catcher\.webp/);
+});
+
+test("games clearing image reserves its intrinsic layout space", () => {
+  const html = read("index.html");
+  const image = html.match(/<img\b[^>]*games-clearing\.png[^>]*>/)?.[0] || "";
+
+  assert.deepEqual(
+    readImageDimensions("assets/journey/reference/games-clearing.png"),
+    { width: 1568, height: 1003 }
+  );
+  assert.match(image, /width=["']1568["']/);
+  assert.match(image, /height=["']1003["']/);
 });
 
 test("games clearing owns soft transparent edges without hiding the paper airplane", () => {
@@ -362,6 +458,22 @@ test("games clearing CSS does not depend on a clipping mask", () => {
   const imageRule = css.match(/\.home-page \.games-clearing \.memory-promo__art img\s*\{([\s\S]*?)\}/);
   assert.ok(imageRule, "Missing games clearing image rule");
   assert.doesNotMatch(imageRule[1], /(?:-webkit-)?mask-image|clip-path/);
+});
+
+test("both production game cards inherit the same translucent paper surface", () => {
+  const homepage = read("styles/homepage-book.css");
+  const journey = read("styles/journey-theme.css");
+
+  assert.match(
+    homepage,
+    /\.home-page \.game-pass\s*\{[\s\S]*?background:\s*rgba\(251,\s*245,\s*230,\s*0\.72\);/
+  );
+  assert.match(
+    journey,
+    /\.journey-theme \.game-pass\s*\{[\s\S]*?background:\s*rgba\(255,\s*253,\s*247,\s*0\.84\);/
+  );
+  assert.doesNotMatch(homepage, /\.game-pass--flight\s*\{[\s\S]*?background\s*:/);
+  assert.doesNotMatch(journey, /\.game-pass--flight\s*\{[\s\S]*?background\s*:/);
 });
 
 test("static page navigation uses application routes instead of hidden anchors", () => {
@@ -446,7 +558,7 @@ test("faithful homepage hero uses one full-bleed watercolor layer without an ova
 
 test("mobile homepage returns the watercolor illustration to document flow", () => {
   const css = read("styles/homepage-book.css");
-  const mobile = css.slice(css.lastIndexOf("@media (max-width: 768px)"));
+  const mobile = css.slice(css.indexOf("@media (max-width: 768px)"));
 
   assert.match(
     mobile,
@@ -679,12 +791,6 @@ test("shared navigation collapses at 980px while only the homepage extends to 12
   );
 });
 
-test("reader completion sends the normalized story shape to journey storage", () => {
-  const source = read("js/app.js");
-  assert.match(source, /markDiscovered\?\.\(\{\s*id:\s*activeStory\.id,/);
-  assert.match(source, /journeyPlace:\s*activeStory\.journeyPlace,/);
-});
-
 test("journey service loads after storage and before app", () => {
   const source = read("index.html");
   const storageIndex = source.indexOf("js/storageService.js");
@@ -718,12 +824,50 @@ test("homepage journey map is the approved static artwork with one real link", (
   assert.equal((section.match(/<(?:a|button|input|select|textarea)\b/g) || []).length, 1);
 });
 
+test("static map theme ships no retired interactive-map presentation selectors", () => {
+  const css = read("styles/journey-theme.css");
+
+  [
+    "journey-map__intro",
+    "journey-places",
+    "journey-place",
+    "journey-keepsakes",
+    "journey-keepsake"
+  ].forEach((className) => {
+    assert.doesNotMatch(css, new RegExp(`\\.${className}(?:[^a-z-]|$)`));
+  });
+});
+
+test("journey map keeps one persistent accessible description at every breakpoint", () => {
+  const html = read("index.html");
+  const section = html.match(/<section\b[^>]*id=["']journeyMap["'][^>]*>[\s\S]*?<\/section>/)?.[0] || "";
+  const openingTag = section.match(/^<section\b[^>]*>/)?.[0] || "";
+  const images = [...section.matchAll(/<img\b[^>]*>/g)].map((match) => match[0]);
+
+  assert.match(
+    openingTag,
+    /aria-label=["']Карта путешествий Ежонка и Лисёнка: маршрут через лес, горы и море к маяку и дому["']/
+  );
+  assert.equal(images.length, 3);
+  images.forEach((image) => assert.match(image, /alt=["']["']/));
+});
+
 test("map placeholder is built and routed", () => {
   const page = read("map.html");
   const vercel = JSON.parse(read("vercel.json"));
   assert.match(page, /Карта путешествий скоро откроется/);
   assert.match(page, /Мы прокладываем тропинки, расставляем маяки и собираем памятные находки\./);
-  assert.match(page, /href=["']\/["']/);
+  assert.match(
+    page,
+    /<a\b[^>]*class=["'][^"']*brand-link[^"']*["'][^>]*href=["']\/["'][^>]*aria-label=["']Ёжик и Лисёнок — на главную["'][^>]*>/
+  );
+  assert.match(page, /<picture\b[^>]*class=["'][^"']*map-fragment[^"']*["'][^>]*aria-hidden=["']true["']/);
+  ["avif", "webp", "png"].forEach((extension) => {
+    assert.match(page, new RegExp(`assets/journey/reference/map-route-mobile\\.${extension}`));
+  });
+  const fragment = page.match(/<picture\b[^>]*class=["'][^"']*map-fragment[^"']*["'][\s\S]*?<\/picture>/)?.[0] || "";
+  assert.match(fragment, /<img\b[^>]*alt=["']["'][^>]*width=["']1974["'][^>]*height=["']374["']/);
+  assert.match(page, /\.map-fragment\s*\{[\s\S]*?width:\s*min\(100%,\s*640px\);[\s\S]*?pointer-events:\s*none;/);
   assert.ok(
     vercel.rewrites.some((rewrite) => rewrite.source === "/map" && rewrite.destination === "/map.html")
   );
@@ -734,7 +878,8 @@ test("static journey map keeps an unclipped, responsive accessible action", () =
   const mapRule = css.match(/\.home-page \.journey-map\s*\{([\s\S]*?)\n\}/)?.[1] || "";
   const actionRule = css.match(/\.home-page \.journey-map__link\s*\{([\s\S]*?)\n\}/)?.[1] || "";
   const focusRule = css.match(/\.home-page \.journey-map__link:focus-visible\s*\{([\s\S]*?)\n\}/)?.[1] || "";
-  const mobile = css.slice(css.indexOf("@media (max-width: 767px)"));
+  const mobileMapStart = css.lastIndexOf("@media (max-width: 768px)");
+  const mobile = css.slice(mobileMapStart);
 
   assert.match(mapRule, /overflow:\s*visible;/);
   assert.match(css, /\.home-page \.journey-map::before\s*\{\s*display:\s*none;/);
@@ -743,8 +888,10 @@ test("static journey map keeps an unclipped, responsive accessible action", () =
   assert.match(actionRule, /min-height:\s*44px;/);
   assert.match(actionRule, /z-index:\s*1;/);
   assert.match(focusRule, /outline:\s*3px solid var\(--book-rust\);/);
+  assert.ok(mobileMapStart >= 0, "Mobile map breakpoint must include exactly 768px");
   assert.match(mobile, /\.home-page \.journey-map__desktop\s*\{\s*display:\s*none;/);
   assert.match(mobile, /\.home-page \.journey-map__mobile\s*\{\s*display:\s*grid;/);
+  assert.doesNotMatch(css, /@media\s*\(max-width:\s*767px\)/);
 });
 
 test("small rust text reaches WCAG AA contrast on every paper surface", () => {
@@ -772,12 +919,16 @@ test("small rust text reaches WCAG AA contrast on every paper surface", () => {
 
 test("homepage exposes exactly the two production games", () => {
   const html = read("index.html");
-  assert.match(html, /id=["']games["']/);
-  assert.match(html, /href=["']\/games\/memory["']/);
-  assert.match(html, /href=["']\/games\/endless-flight["']/);
-  assert.match(html, />Мемори</);
-  assert.match(html, />Бесконечный полёт</);
-  assert.doesNotMatch(html, /forest-catcher/i);
+  const gamesSection = html.match(/<section\b[^>]*id=["']games["'][^>]*>[\s\S]*?<\/section>/)?.[0] || "";
+  const gameCards = [...gamesSection.matchAll(/<a\b[^>]*class=["'][^"']*\bgame-pass\b[^"']*["'][^>]*>/g)]
+    .map((match) => match[0]);
+  const gameRoutes = gameCards.map((card) => card.match(/href=["']([^"']+)["']/)?.[1]);
+
+  assert.equal(gameCards.length, 2, "The production games section must contain exactly two linked cards");
+  assert.deepEqual(gameRoutes, ["/games/memory", "/games/endless-flight"]);
+  assert.match(gamesSection, />Мемори</);
+  assert.match(gamesSection, />Бесконечный полёт</);
+  assert.doesNotMatch(gamesSection, /forest-catcher/i);
 });
 
 test("homepage book layout preserves and restyles lower-section functionality", () => {

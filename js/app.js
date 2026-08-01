@@ -77,8 +77,6 @@
   const passwordToggleButtons = document.querySelectorAll("[data-password-toggle]");
   const storiesSection = document.querySelector("#stories");
   const journeyMap = document.querySelector("#journeyMap");
-  const journeyPlacesElement = document.querySelector("#journeyPlaces");
-  const journeyKeepsakesElement = document.querySelector("#journeyKeepsakes");
   const memoryPromo = document.querySelector("#games");
   const memoryGameSection = document.querySelector("#memoryGameSection");
   const readingValuesSection = document.querySelector("#why-read");
@@ -117,13 +115,6 @@
     bravery: ["autumn_path", "rainy_forest", "small_bridge", "forest_night", "campfire_evening"]
   };
   const ILLUSTRATION_GENERATION_TIMEOUT_MS = 150000;
-  const journeyPlaces = [
-    { id: "forest", label: "Тихий лес", storyId: "hedgehog-bravery", mark: "♧" },
-    { id: "meadow", label: "Солнечная поляна", storyId: "warm-wind-map", mark: "✿" },
-    { id: "cottage", label: "Домик у тропы", storyId: "lost-cloud", mark: "⌂" },
-    { id: "sea", label: "Берег моря", storyId: "sea-bench", mark: "≈" },
-    { id: "starry-hill", label: "Звёздный холм", storyId: "star-for-friend", mark: "✦" }
-  ];
   const keepsakeLabels = {
     feather: { label: "Пёрышко добрых вестей", mark: "❧" },
     shell: { label: "Ракушка с голосом моря", mark: "◖" },
@@ -1244,82 +1235,6 @@
       .join("");
   }
 
-  function renderJourney() {
-    if (!journeyPlacesElement || !journeyKeepsakesElement || !journeyService) return;
-
-    const stories = storyService.getAllStories();
-    const storyById = new Map(stories.map((story) => [story.id, story]));
-    const discoveries = journeyService.getDiscoveries();
-    const discoveredPlaceIds = journeyService.getDiscoveredPlaceIds();
-    const journeyProgress = journeyService.getJourneyProgress(journeyPlaces);
-    const journeyLandscapeProgress = 2.5 + journeyProgress * 95;
-    const journeyVerticalProgress = 10 + journeyProgress * 80;
-
-    journeyMap?.style.setProperty("--journey-progress", journeyProgress.toFixed(3));
-    journeyMap?.style.setProperty("--journey-progress-landscape", `${journeyLandscapeProgress.toFixed(3)}%`);
-    journeyMap?.style.setProperty("--journey-progress-vertical", `${journeyVerticalProgress.toFixed(3)}%`);
-
-    journeyPlacesElement.innerHTML = journeyPlaces
-      .map((place, index) => {
-        const story = storyById.get(place.storyId);
-        const isDiscovered = discoveredPlaceIds.has(place.id);
-        const title = story?.title || place.label;
-        const status = isDiscovered ? "Исследовано" : "В путь";
-
-        return `
-          <button
-            class="journey-place journey-place--${escapeAttribute(place.id)} ${isDiscovered ? "is-discovered" : ""}"
-            type="button"
-            data-journey-story="${escapeAttribute(place.storyId)}"
-            data-journey-place="${escapeAttribute(place.id)}"
-            style="--journey-index: ${index};"
-            aria-label="${escapeAttribute(place.label)}. ${escapeAttribute(status)}. Открыть историю «${escapeAttribute(title)}»"
-          >
-            <span class="journey-place__mark" aria-hidden="true">${place.mark}</span>
-            <span class="journey-place__copy">
-              <span class="journey-place__label">${escapeHtml(place.label)}</span>
-              <span class="journey-place__story">${escapeHtml(title)}</span>
-            </span>
-            <span class="journey-place__status">${escapeHtml(status)}</span>
-          </button>
-        `;
-      })
-      .join("");
-
-    if (!discoveries.length) {
-      journeyKeepsakesElement.innerHTML = `
-        <p class="journey-keepsakes__empty">
-          Пока здесь тихо. Дочитайте первую историю — и на полке появится памятная находка.
-        </p>
-      `;
-      return;
-    }
-
-    journeyKeepsakesElement.innerHTML = `
-      <ul class="journey-keepsakes__list" aria-label="Найденные памятные предметы">
-        ${discoveries
-          .map((discovery) => {
-            const keepsake = keepsakeLabels[discovery.keepsake] || {
-              label: "Тёплое воспоминание",
-              mark: "•"
-            };
-            const story = storyById.get(discovery.storyId);
-
-            return `
-              <li>
-                <span class="journey-keepsake__mark" aria-hidden="true">${keepsake.mark}</span>
-                <span>
-                  <strong>${escapeHtml(keepsake.label)}</strong>
-                  <small>${escapeHtml(story?.title || "Прочитанная история")}</small>
-                </span>
-              </li>
-            `;
-          })
-          .join("")}
-      </ul>
-    `;
-  }
-
   function renderLibrary() {
     const userStories = storyService.getUserStories();
     const visibleStories = getVisibleLibraryStories(userStories);
@@ -1522,7 +1437,7 @@
           <span class="slide-kicker">Конец истории</span>
           <p class="slide-text">Спасибо, что читали вместе с Ежонком и Лисёнком.</p>
           <div class="reader-discovery" role="status">
-            Дочитайте до конца, чтобы сохранить памятную находку на карте.
+            Дочитайте до конца, чтобы сохранить памятную находку для будущей карты.
           </div>
           <div class="end-like">${renderLikeButton(activeStory)}</div>
           ${renderReaderIllustrationEndAction(activeStory)}
@@ -1597,7 +1512,7 @@
       };
       discoveryElement.innerHTML = `
         <span aria-hidden="true">${keepsake.mark}</span>
-        На карте появилась находка: <strong>${escapeHtml(keepsake.label)}</strong>.
+        Находка сохранена для будущей карты: <strong>${escapeHtml(keepsake.label)}</strong>.
       `;
       discoveryElement.classList.add("is-found");
       trackEvent(EVENTS.JOURNEY_KEEPSAKE_FOUND, {
@@ -1607,7 +1522,6 @@
       });
     }
 
-    renderJourney();
   }
 
   function getFormValue(formData, key, fallback) {
@@ -2355,17 +2269,6 @@
 
   storyList.addEventListener("click", handleStoryListClick);
   libraryList.addEventListener("click", handleLibraryClick);
-  journeyMap?.addEventListener("click", (event) => {
-    const place = event.target.closest("[data-journey-story]");
-    if (!place) return;
-
-    trackEvent(EVENTS.JOURNEY_PLACE_OPENED, {
-      storyId: place.dataset.journeyStory,
-      place: place.dataset.journeyPlace
-    });
-    openStory(place.dataset.journeyStory);
-  });
-
   if (librarySearchInput) {
     librarySearchInput.addEventListener("input", handleLibrarySearchInput);
   }
@@ -2612,7 +2515,6 @@
     renderSubscriptionPanel();
     renderAuthPanel();
     renderAllStoryLists();
-    renderJourney();
 
     if (supabaseService?.isEnabled?.()) {
       const hasRecoveryIntent = supabaseService.hasPasswordRecoveryIntent?.();
@@ -2649,7 +2551,6 @@
       renderSubscriptionPanel();
       renderAuthPanel();
       renderAllStoryLists();
-      renderJourney();
     }
 
     await refreshAfterPaymentReturn();
