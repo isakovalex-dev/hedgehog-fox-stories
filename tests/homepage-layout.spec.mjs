@@ -47,7 +47,7 @@ test("featured home story shows its source and an interactive like", async ({ pa
 });
 
 test("journey map and games use the illustrated reference presentation", async ({ page }) => {
-  await page.setViewportSize({ width: 1568, height: 1003 });
+  await page.setViewportSize({ width: 1920, height: 1100 });
   await page.goto("/", { waitUntil: "networkidle" });
 
   const journeyMap = page.locator("#travel-map");
@@ -63,6 +63,14 @@ test("journey map and games use the illustrated reference presentation", async (
   await expect(games.locator(".game-pass")).toHaveCount(2);
   await expect(games.getByRole("link", { name: /Мемори/ })).toHaveAttribute("href", "/games/memory");
   await expect(games.getByRole("link", { name: /Бесконечный полёт/ })).toHaveAttribute("href", "/endless-flight.html");
+
+  const gamesPresentation = await games.evaluate((section) => {
+    const bounds = section.getBoundingClientRect();
+    return { boxShadow: getComputedStyle(section).boxShadow, height: bounds.height, width: bounds.width };
+  });
+  expect(gamesPresentation.width).toBeLessThanOrEqual(1500);
+  expect(gamesPresentation.height).toBeLessThanOrEqual(750);
+  expect(gamesPresentation.boxShadow).toBe("none");
 });
 
 test("mobile featured story keeps its opening arrow inside the card", async ({ page }) => {
