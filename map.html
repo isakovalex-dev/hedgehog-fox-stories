@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <title>Карта путешествий — Ёжик и Лисёнок</title>
+    <meta name="description" content="Карта путешествий Ежонка и Лисёнка скоро откроется." />
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Infant:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color: #344438;
+        font-family: "Nunito", sans-serif;
+        background-color: #f4ebd4;
+        background-image: image-set(
+          url("assets/journey/reference/paper-texture.avif") type("image/avif"),
+          url("assets/journey/reference/paper-texture.webp") type("image/webp"),
+          url("assets/journey/reference/paper-texture.png") type("image/png")
+        );
+        background-repeat: repeat;
+        background-size: 128px 256px;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        min-width: 320px;
+        min-height: 100vh;
+        margin: 0;
+      }
+
+      .map-page {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        padding: clamp(1.5rem, 6vw, 5rem);
+        align-items: center;
+        justify-content: center;
+      }
+
+      .map-placeholder {
+        width: min(100%, 720px);
+        text-align: center;
+      }
+
+      .brand-link {
+        display: block;
+        width: min(100%, 410px);
+        margin: 0 auto clamp(2.5rem, 6vw, 4rem);
+        color: inherit;
+      }
+
+      .brand-lockup {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+
+      .journey-meta {
+        margin: 0 0 0.45rem;
+        color: #536b57;
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        font-family: "Cormorant Infant", serif;
+        font-size: clamp(3rem, 8vw, 5.5rem);
+        line-height: 0.95;
+      }
+
+      p:not(.journey-meta) {
+        max-width: 540px;
+        margin: 1.25rem auto 2rem;
+        font-size: clamp(1rem, 2vw, 1.2rem);
+        line-height: 1.6;
+      }
+
+      .map-fragment {
+        display: block;
+        width: min(100%, 640px);
+        margin: 0 auto 2rem;
+        pointer-events: none;
+      }
+
+      .map-fragment img {
+        display: block;
+        width: 100%;
+        height: auto;
+        mix-blend-mode: multiply;
+      }
+
+      .button {
+        display: inline-flex;
+        min-width: 44px;
+        min-height: 44px;
+        align-items: center;
+        justify-content: center;
+        padding: 0.75rem 1.25rem;
+        border-radius: 999px;
+        color: #fff;
+        font-weight: 800;
+        text-decoration: none;
+      }
+
+      .primary { background: #536b57; }
+
+      .brand-link:focus-visible,
+      .button:focus-visible {
+        outline: 3px solid #9a4f2f;
+        outline-offset: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="map-page">
+      <a class="brand-link" href="/" aria-label="Ёжик и Лисёнок — на главную">
+        <picture>
+          <source type="image/avif" srcset="assets/journey/reference/brand-lockup.avif" />
+          <source type="image/webp" srcset="assets/journey/reference/brand-lockup.webp" />
+          <img class="brand-lockup" src="assets/journey/reference/brand-lockup.png" alt="" width="832" height="212" />
+        </picture>
+      </a>
+      <main class="map-placeholder">
+        <p class="journey-meta">Карта путешествий</p>
+        <h1>Карта путешествий скоро откроется</h1>
+        <p>Мы прокладываем тропинки, расставляем маяки и собираем памятные находки.</p>
+        <picture class="map-fragment" aria-hidden="true">
+          <source type="image/avif" srcset="assets/journey/reference/map-route-mobile.avif" />
+          <source type="image/webp" srcset="assets/journey/reference/map-route-mobile.webp" />
+          <img
+            src="assets/journey/reference/map-route-mobile.png"
+            alt=""
+            width="1974"
+            height="374"
+            loading="lazy"
+            decoding="async"
+          />
+        </picture>
+        <a class="button primary" href="/">Вернуться на главную</a>
+      </main>
+    </div>
+  </body>
+</html>

@@ -1063,6 +1063,10 @@ body.about-page {
 }
 
 .site-footer a {
+  display: inline-flex;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
   color: var(--brown);
   font-size: 0.95rem;
   font-weight: 800;
@@ -1313,6 +1317,79 @@ body.about-page {
   border-radius: 18px;
   box-shadow: 0 10px 24px rgba(95, 67, 42, 0.12);
   mix-blend-mode: multiply;
+}
+
+.about-page .note-sketch,
+.about-page .sketch-thumb img,
+.about-page .draft-image,
+.about-page .future-sketch img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: auto !important;
+  object-fit: contain;
+}
+
+.static-stories-page {
+  background: var(--paper-soft);
+}
+
+.static-stories-main {
+  width: min(100% - 2rem, 760px);
+  margin: 0 auto;
+  padding: clamp(2.5rem, 7vw, 5rem) 0;
+}
+
+.static-stories-header {
+  margin-bottom: 2rem;
+}
+
+.static-stories-header h1 {
+  font-size: clamp(3rem, 8vw, 5rem);
+}
+
+.static-story-index,
+.static-story {
+  margin-bottom: 2rem;
+  padding: clamp(1.25rem, 4vw, 2.5rem);
+  border: 1px solid rgba(104, 74, 54, 0.12);
+  border-radius: 18px;
+  background: rgba(255, 253, 247, 0.92);
+  box-shadow: var(--soft-shadow);
+}
+
+.static-story-index ol {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.static-story-index li + li {
+  margin-top: 0.55rem;
+}
+
+.static-story-index a,
+.static-story-back {
+  color: var(--grass-dark);
+  font-weight: 800;
+}
+
+.static-story {
+  scroll-margin-top: 5rem;
+}
+
+.static-story h2 {
+  margin-bottom: 1.25rem;
+  font-size: clamp(2.2rem, 6vw, 3.5rem);
+}
+
+.static-story p:not(.eyebrow) {
+  font-size: clamp(1.08rem, 2.3vw, 1.25rem);
+  line-height: 1.75;
+}
+
+.static-story-back {
+  display: inline-block;
+  margin-top: 0.75rem;
 }
 
 .notes-stack {
@@ -2037,7 +2114,7 @@ body.about-page {
   }
 
   .nav-link {
-    min-height: 2.35rem;
+    min-height: 44px;
     padding: 0.4rem 0.7rem;
     font-size: 0.95rem;
   }
@@ -2283,7 +2360,7 @@ h2 {
 }
 
 .nav-link {
-  min-height: 2.4rem;
+  min-height: 44px;
   border-radius: 4px;
   padding: 0.4rem 0.65rem;
   color: var(--ink);
@@ -2305,7 +2382,7 @@ h2 {
 }
 
 .nav-action {
-  min-height: 2.55rem;
+  min-height: 44px;
   border: 1px solid var(--olive);
   border-radius: 4px;
   padding: 0.48rem 1.15rem;
@@ -2335,8 +2412,8 @@ h2 {
 
 .nav-menu-button {
   display: none;
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   border: 0;
   padding: 8px;
   color: var(--brown);
@@ -2351,6 +2428,15 @@ h2 {
   margin: 5px auto;
   background: currentColor;
   transition: transform 180ms ease, opacity 180ms ease;
+}
+
+.nav-brand,
+.nav-link,
+.nav-action,
+.nav-menu-button,
+.site-footer a {
+  min-width: 44px;
+  min-height: 44px;
 }
 
 .hero {
@@ -3230,7 +3316,7 @@ body:not(.about-page) .about-section > :not(.home-project) {
 
   .nav-menu-button {
     display: block;
-    flex: 0 0 42px;
+    flex: 0 0 44px;
     margin-left: auto;
   }
 

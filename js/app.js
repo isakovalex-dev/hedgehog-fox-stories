@@ -5,6 +5,7 @@
   const likeService = window.HFLikeService;
   const subscriptionService = window.HFSubscriptionService;
   const analyticsService = window.HFAnalyticsService;
+  const journeyService = window.HFJourneyService;
   const supabaseService = window.HFSupabaseService;
   const appConfig = window.HFConfig || {};
   const { EVENTS, trackEvent } = analyticsService;
@@ -30,6 +31,8 @@
   const navLoginButton = document.querySelector("#navLoginButton");
   const navStoriesButton = document.querySelector("#navStoriesButton");
   const navMemoryButton = document.querySelector("#navMemoryButton");
+  const navPricingButton = document.querySelector("#navPricingButton");
+  const navParentsButton = document.querySelector("#navParentsButton");
   const navGeneratorButton = document.querySelector("#navGeneratorButton");
   const navLibraryButton = document.querySelector("#navLibraryButton");
   const navAboutButton = document.querySelector("#navAboutButton");
@@ -73,9 +76,11 @@
   const signOutButton = document.querySelector("#signOutButton");
   const passwordToggleButtons = document.querySelectorAll("[data-password-toggle]");
   const storiesSection = document.querySelector("#stories");
-  const memoryPromo = document.querySelector("#memoryPromo");
+  const journeyMap = document.querySelector("#journeyMap");
+  const memoryPromo = document.querySelector("#games");
   const memoryGameSection = document.querySelector("#memoryGameSection");
   const readingValuesSection = document.querySelector("#why-read");
+  const pricingSection = document.querySelector("#pricing");
   const generatorSection = document.querySelector("#generator");
   const librarySection = document.querySelector("#library");
   const aboutSection = document.querySelector("#about");
@@ -110,6 +115,12 @@
     bravery: ["autumn_path", "rainy_forest", "small_bridge", "forest_night", "campfire_evening"]
   };
   const ILLUSTRATION_GENERATION_TIMEOUT_MS = 150000;
+  const keepsakeLabels = {
+    feather: { label: "Пёрышко добрых вестей", mark: "❧" },
+    shell: { label: "Ракушка с голосом моря", mark: "◖" },
+    leaf: { label: "Листок смелой тропы", mark: "♧" },
+    star: { label: "Звезда для друга", mark: "✦" }
+  };
 
   let activeFilter = "all";
   let activeStory = null;
@@ -122,7 +133,7 @@
   let generationWaitMessageIndex = 0;
   let librarySearchQuery = "";
   let librarySortMode = "newest";
-  let activeRoute = "home";
+  let activeRoute = getRouteFromLocation().name;
   let paymentCheckoutInProgress = false;
   let paymentCheckoutMessage = "";
   let paymentCheckoutTone = "";
@@ -263,8 +274,9 @@
   }
 
   function navigateTo(route, options = {}) {
-    const url = getRouteUrl(route);
-    const currentUrl = `${window.location.pathname}${window.location.search}`;
+    const anchor = options.hash ? `#${String(options.hash).replace(/^#/, "")}` : "";
+    const url = `${getRouteUrl(route)}${anchor}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     const method = options.replace ? "replaceState" : "pushState";
 
     if (currentUrl !== url) {
@@ -296,6 +308,7 @@
   function applyRoute(options = {}) {
     const route = getRouteFromLocation();
     activeRoute = route.name;
+    document.body.classList.toggle("home-page", route.name === "home");
 
     if (route.filter && route.filter !== activeFilter) {
       setFilter(route.filter, { updateUrl: false });
@@ -314,13 +327,15 @@
     readingProgress.style.width = "0%";
     setSectionVisibility(hero, route.name === "home");
     setSectionVisibility(storiesSection, route.name === "home" || route.name === "stories");
+    setSectionVisibility(journeyMap, route.name === "home");
     setSectionVisibility(memoryPromo, route.name === "home");
     setSectionVisibility(memoryGameSection, route.name === "memory");
     setSectionVisibility(readingValuesSection, route.name === "home");
-    setSectionVisibility(document.querySelector("#pricing"), route.name === "home");
+    setSectionVisibility(pricingSection, route.name === "home");
     setSectionVisibility(generatorSection, route.name === "create");
     setSectionVisibility(librarySection, route.name === "library");
     setSectionVisibility(aboutSection, route.name === "home");
+    if (route.name === "home" || route.name === "stories") renderStories();
     navStoriesButton?.classList.toggle("active", route.name === "stories");
     navMemoryButton?.classList.toggle("active", route.name === "memory");
     navLibraryButton?.classList.toggle("active", route.name === "library");
@@ -330,7 +345,16 @@
       window.HFMemoryGame?.initialize?.();
     }
 
-    if (options.focus) {
+    const anchorTarget =
+      route.name === "home" && window.location.hash
+        ? document.getElementById(decodeURIComponent(window.location.hash.slice(1)))
+        : null;
+
+    if (anchorTarget) {
+      window.setTimeout(() => {
+        anchorTarget.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 0);
+    } else if (options.focus) {
       window.setTimeout(() => {
         mainContent?.focus({ preventScroll: true });
         mainContent?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -379,12 +403,6 @@
       : "forest_day";
   }
 
-  function scrollToSection(section, eventName) {
-    if (!section) return;
-    section.scrollIntoView({ behavior: "smooth", block: "start" });
-    if (eventName) trackEvent(eventName);
-  }
-
   function setNavigationMenuOpen(isOpen) {
     if (!navMenuButton || !siteNavMenu) return;
 
@@ -412,8 +430,13 @@
   }
 
   function openAboutSection() {
-    navigateTo({ name: "home" }, { focus: false });
-    window.setTimeout(() => scrollToSection(aboutSection, EVENTS.ABOUT_OPENED), 0);
+    openHomeSection(aboutSection, EVENTS.ABOUT_OPENED);
+  }
+
+  function openHomeSection(section, eventName) {
+    if (!section?.id) return;
+    navigateTo({ name: "home" }, { focus: false, hash: section.id });
+    if (eventName) trackEvent(eventName);
   }
 
   function getTariffLabel(status) {
@@ -1052,6 +1075,12 @@
   }
 
   function renderStoryCard(story, options = {}) {
+    const homepageSequence = Number.isInteger(options.sequence) ? options.sequence : null;
+    const sequenceLabel = homepageSequence
+      ? String(homepageSequence).padStart(2, "0")
+      : "";
+    const primaryTagKey = story.tags?.find((tag) => moodLabels[tag]) || "";
+    const primaryTag = moodLabels[primaryTagKey] || story.mood || "история";
     const [top, mid, bottom] = story.colors;
     const sourceBadge = story.source === "user"
       ? `<span class="story-source-badge story-source-badge--user"><span class="story-source-badge__icon" aria-hidden="true">✎</span><span>Моя история</span></span>`
@@ -1063,6 +1092,53 @@
     const illustrateButton = options.canDelete && story.storage === "supabase" && story.useIllustrations !== false
       ? `<button class="button secondary" data-illustrate-story="${escapeAttribute(story.id)}" data-force-illustrations="${hasIllustrations}" type="button">${hasIllustrations ? "Перерисовать иллюстрации" : "Нарисовать иллюстрации"}</button>`
       : "";
+    const homepageMeta = homepageSequence
+      ? `
+      <div class="story-card__book-meta">
+        <span class="story-card__sequence">№ ${sequenceLabel}</span>
+        <span aria-hidden="true">•</span>
+        <span>${escapeHtml(story.time)}</span>
+      </div>
+    `
+      : "";
+    const standardMeta = homepageSequence
+      ? ""
+      : `
+        <p class="story-place"><span aria-hidden="true">⌖</span> ${escapeHtml(story.journeyPlaceLabel || "Неизведанная тропа")}</p>
+        <div class="story-meta">
+          <span class="pill">${escapeHtml(story.age)} лет</span>
+          <span class="pill">${escapeHtml(story.time)}</span>
+          ${renderLikeButton(story, "compact")}
+        </div>
+      `;
+    const cardFooter = homepageSequence
+      ? `
+      <div class="story-card__source-row">
+        ${sourceBadge}
+        ${renderLikeButton(story, "compact")}
+      </div>
+      <div class="story-card__book-footer">
+        <span>${escapeHtml(story.age)} лет</span>
+        <span aria-hidden="true">•</span>
+        <span>${escapeHtml(primaryTag)}</span>
+        <a
+          class="story-card__arrow"
+          href="/stories/${encodeURIComponent(story.id)}"
+          data-read="${escapeAttribute(story.id)}"
+          aria-label="Читать историю «${escapeAttribute(story.title)}»"
+        >→</a>
+      </div>
+    `
+      : `
+      <div class="card-footer">
+        <div class="card-actions">
+          <button class="button primary" data-read="${escapeAttribute(story.id)}" type="button">Читать</button>
+          ${illustrateButton}
+          ${deleteButton}
+        </div>
+        ${sourceBadge}
+      </div>
+      `;
 
     return `
       <article class="story-card" style="--wash-color: ${top}88;" data-story-card="${escapeAttribute(story.id)}">
@@ -1075,21 +1151,11 @@
           ${renderStoryArt(story)}
         </div>
         <div class="story-content">
+          ${homepageMeta}
           <h3><a class="story-title-link" href="/stories/${encodeURIComponent(story.id)}" data-read="${escapeAttribute(story.id)}">${escapeHtml(story.title)}</a></h3>
-          <div class="story-meta">
-            <span class="pill">${escapeHtml(story.age)} лет</span>
-            <span class="pill">${escapeHtml(story.time)}</span>
-            ${renderLikeButton(story, "compact")}
-          </div>
+          ${standardMeta}
           <p>${escapeHtml(story.description)}</p>
-          <div class="card-footer">
-            <div class="card-actions">
-              <button class="button primary" data-read="${escapeAttribute(story.id)}" type="button">Читать</button>
-              ${illustrateButton}
-              ${deleteButton}
-            </div>
-            ${sourceBadge}
-          </div>
+          ${cardFooter}
         </div>
       </article>
     `;
@@ -1162,7 +1228,11 @@
       return activeFilter === "all" || story.tags.includes(activeFilter);
     });
 
-    storyList.innerHTML = visibleStories.map((story) => renderStoryCard(story)).join("");
+    storyList.innerHTML = visibleStories
+      .map((story, index) =>
+        renderStoryCard(story, activeRoute === "home" ? { sequence: index + 1 } : {})
+      )
+      .join("");
   }
 
   function renderLibrary() {
@@ -1324,7 +1394,10 @@
     document.body.classList.add("reading");
     hero.classList.add("hidden");
     storiesSection.classList.add("hidden");
+    journeyMap?.classList.add("hidden");
+    memoryPromo?.classList.add("hidden");
     readingValuesSection?.classList.add("hidden");
+    document.querySelector("#pricing")?.classList.add("hidden");
     generatorSection.classList.add("hidden");
     librarySection.classList.add("hidden");
     aboutSection.classList.add("hidden");
@@ -1363,6 +1436,9 @@
         <div class="slide-card">
           <span class="slide-kicker">Конец истории</span>
           <p class="slide-text">Спасибо, что читали вместе с Ежонком и Лисёнком.</p>
+          <div class="reader-discovery" role="status">
+            Дочитайте до конца, чтобы сохранить памятную находку для будущей карты.
+          </div>
           <div class="end-like">${renderLikeButton(activeStory)}</div>
           ${renderReaderIllustrationEndAction(activeStory)}
           <div class="end-actions">
@@ -1408,13 +1484,44 @@
     readingProgress.style.width = `${Math.min(100, Math.max(0, progress))}%`;
 
     if (activeStory && !activeStoryFinishedTracked && progress >= 98) {
-      activeStoryFinishedTracked = true;
-      trackEvent(EVENTS.STORY_FINISHED, {
+      completeActiveStory();
+    }
+  }
+
+  function completeActiveStory() {
+    if (!activeStory || activeStoryFinishedTracked) return;
+
+    activeStoryFinishedTracked = true;
+    trackEvent(EVENTS.STORY_FINISHED, {
+      storyId: activeStory.id,
+      title: activeStory.title,
+      source: activeStory.source
+    });
+
+    const discovery = journeyService?.markDiscovered?.({
+      id: activeStory.id,
+      journeyPlace: activeStory.journeyPlace,
+      keepsake: activeStory.keepsake
+    });
+    const discoveryElement = slides.querySelector(".reader-discovery");
+
+    if (discovery && discoveryElement) {
+      const keepsake = keepsakeLabels[discovery.keepsake] || {
+        label: "Тёплое воспоминание",
+        mark: "•"
+      };
+      discoveryElement.innerHTML = `
+        <span aria-hidden="true">${keepsake.mark}</span>
+        Находка сохранена для будущей карты: <strong>${escapeHtml(keepsake.label)}</strong>.
+      `;
+      discoveryElement.classList.add("is-found");
+      trackEvent(EVENTS.JOURNEY_KEEPSAKE_FOUND, {
         storyId: activeStory.id,
-        title: activeStory.title,
-        source: activeStory.source
+        place: discovery.place,
+        keepsake: discovery.keepsake
       });
     }
+
   }
 
   function getFormValue(formData, key, fallback) {
@@ -2162,7 +2269,6 @@
 
   storyList.addEventListener("click", handleStoryListClick);
   libraryList.addEventListener("click", handleLibraryClick);
-
   if (librarySearchInput) {
     librarySearchInput.addEventListener("input", handleLibrarySearchInput);
   }
@@ -2319,7 +2425,17 @@
 
   navMemoryButton?.addEventListener("click", (event) => {
     event.preventDefault();
-    navigateTo({ name: "memory" });
+    openHomeSection(memoryPromo);
+  });
+
+  navPricingButton?.addEventListener("click", (event) => {
+    event.preventDefault();
+    openHomeSection(pricingSection);
+  });
+
+  navParentsButton?.addEventListener("click", (event) => {
+    event.preventDefault();
+    openHomeSection(readingValuesSection);
   });
 
   navGeneratorButton.addEventListener("click", (event) => {

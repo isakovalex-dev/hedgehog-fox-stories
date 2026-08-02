@@ -29,17 +29,17 @@
   <body class="about-page">
     <a class="skip-link" href="#mainContent">Перейти к содержанию</a>
     <nav class="site-nav" aria-label="Навигация сайта">
-      <a class="nav-brand" href="index.html#top">
+      <a class="nav-brand" href="/">
         <span>Ежонок и Лисёнок</span>
         <span class="brand-leaf" aria-hidden="true">❧</span>
       </a>
       <div class="nav-links">
-        <a class="nav-link" href="index.html#stories">Истории</a>
-        <a class="nav-link" href="index.html#generator">Создать сказку</a>
-        <a class="nav-link" href="index.html#library">Библиотека</a>
+        <a class="nav-link" href="/stories">Истории</a>
+        <a class="nav-link" href="/create">Создать сказку</a>
+        <a class="nav-link" href="/library">Библиотека</a>
         <a class="nav-link active" href="about.html" aria-current="page">Об авторе</a>
       </div>
-      <a class="nav-action nav-subscribe about-home-link" href="index.html#top">На главную</a>
+      <a class="nav-action nav-subscribe about-home-link" href="/">На главную</a>
     </nav>
 
     <main id="mainContent" tabindex="-1">
@@ -272,8 +272,8 @@
               </figure>
             </div>
             <div class="about-actions">
-              <a class="button primary" href="index.html#stories" data-about-read-stories>Читать истории</a>
-              <a class="button secondary" href="index.html#generator" data-about-create-story>Создать свою историю</a>
+              <a class="button primary" href="/stories" data-about-read-stories>Читать истории</a>
+              <a class="button secondary" href="/create" data-about-create-story>Создать свою историю</a>
             </div>
           </div>
         </section>
@@ -311,5 +311,11 @@
         });
       })();
     </script>
+    <script>
+      window.va = window.va || function () {
+        (window.vaq = window.vaq || []).push(arguments);
+      };
+    </script>
+    <script defer src="/_vercel/insights/script.js"></script>
   </body>
 </html>

@@ -7,6 +7,8 @@
   const EVENTS = {
     STORY_OPENED: "story_opened",
     STORY_FINISHED: "story_finished",
+    JOURNEY_PLACE_OPENED: "journey_place_opened",
+    JOURNEY_KEEPSAKE_FOUND: "journey_keepsake_found",
     STORY_LIKED: "story_liked",
     STORY_UNLIKED: "story_unliked",
     GENERATOR_OPENED: "generator_opened",

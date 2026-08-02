@@ -1,0 +1,900 @@
+.home-page {
+  --book-paper: #f4ebd4;
+  --book-paper-light: #fbf5e6;
+  --book-ink: #344438;
+  --book-moss: #536b57;
+  --book-gold: #b49a69;
+  --book-sea: #afc8c5;
+  --book-rust: #9a4f2f;
+  --book-line: rgba(91, 75, 48, 0.24);
+  --book-shadow: 0 10px 26px rgba(76, 61, 37, 0.11);
+  color: var(--book-ink);
+  background-color: var(--book-paper);
+  background-image: image-set(
+    url("../assets/journey/reference/paper-texture.avif") type("image/avif"),
+    url("../assets/journey/reference/paper-texture.webp") type("image/webp"),
+    url("../assets/journey/reference/paper-texture.png") type("image/png")
+  );
+  background-repeat: repeat;
+  background-size: 128px 256px;
+}
+
+.home-page main {
+  overflow: clip;
+  background: transparent;
+}
+
+.home-page main > section {
+  background: transparent;
+}
+
+.home-page :where(h1, h2, h3) {
+  color: var(--book-ink);
+}
+
+.home-page .site-nav {
+  border-bottom-color: rgba(91, 75, 48, 0.13);
+  background: rgba(244, 235, 212, 0.9);
+  box-shadow: none;
+  backdrop-filter: blur(12px);
+}
+
+.home-page .book-brand-lockup {
+  display: block;
+  width: clamp(280px, 27vw, 410px);
+}
+
+.home-page .book-brand-lockup img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.journey-theme:not(.home-page) .book-brand-lockup {
+  display: block;
+  width: clamp(180px, 18vw, 270px);
+  max-width: 100%;
+}
+
+.journey-theme:not(.home-page) .book-brand-lockup img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.home-page .journey-hero {
+  position: relative;
+  isolation: isolate;
+  display: block;
+  width: min(100%, 1500px);
+  overflow: visible;
+}
+
+.home-page .journey-hero__copy {
+  position: relative;
+  z-index: 3;
+  width: min(44%, 610px);
+  max-width: 610px;
+}
+
+.home-page .journey-hero h1 {
+  max-width: 650px;
+  color: var(--book-ink);
+  font-size: clamp(4.25rem, 5.5vw, 5.5rem);
+  line-height: 0.88;
+}
+
+.home-page .journey-hero__art {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  border-radius: 0;
+  background: transparent;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.home-page .journey-hero__art::after {
+  display: none;
+}
+
+.home-page .book-hero-picture,
+.home-page .book-hero-picture img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.home-page .book-hero-picture img {
+  object-fit: cover;
+  object-position: center 46%;
+  mix-blend-mode: multiply;
+}
+
+.home-page .hero-actions .primary {
+  background: var(--book-moss);
+}
+
+.home-page .hero-actions .secondary {
+  border-style: dashed;
+  border-color: var(--book-gold);
+  background: rgba(251, 245, 230, 0.56);
+}
+
+.home-page .journey-hero__quiet-actions {
+  display: none;
+}
+
+.home-page .book-route {
+  position: absolute;
+  pointer-events: none;
+}
+
+.home-page .book-route svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.home-page .book-route path {
+  fill: none;
+  stroke: var(--book-gold);
+  stroke-width: 2;
+  stroke-dasharray: 7 7;
+  vector-effect: non-scaling-stroke;
+}
+
+.home-page .book-route--hero {
+  right: 2rem;
+  bottom: 1rem;
+  left: 2rem;
+  z-index: 2;
+  height: 105px;
+  border: 0;
+  transform: none;
+}
+
+.home-page .book-route--hero img {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  opacity: 0.72;
+}
+
+.home-page .book-route--hero img:nth-of-type(1) { left: 10%; top: 30%; transform: rotate(-18deg); }
+.home-page .book-route--hero img:nth-of-type(2) { left: 39%; top: 43%; transform: rotate(12deg); }
+.home-page .book-route--hero img:nth-of-type(3) { left: 72%; top: 52%; transform: rotate(-10deg); }
+
+.home-page .stories-section {
+  position: relative;
+  width: min(100%, 1500px);
+  padding-top: 1rem;
+  padding-bottom: 7rem;
+}
+
+.home-page .stories-section .story-list {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.1rem;
+  max-width: none;
+}
+
+.home-page .stories-section .story-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr);
+  min-height: 230px;
+  padding: 0.55rem;
+  overflow: hidden;
+  border: 1px solid var(--book-line);
+  border-radius: 12px;
+  background: rgba(251, 245, 230, 0.82);
+  box-shadow: var(--book-shadow);
+}
+
+.home-page .stories-section .story-art {
+  height: 100%;
+  min-height: 215px;
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: 8px;
+}
+
+.home-page .stories-section .story-content {
+  min-width: 0;
+  padding: 0.55rem 0.7rem 0.45rem 0.9rem;
+}
+
+.home-page .story-card__book-meta,
+.home-page .story-card__book-footer {
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+  color: var(--book-ink);
+  font: 0.66rem/1.3 var(--font-meta);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.home-page .story-card__source-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.6rem;
+  align-items: center;
+  margin-top: auto;
+}
+
+.home-page .stories-section .story-content h3 {
+  margin: 0.65rem 0;
+  font-size: clamp(1.55rem, 2vw, 2.05rem);
+  line-height: 0.98;
+}
+
+.home-page .story-title-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.home-page .stories-section .story-content > p:not(.story-place) {
+  min-height: 4.2em;
+  font-size: 0.78rem;
+  -webkit-line-clamp: 3;
+}
+
+.home-page .story-card__book-footer {
+  margin-top: auto;
+}
+
+.home-page .story-card__arrow {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  margin-left: auto;
+  place-items: center;
+  color: var(--book-ink);
+  font: 1.55rem/1 var(--font-display);
+  text-decoration: none;
+}
+
+.home-page .stories-section .story-source-badge {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  justify-content: flex-start;
+  background: transparent;
+  color: var(--book-moss);
+  text-align: left;
+  white-space: normal;
+}
+
+.home-page .book-route--stories {
+  right: clamp(1rem, 5vw, 4rem);
+  bottom: 0;
+  left: clamp(1rem, 5vw, 4rem);
+  height: 95px;
+}
+
+.home-page .book-route--stories img {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  opacity: 0.66;
+}
+
+.home-page .book-route--stories img:nth-of-type(1) { left: 18%; top: 53%; transform: rotate(14deg); }
+.home-page .book-route--stories img:nth-of-type(2) { left: 56%; top: 34%; transform: rotate(-12deg); }
+.home-page .book-route--stories img:nth-of-type(3) { left: 84%; top: 42%; transform: rotate(18deg); }
+
+.home-page .journey-map {
+  position: relative;
+  display: block;
+  width: 100%;
+  margin: clamp(4rem, 7vw, 7rem) auto;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.home-page .journey-map::before {
+  display: none;
+}
+
+.home-page .journey-map__desktop,
+.home-page .journey-map__desktop img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.home-page .journey-map__mobile {
+  display: none;
+}
+
+.home-page .journey-map__link {
+  position: absolute;
+  z-index: 1;
+  top: 64%;
+  left: 2%;
+  display: block;
+  width: 12%;
+  min-width: 44px;
+  min-height: 44px;
+  overflow: hidden;
+  color: transparent;
+  font-size: 1px;
+  line-height: 1;
+  text-indent: 200%;
+  white-space: nowrap;
+}
+
+.home-page .journey-map__link:focus-visible {
+  outline: 3px solid var(--book-rust);
+  outline-offset: 3px;
+}
+
+.home-page .games-clearing,
+.home-page .reading-values,
+.home-page .pricing-section {
+  border: 0;
+  border-top: 1px solid var(--book-line);
+  border-bottom: 1px solid var(--book-line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.home-page .games-clearing {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(260px, 0.56fr) minmax(0, 1fr);
+  gap: clamp(1.5rem, 3.5vw, 4rem);
+  align-items: center;
+  width: min(100%, 1320px);
+  padding: clamp(2rem, 4vw, 3.75rem) clamp(1rem, 4vw, 3.75rem);
+  overflow: visible;
+}
+
+.home-page .memory-promo__art {
+  display: block;
+  min-width: 0;
+  min-height: 0;
+  background: transparent;
+}
+
+.home-page .memory-promo__art picture,
+.home-page .memory-promo__art img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.home-page .games-clearing .memory-promo__art img {
+  width: 100%;
+  max-width: 540px;
+  margin-inline: auto;
+  object-fit: contain;
+  filter: none;
+  mix-blend-mode: multiply;
+}
+
+.home-page .memory-promo__copy {
+  min-width: 0;
+  padding: 0;
+}
+
+.home-page .memory-promo__copy h2 {
+  max-width: 100%;
+  font-size: clamp(2.4rem, 4.2vw, 4.25rem);
+  line-height: 0.98;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.home-page .memory-promo__copy > p:not(.eyebrow) {
+  max-width: 62ch;
+  color: var(--book-ink);
+  overflow-wrap: anywhere;
+}
+
+.home-page .games-clearing__grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(0.75rem, 1.6vw, 1.25rem);
+}
+
+.home-page .game-pass {
+  min-height: 220px;
+  border: 1px solid var(--book-line);
+  border-radius: 10px;
+  background: rgba(251, 245, 230, 0.72);
+  box-shadow: 0 6px 18px rgba(76, 61, 37, 0.07);
+}
+
+.home-page .game-pass__number {
+  color: var(--book-moss);
+}
+
+.home-page .game-pass__action {
+  min-height: 44px;
+  color: var(--book-rust);
+}
+
+.home-page .game-pass:focus-visible {
+  outline: 3px solid var(--book-rust);
+  outline-offset: 4px;
+}
+
+.home-page .reading-values {
+  width: min(100%, 1320px);
+}
+
+.home-page .value-item {
+  position: relative;
+  padding-inline: 1rem;
+}
+
+.home-page .value-item + .value-item::before {
+  position: absolute;
+  top: 8%;
+  bottom: 8%;
+  left: 0;
+  width: 1px;
+  background: var(--book-line);
+  content: "";
+}
+
+.home-page .pricing-section {
+  width: min(100%, 1180px);
+}
+
+.home-page .pricing-card {
+  border-color: var(--book-line);
+  border-radius: 10px;
+  background: rgba(251, 245, 230, 0.64);
+  box-shadow: none;
+}
+
+.home-page .about-section {
+  border-top: 1px solid var(--book-line);
+}
+
+.home-page .character-card {
+  border-color: var(--book-line);
+  border-radius: 8px;
+  background: rgba(251, 245, 230, 0.48);
+}
+
+.home-page .nav-menu-button,
+.home-page .nav-link,
+.home-page .like-button.compact,
+.home-page .site-footer a,
+.home-page .story-card__arrow {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+@media (min-width: 1101px) {
+  .home-page .journey-hero {
+    min-height: 500px;
+    padding: clamp(2rem, 5vw, 4.5rem) clamp(1.5rem, 5vw, 4.5rem) 5rem;
+  }
+
+  .home-page .journey-hero h1 {
+    margin-block: 0.45rem 0.75rem;
+    font-size: clamp(3.8rem, 4.7vw, 4.8rem);
+  }
+
+  .home-page .journey-hero .subtitle {
+    margin-bottom: 1rem;
+    line-height: 1.45;
+  }
+
+  .home-page .book-route--hero {
+    bottom: 2.5rem;
+    height: 70px;
+  }
+
+  .home-page .stories-section {
+    position: relative;
+    z-index: 4;
+    margin-top: -20px;
+    padding-top: 0;
+    padding-bottom: 1.25rem;
+  }
+
+  .home-page .stories-section .section-heading,
+  .home-page .stories-section .filters {
+    display: none;
+  }
+
+  .home-page .stories-section .story-list {
+    grid-auto-columns: calc((100% - 2.2rem) / 3);
+    grid-auto-flow: column;
+    grid-template-columns: none;
+    overflow-x: auto;
+    padding-bottom: 0.3rem;
+    scroll-snap-type: x mandatory;
+    scrollbar-color: rgba(83, 107, 87, 0.45) transparent;
+    scrollbar-width: thin;
+  }
+
+  .home-page .stories-section .story-card {
+    height: 230px;
+    min-height: 230px;
+    scroll-snap-align: start;
+  }
+
+  .home-page .stories-section .story-art {
+    min-height: 0;
+  }
+
+  .home-page .stories-section .story-content {
+    padding: 0.35rem 0.45rem 0.3rem 0.6rem;
+  }
+
+  .home-page .stories-section .story-content h3 {
+    margin: 0.2rem 0;
+    font-size: clamp(1.25rem, 1.55vw, 1.45rem);
+    line-height: 0.96;
+  }
+
+  .home-page .stories-section .story-content > p:not(.story-place) {
+    min-height: 2.5em;
+    margin-bottom: 0.2rem;
+    font-size: 0.72rem;
+    line-height: 1.25;
+    -webkit-line-clamp: 2;
+  }
+
+  .home-page .story-card__source-row {
+    gap: 0.35rem;
+  }
+
+  .home-page .story-card__book-meta,
+  .home-page .story-card__book-footer {
+    gap: 0.35rem;
+    font-size: 0.6rem;
+  }
+
+  .home-page .book-route--stories {
+    bottom: -1.5rem;
+    height: 48px;
+  }
+
+}
+
+@media (min-width: 981px) and (max-width: 1279px) {
+  .home-page .site-nav {
+    min-height: 62px;
+  }
+
+  .home-page .nav-menu-button {
+    display: block;
+    margin-left: auto;
+  }
+
+  .home-page .nav-menu-button[aria-expanded="true"] span:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+  }
+
+  .home-page .nav-menu-button[aria-expanded="true"] span:nth-child(2) {
+    opacity: 0;
+  }
+
+  .home-page .nav-menu-button[aria-expanded="true"] span:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+  }
+
+  .home-page .nav-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 0;
+    display: none;
+    align-items: stretch;
+    padding: 1rem 1.25rem 1.25rem;
+    border-bottom: 1px solid var(--book-line);
+    background: rgba(244, 235, 212, 0.98);
+    box-shadow: var(--book-shadow);
+  }
+
+  .home-page .nav-menu.open {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .home-page .nav-links,
+  .home-page .nav-actions {
+    display: grid;
+    width: 100%;
+  }
+
+  .home-page .nav-link,
+  .home-page .nav-action {
+    width: 100%;
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .home-page .nav-action {
+    text-align: center;
+  }
+}
+
+@media (min-width: 1280px) {
+  .home-page .nav-menu {
+    gap: clamp(1.2rem, 3vw, 2.5rem);
+  }
+}
+
+@media (min-width: 721px) and (max-width: 1100px) {
+  .home-page .journey-hero {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .home-page .journey-hero__copy {
+    min-width: 0;
+  }
+
+  .home-page .journey-hero__art {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .home-page .journey-hero h1 {
+    font-size: clamp(2.75rem, 5.2vw, 4.5rem);
+  }
+
+  .home-page .stories-section .story-list {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 0.8rem;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+
+  .home-page .stories-section .story-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .home-page .stories-section .story-card {
+    flex: 0 0 min(86vw, 650px);
+    scroll-snap-align: start;
+  }
+}
+
+@media (max-width: 720px) {
+  .home-page .site-nav {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+  }
+
+  .home-page .nav-brand {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .home-page .nav-menu-button {
+    flex: 0 0 42px;
+    margin-left: 0;
+  }
+
+  .home-page .journey-hero {
+    min-height: auto;
+    padding: 0 1rem 3.5rem;
+  }
+
+  .home-page .journey-hero h1 {
+    font-size: clamp(2.75rem, 11.8vw, 3.25rem);
+    line-height: 0.92;
+  }
+
+  .home-page .stories-section .story-list {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    overflow: visible;
+    padding-bottom: 0;
+  }
+
+  .home-page .stories-section .story-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .home-page .stories-section .story-art {
+    height: auto;
+    min-height: 210px;
+    aspect-ratio: 4 / 3;
+  }
+}
+
+@media (max-width: 1100px) {
+  .home-page .journey-hero {
+    grid-template-columns: minmax(310px, 0.85fr) minmax(430px, 1.15fr);
+    min-height: 620px;
+  }
+
+  .home-page .journey-hero h1 {
+    font-size: clamp(3.8rem, 7vw, 5.4rem);
+  }
+
+  .home-page .stories-section .story-list {
+    display: grid;
+    grid-auto-columns: minmax(430px, 72vw);
+    grid-auto-flow: column;
+    grid-template-columns: none;
+    overflow-x: auto;
+    padding-bottom: 1rem;
+    scroll-snap-type: x mandatory;
+  }
+
+  .home-page .stories-section .story-card {
+    scroll-snap-align: start;
+  }
+}
+
+@media (max-width: 768px) {
+  .home-page .site-nav {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+  }
+
+  .home-page .nav-brand {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .home-page .nav-menu-button {
+    flex: 0 0 44px;
+    margin-left: auto;
+  }
+
+  .home-page .journey-hero {
+    display: flex;
+    min-height: auto;
+    flex-direction: column;
+    padding-top: 0;
+  }
+
+  .home-page .journey-hero__art {
+    position: relative;
+    inset: auto;
+    order: -1;
+    z-index: 0;
+    width: 116%;
+    height: auto;
+    margin: 0 -8% -10%;
+    overflow: visible;
+  }
+
+  .home-page .book-hero-picture,
+  .home-page .book-hero-picture img {
+    height: auto;
+  }
+
+  .home-page .book-hero-picture img {
+    object-fit: contain;
+    object-position: center;
+  }
+
+  .home-page .journey-hero__copy {
+    width: min(100%, 560px);
+    margin-inline: auto;
+    text-align: center;
+  }
+
+  .home-page .stories-section {
+    margin-top: 0;
+  }
+
+  .home-page .hero-actions,
+  .home-page .journey-hero__quiet-actions {
+    justify-content: center;
+  }
+
+  .home-page .value-item + .value-item::before {
+    display: none;
+  }
+
+  .home-page .games-clearing {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+
+  .home-page .games-clearing .memory-promo__art {
+    display: block;
+  }
+
+  .home-page .memory-promo__art {
+    width: min(100%, 620px);
+    margin-inline: auto;
+  }
+
+  .home-page .memory-promo__copy {
+    width: 100%;
+  }
+
+  .home-page .games-clearing__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .home-page .journey-hero h1 {
+    font-size: clamp(3.15rem, 15vw, 4.2rem);
+  }
+
+  .home-page .book-route--hero {
+    right: 0.5rem;
+    left: 0.5rem;
+  }
+
+  .home-page .stories-section .story-list {
+    display: grid;
+    grid-auto-flow: row;
+    grid-template-columns: 1fr;
+    overflow: visible;
+  }
+
+  .home-page .stories-section .story-card {
+    grid-template-columns: 1fr;
+  }
+
+  .home-page .stories-section .story-art {
+    min-height: 210px;
+    aspect-ratio: 4 / 3;
+  }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-page .story-card,
+  .home-page .game-pass {
+    transition: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .home-page .journey-map__desktop {
+    display: none;
+  }
+
+  .home-page .journey-map__mobile {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .home-page .journey-map__mobile picture,
+  .home-page .journey-map__mobile img {
+    display: block;
+  }
+
+  .home-page .journey-map__mobile picture:first-child img {
+    width: 100%;
+    height: auto;
+  }
+
+  .home-page .journey-map__mobile picture:last-child {
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .home-page .journey-map__mobile picture:last-child img {
+    width: auto;
+    min-width: 100%;
+    max-width: none;
+    height: auto;
+  }
+
+  .home-page .journey-map__link {
+    top: 55vw;
+    left: 10%;
+    width: 52%;
+  }
+}
