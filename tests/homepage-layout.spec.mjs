@@ -54,7 +54,12 @@ test("journey map and games use the illustrated reference presentation", async (
   const games = page.locator("#memoryPromo");
 
   await expect(journeyMap.locator(".journey-map__desktop img")).toBeVisible();
-  await expect(games.locator(".memory-promo__art img")).toBeVisible();
+  const gamesArtwork = games.locator(".memory-promo__art img");
+  await expect(gamesArtwork).toBeVisible();
+  await expect(gamesArtwork).toHaveAttribute(
+    "src",
+    "assets/journey/reference/games-clearing-fox-plane.png"
+  );
   await expect(games.locator(".game-pass")).toHaveCount(2);
   await expect(games.getByRole("link", { name: /Мемори/ })).toHaveAttribute("href", "/games/memory");
   await expect(games.getByRole("link", { name: /Бесконечный полёт/ })).toHaveAttribute("href", "/endless-flight.html");
