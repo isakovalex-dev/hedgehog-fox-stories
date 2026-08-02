@@ -3443,6 +3443,143 @@ body:not(.about-page) .about-section > :not(.home-project) {
   }
 }
 
+/* Full-screen intro artwork. The media frame preserves the original illustration ratio. */
+body.intro-splash-open {
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+.intro-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  place-items: center;
+  overflow: hidden;
+  background: #f5ecd4;
+  opacity: 1;
+  transition: opacity 600ms ease;
+}
+
+.intro-splash[data-theme="night"] {
+  background: #07172b;
+}
+
+.intro-splash.is-exiting {
+  pointer-events: none;
+  opacity: 0;
+}
+
+.intro-frame {
+  position: relative;
+  width: min(100vw, 177.7778dvh);
+  max-height: 100dvh;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #f5ecd4;
+}
+
+.intro-splash[data-theme="night"] .intro-frame {
+  background: #07172b;
+}
+
+.intro-frame--mobile {
+  width: min(100vw, 56.338dvh);
+  aspect-ratio: 480 / 852;
+}
+
+.intro-poster,
+.intro-video {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.intro-poster {
+  z-index: 1;
+}
+
+.intro-video {
+  z-index: 2;
+}
+
+.intro-video.is-unavailable {
+  display: none;
+}
+
+.intro-hit-button {
+  position: absolute;
+  z-index: 3;
+  display: block;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  background: transparent;
+  outline: 0;
+  transition: box-shadow 160ms ease, transform 160ms ease;
+}
+
+.intro-hit-button--desktop {
+  top: 73%;
+  left: 28.5%;
+  width: 43%;
+  height: 15%;
+}
+
+.intro-splash[data-theme="night"] .intro-hit-button--desktop {
+  top: 74.5%;
+  height: 14%;
+}
+
+.intro-hit-button--mobile {
+  top: 71.5%;
+  left: 9.5%;
+  width: 81%;
+  height: 8.5%;
+}
+
+.intro-splash[data-theme="night"] .intro-hit-button--mobile {
+  top: 73.5%;
+  height: 8%;
+}
+
+.intro-hit-button:hover:not(:disabled) {
+  box-shadow: 0 0 20px rgba(255, 218, 129, 0.34);
+  transform: scale(1.01);
+}
+
+.intro-splash.is-keyboard-navigation .intro-hit-button:focus-visible {
+  outline: 3px solid rgba(255, 249, 218, 0.95);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 7px rgba(104, 74, 54, 0.34), 0 0 20px rgba(255, 218, 129, 0.44);
+}
+
+.intro-hit-button:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-splash {
+    transition-duration: 150ms !important;
+  }
+
+  .intro-hit-button,
+  .intro-hit-button:hover:not(:disabled),
+  .intro-hit-button:active:not(:disabled) {
+    transition: none;
+    transform: none;
+  }
+}
+
 @media (max-width: 430px) {
   .nav-brand {
     font-size: 1.45rem;

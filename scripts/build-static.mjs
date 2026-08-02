@@ -24,6 +24,10 @@ for (const directory of publicDirectories) {
   });
 }
 
+await cp(join(projectRoot, "public", "assets"), join(outputDirectory, "assets"), {
+  recursive: true,
+});
+
 for (const file of publicRootFiles) {
   await cp(join(projectRoot, file), join(outputDirectory, file));
 }

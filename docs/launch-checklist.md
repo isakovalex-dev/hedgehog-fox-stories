@@ -13,7 +13,7 @@ https://ezhik-i-lisenok.ru
 Static hosting:
 
 ```text
-GitHub Pages
+Vercel static deployment
 ```
 
 Backend API:

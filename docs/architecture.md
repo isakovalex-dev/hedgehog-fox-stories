@@ -2,7 +2,7 @@
 
 ## Current state
 
-The site is a static one-page application published through GitHub Pages. It uses plain HTML, CSS, and JavaScript without backend, npm, build tools, or frontend frameworks.
+The site is a static one-page application published through Vercel. It uses plain HTML, CSS, and JavaScript without a frontend framework. The production build is created with `npm run build` and served from `dist/`.
 
 Main files:
 
@@ -22,7 +22,7 @@ The visual behavior remains intentionally simple:
 
 ## Why localStorage is used now
 
-`localStorage` is enough for the MVP because the project is still static and must work on GitHub Pages without a server. It is used for:
+`localStorage` is enough for the MVP because the project remains static on the client. It is used for:
 
 - liked story ids;
 - anonymous and fallback user stories;
@@ -40,7 +40,7 @@ Limitations:
 
 ## JavaScript services
 
-The app now uses small browser services attached to `window` instead of ES modules. This is deliberate: ordinary script files work both on GitHub Pages and when the user opens `index.html` through `file://`.
+The app now uses small browser services attached to `window` instead of ES modules. This is deliberate: ordinary script files work both on static hosting and when the user opens `index.html` through `file://`.
 
 ### `storageService`
 
