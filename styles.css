@@ -72,10 +72,11 @@
   gap: 0;
   align-items: center;
   width: min(100% - 2rem, 1500px);
+  height: 545px;
   min-height: 0;
-  aspect-ratio: 2 / 1;
+  aspect-ratio: auto;
   margin: clamp(4rem, 7vw, 7rem) auto;
-  padding: clamp(1.5rem, 3vw, 4rem);
+  padding: clamp(1rem, 2vw, 2rem);
   overflow: hidden;
   border: 1px solid rgba(103, 85, 55, 0.08);
   border-radius: 0;
@@ -100,8 +101,8 @@
 .home-route .games-clearing .memory-promo__art img {
   max-width: none;
   margin: 0;
-  object-fit: cover;
-  object-position: center;
+  object-fit: contain;
+  object-position: left center;
   filter: none;
   mix-blend-mode: normal;
   -webkit-mask-image: none;
@@ -152,7 +153,7 @@
 .home-route .game-pass {
   display: flex;
   min-width: 0;
-  min-height: clamp(240px, 19vw, 350px);
+  min-height: clamp(190px, 14vw, 245px);
   flex-direction: column;
   padding: 1.4rem;
   border: 1px solid var(--line-soft);
@@ -254,6 +255,7 @@
     grid-template-columns: minmax(0, 1fr);
     gap: 0.75rem;
     width: min(100% - 2rem, 620px);
+    height: auto;
     min-height: 0;
     aspect-ratio: auto;
     margin-block: 3rem;
@@ -4743,7 +4745,7 @@ body.home-route {
 .home-route .stories-section {
   width: min(100% - 8.2vw, 1440px);
   max-width: none;
-  margin: 0 auto;
+  margin: 50px auto 0;
   padding: 0;
   scroll-margin-top: 0;
 }

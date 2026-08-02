@@ -69,8 +69,27 @@ test("journey map and games use the illustrated reference presentation", async (
     return { boxShadow: getComputedStyle(section).boxShadow, height: bounds.height, width: bounds.width };
   });
   expect(gamesPresentation.width).toBeLessThanOrEqual(1500);
-  expect(gamesPresentation.height).toBeLessThanOrEqual(750);
+  expect(gamesPresentation.height).toBeCloseTo(545, 0);
   expect(gamesPresentation.boxShadow).toBe("none");
+});
+
+test("featured stories start 50 pixels below the hero", async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1100 });
+  await page.goto("/", { waitUntil: "networkidle" });
+  await page.waitForFunction(() => document.querySelectorAll(".home-story-list > .story-card").length === 3);
+
+  const gap = await page.evaluate(() => {
+    const hero = document.querySelector(".home-route .hero");
+    const firstStory = document.querySelector(".home-story-list > .story-card");
+
+    if (!hero || !firstStory) {
+      throw new Error("Hero or featured story card was not found");
+    }
+
+    return firstStory.getBoundingClientRect().top - hero.getBoundingClientRect().bottom;
+  });
+
+  expect(gap).toBeCloseTo(50, 0);
 });
 
 test("mobile featured story keeps its opening arrow inside the card", async ({ page }) => {
