@@ -73,6 +73,7 @@
   const signOutButton = document.querySelector("#signOutButton");
   const passwordToggleButtons = document.querySelectorAll("[data-password-toggle]");
   const storiesSection = document.querySelector("#stories");
+  const travelMap = document.querySelector("#travel-map");
   const memoryPromo = document.querySelector("#memoryPromo");
   const memoryGameSection = document.querySelector("#memoryGameSection");
   const readingValuesSection = document.querySelector("#why-read");
@@ -102,6 +103,45 @@
     friendship: ["#d9eac5", "#f8e9be", "#9fca84"],
     bravery: ["#f5c98d", "#d9eac5", "#c96d4a"]
   };
+
+  const homeFeaturedStories = [
+    {
+      id: "sea-bench",
+      imageUrl: "assets/stories/sea-bench.png",
+      number: "№ 12",
+      duration: "25 МИН",
+      source: "author",
+      baseLikes: 18,
+      title: "Маяк, который<br>слушал море",
+      description: "История о дружбе,<br>терпении и силе<br>доброго света.",
+      age: "6–9 ЛЕТ",
+      genre: "ДРУЖБА"
+    },
+    {
+      id: "lost-cloud",
+      imageUrl: "assets/stories/lost-cloud.png",
+      number: "№ 11",
+      duration: "22 МИН",
+      source: "author",
+      baseLikes: 12,
+      title: "Тайна<br>Голубой горы",
+      description: "Как Ёжик и Лисёнок<br>искали ответ на важный<br>вопрос.",
+      age: "5–8 ЛЕТ",
+      genre: "ПРИРОДА"
+    },
+    {
+      id: "warm-wind-map",
+      imageUrl: "assets/stories/warm-wind-map.png",
+      number: "№ 10",
+      duration: "18 МИН",
+      source: "author",
+      baseLikes: 9,
+      title: "Письмо<br>в бутылке",
+      description: "Иногда одно письмо<br>может изменить<br>целое путешествие.",
+      age: "5–7 ЛЕТ",
+      genre: "ПРИКЛЮЧЕНИЯ"
+    }
+  ];
 
   const sceneSequences = {
     bedtime: ["cozy_house", "starry_sky", "forest_night", "warm_kitchen", "hill_clouds"],
@@ -314,6 +354,7 @@
     readingProgress.style.width = "0%";
     setSectionVisibility(hero, route.name === "home");
     setSectionVisibility(storiesSection, route.name === "home" || route.name === "stories");
+    setSectionVisibility(travelMap, route.name === "home");
     setSectionVisibility(memoryPromo, route.name === "home");
     setSectionVisibility(memoryGameSection, route.name === "memory");
     setSectionVisibility(readingValuesSection, route.name === "home");
@@ -321,6 +362,9 @@
     setSectionVisibility(generatorSection, route.name === "create");
     setSectionVisibility(librarySection, route.name === "library");
     setSectionVisibility(aboutSection, route.name === "home");
+    document.body.classList.toggle("stories-route", route.name === "stories");
+    document.body.classList.toggle("home-route", route.name === "home");
+    renderStories();
     navStoriesButton?.classList.toggle("active", route.name === "stories");
     navMemoryButton?.classList.toggle("active", route.name === "memory");
     navLibraryButton?.classList.toggle("active", route.name === "library");
@@ -1158,11 +1202,46 @@
   }
 
   function renderStories() {
+    if (activeRoute === "home") {
+      storyList.innerHTML = homeFeaturedStories.map((story) => renderHomeStoryCard(story)).join("");
+      return;
+    }
+
     const visibleStories = storyService.getAllStories().filter((story) => {
       return activeFilter === "all" || story.tags.includes(activeFilter);
     });
 
     storyList.innerHTML = visibleStories.map((story) => renderStoryCard(story)).join("");
+  }
+
+  function renderHomeStoryCard(story) {
+    const route = `/stories/${encodeURIComponent(story.id)}`;
+    const sourceBadge = story.source === "user"
+      ? `<span class="story-source-badge story-source-badge--user home-story-source"><span class="story-source-badge__icon" aria-hidden="true">✎</span><span>Моя история</span></span>`
+      : `<span class="story-source-badge story-source-badge--author home-story-source"><span class="story-source-badge__icon" aria-hidden="true">✦</span><span>История от автора</span></span>`;
+
+    return `
+      <article class="story-card home-story-card" data-story-card="${escapeAttribute(story.id)}">
+        <a class="home-story-art" href="${route}" data-read="${escapeAttribute(story.id)}" aria-label="Открыть историю: ${escapeAttribute(story.title.replace(/<br>/g, " "))}">
+          <img src="${escapeAttribute(story.imageUrl)}" alt="" width="1536" height="1024" loading="lazy" decoding="async" />
+        </a>
+        <div class="home-story-content">
+          <p class="home-story-kicker"><span>${story.number}</span><i aria-hidden="true">·</i><span>${story.duration}</span></p>
+          <h3><a href="${route}" data-read="${escapeAttribute(story.id)}">${story.title}</a></h3>
+          <p class="home-story-description">${story.description}</p>
+          <div class="home-story-actions">
+            ${sourceBadge}
+            ${renderLikeButton(story, "compact home-story-like")}
+          </div>
+          <div class="home-story-footer">
+            <p><span>${story.age}</span><i aria-hidden="true">·</i><span>${story.genre}</span></p>
+            <a class="home-story-arrow" href="${route}" data-read="${escapeAttribute(story.id)}" aria-label="Открыть историю: ${escapeAttribute(story.title.replace(/<br>/g, " "))}">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12h16M13.5 5.5 20 12l-6.5 6.5" /></svg>
+            </a>
+          </div>
+        </div>
+      </article>
+    `;
   }
 
   function renderLibrary() {
@@ -1324,6 +1403,7 @@
     document.body.classList.add("reading");
     hero.classList.add("hidden");
     storiesSection.classList.add("hidden");
+    travelMap?.classList.add("hidden");
     readingValuesSection?.classList.add("hidden");
     generatorSection.classList.add("hidden");
     librarySection.classList.add("hidden");

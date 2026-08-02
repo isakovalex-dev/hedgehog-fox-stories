@@ -92,6 +92,7 @@ test("intro uses the mobile night poster instead of video when reduced motion is
 
 test("Escape closes the intro and restores access to the main page", async ({ page }) => {
   await openFirstVisit(page, { hour: 20 });
+  await expect(page.locator(".intro-splash")).toBeVisible();
   await page.keyboard.press("Escape");
 
   await expect(page.locator(".intro-splash")).toBeHidden({ timeout: 1_500 });

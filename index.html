@@ -41,50 +41,58 @@
       <div class="reading-progress" id="readingProgress"></div>
     </div>
 
-    <nav class="site-nav" aria-label="Навигация сайта">
-      <a class="nav-brand" id="navTopButton" href="/">
-        <span>Ежонок и Лисёнок</span>
-        <span class="brand-leaf" aria-hidden="true">❧</span>
-      </a>
-      <button
-        class="nav-menu-button"
-        id="navMenuButton"
-        type="button"
-        aria-controls="siteNavMenu"
-        aria-expanded="false"
-        aria-label="Открыть меню"
-      >
-        <span></span>
-        <span></span>
-        <span></span>
-      </button>
-      <div class="nav-menu" id="siteNavMenu">
-        <div class="nav-links">
-          <a class="nav-link" id="navStoriesButton" href="/stories">Истории</a>
-          <a class="nav-link" id="navMemoryButton" href="/games/memory">Игры</a>
-          <a class="nav-link" id="navAboutButton" href="/#about">О проекте</a>
-          <a class="nav-link" href="/#pricing">Тарифы</a>
-          <a class="nav-link" id="navLibraryButton" href="/library">Библиотека</a>
-          <a class="nav-link" href="/#why-read">Для родителей</a>
+    <header class="home-header">
+      <nav class="site-nav" aria-label="Навигация сайта">
+        <a class="nav-brand" id="navTopButton" href="/" aria-label="На главную">
+          <img src="assets/logo-mark.png" alt="" width="82" height="52" />
+          <span>Ёжик и Лисёнок</span>
+        </a>
+        <button
+          class="nav-menu-button"
+          id="navMenuButton"
+          type="button"
+          aria-controls="siteNavMenu"
+          aria-expanded="false"
+          aria-label="Открыть меню"
+        >
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <div class="nav-menu" id="siteNavMenu">
+          <div class="nav-links">
+            <a class="nav-link" id="navStoriesButton" href="/stories">Истории</a>
+            <a class="nav-link" href="#travel-map">Карта путешествий</a>
+            <a class="nav-link" id="navAboutButton" href="/#about">О нас</a>
+            <a class="nav-link" href="/#why-read">Для родителей</a>
+          </div>
+          <div class="nav-actions" aria-label="Действия">
+            <a class="nav-icon-button" href="/stories" aria-label="Искать истории">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.7" cy="10.7" r="6.3"></circle><path d="m16 16 4.2 4.2"></path></svg>
+            </a>
+            <button class="nav-icon-button" id="navLoginButton" type="button" aria-label="Открыть профиль">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.7"></circle><circle cx="12" cy="9.2" r="2.5"></circle><path d="M7.6 18.3c.7-2.3 2.3-3.6 4.4-3.6s3.7 1.3 4.4 3.6"></path></svg>
+            </button>
+            <button class="nav-action nav-subscribe" id="navGeneratorButton" type="button">Создать историю</button>
+            <a class="nav-action nav-library-link" id="navLibraryButton" href="/library">Библиотека</a>
+          </div>
         </div>
-        <div class="nav-actions">
-          <button class="nav-action nav-login" id="navLoginButton" type="button">Вход</button>
-          <button class="nav-action nav-subscribe" id="navGeneratorButton" type="button">Создать сказку</button>
-        </div>
-      </div>
-    </nav>
+      </nav>
+    </header>
 
     <main id="mainContent" tabindex="-1">
       <section class="hero" id="top">
         <div class="hero-content">
-          <p class="hero-brand">Ежонок и Лисёнок</p>
-          <h1>Добрые сказки<br />для детей 5–10 лет</h1>
-          <p class="subtitle">
-            Приключения двух друзей, которые познают мир, помогают друг другу и учатся важным вещам.
-          </p>
+          <h1>Добрые истории<br />для тихих вечеров</h1>
           <div class="hero-actions" aria-label="Главные действия">
-            <button class="button primary" id="chooseStoryButton">Читать истории</button>
-            <button class="button secondary" id="openGeneratorButton">Создать сказку</button>
+            <button class="button primary hero-button" id="chooseStoryButton" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 5.4c3.1-.8 5.9-.2 8.5 1.8v11.3c-2.6-2-5.4-2.6-8.5-1.8V5.4Z"></path><path d="M20.5 5.4c-3.1-.8-5.9-.2-8.5 1.8v11.3c2.6-2 5.4-2.6 8.5-1.8V5.4Z"></path><path d="M5.7 9.1c1.8-.2 3.4.2 4.8 1.1M18.3 9.1c-1.8-.2-3.4.2-4.8 1.1"></path></svg>
+              <span>Выбрать историю</span>
+            </button>
+            <button class="button secondary hero-button" id="openGeneratorButton" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.8 3.4c-4.7 1-8.1 3.7-10.1 8.2l-4.2 8.2 7.4-5.2c4-2.7 6.2-6.3 6.9-11.2Z"></path><path d="M8.7 15.7 15.5 9"></path><path d="m5.5 19.8-1.2.8"></path></svg>
+              <span>Создать свою</span>
+            </button>
           </div>
           <div class="hero-legacy-actions hidden" aria-hidden="true">
             <button id="readFirstButton" type="button">Читать первую</button>
@@ -94,27 +102,27 @@
         </div>
 
         <div class="hero-friends">
-          <picture>
-            <source
-              type="image/avif"
-              srcset="assets/optimized/hero-friends-480.avif 480w, assets/optimized/hero-friends-768.avif 768w, assets/optimized/hero-friends-1200.avif 1200w"
-              sizes="(max-width: 720px) 92vw, (max-width: 1100px) 52vw, 820px"
-            />
-            <img
-              class="hero-illustration"
-              src="assets/hero-friends.png"
-              alt="Ежонок и Лисёнок сидят на скамейке у моря и смотрят на облака"
-              width="1448"
-              height="1086"
-              fetchpriority="high"
-              decoding="async"
-            />
-          </picture>
+          <img
+            class="hero-illustration"
+            src="assets/hero-seaside-bench.png"
+            alt="Ёжик и Лисёнок сидят на скамейке у моря и смотрят на маяк"
+            width="1627"
+            height="967"
+            fetchpriority="high"
+            decoding="async"
+          />
         </div>
+        <svg class="hero-trail" viewBox="0 0 940 120" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M-14 85C98 43 139 109 239 72s133-4 214-20 117-65 192-43 114 48 222 10 86 5 102 8" />
+          <g class="paw paw-one"><circle cx="0" cy="-7" r="3.2"/><circle cx="7" cy="-9" r="3.2"/><circle cx="12" cy="-3" r="3.2"/><ellipse cx="6" cy="4" rx="6.3" ry="5.3"/></g>
+          <g class="paw paw-two"><circle cx="0" cy="-7" r="3.2"/><circle cx="7" cy="-9" r="3.2"/><circle cx="12" cy="-3" r="3.2"/><ellipse cx="6" cy="4" rx="6.3" ry="5.3"/></g>
+          <g class="paw paw-three"><circle cx="0" cy="-7" r="3.2"/><circle cx="7" cy="-9" r="3.2"/><circle cx="12" cy="-3" r="3.2"/><ellipse cx="6" cy="4" rx="6.3" ry="5.3"/></g>
+          <g class="paw paw-four"><circle cx="0" cy="-7" r="3.2"/><circle cx="7" cy="-9" r="3.2"/><circle cx="12" cy="-3" r="3.2"/><ellipse cx="6" cy="4" rx="6.3" ry="5.3"/></g>
+        </svg>
       </section>
 
       <section class="stories-section" id="stories">
-        <div class="section-heading section-heading-row">
+        <div class="section-heading section-heading-row stories-library-heading">
           <h2><span aria-hidden="true">❧</span> Новые истории <span aria-hidden="true">❧</span></h2>
           <a class="section-link" href="/stories">Все истории <span aria-hidden="true">→</span></a>
         </div>
@@ -128,20 +136,56 @@
           <button class="filter-button" data-filter="bravery" aria-pressed="false">Про смелость</button>
         </div>
 
-        <div class="story-list" id="storyList" aria-live="polite"></div>
+        <div class="story-list home-story-list" id="storyList" aria-live="polite"></div>
       </section>
 
-      <section class="memory-promo" id="memoryPromo" aria-labelledby="memoryPromoTitle">
-        <div class="memory-promo__art" aria-hidden="true">
-          <img src="assets/game/fox-catcher.webp?v=2" alt="" width="291" height="360" loading="lazy" />
+      <section class="travel-map journey-map journey-map--reference" id="travel-map" aria-labelledby="travelMapTitle">
+        <h2 class="sr-only" id="travelMapTitle">Карта путешествий</h2>
+        <picture class="journey-map__desktop">
+          <source type="image/avif" srcset="assets/journey/reference/map-strip.avif" />
+          <source type="image/webp" srcset="assets/journey/reference/map-strip.webp" />
+          <img src="assets/journey/reference/map-strip.png" alt="Карта путешествий Ежонка и Лисёнка: лес, горы, море, маяк и дом" width="2494" height="374" loading="lazy" decoding="async" />
+        </picture>
+        <div class="journey-map__mobile" aria-hidden="true">
+          <picture>
+            <source type="image/avif" srcset="assets/journey/reference/map-copy-mobile.avif" />
+            <source type="image/webp" srcset="assets/journey/reference/map-copy-mobile.webp" />
+            <img src="assets/journey/reference/map-copy-mobile.png" alt="" width="520" height="374" loading="lazy" />
+          </picture>
+          <picture>
+            <source type="image/avif" srcset="assets/journey/reference/map-route-mobile.avif" />
+            <source type="image/webp" srcset="assets/journey/reference/map-route-mobile.webp" />
+            <img src="assets/journey/reference/map-route-mobile.png" alt="" width="2064" height="374" loading="lazy" />
+          </picture>
+        </div>
+        <a class="journey-map__link" id="travelMapLink" href="/stories">Открыть карту</a>
+      </section>
+
+      <section class="memory-promo games-clearing" id="memoryPromo" aria-labelledby="memoryPromoTitle">
+        <div class="memory-promo__art">
+          <picture>
+            <source type="image/avif" srcset="assets/journey/reference/games-clearing.avif" />
+            <source type="image/webp" srcset="assets/journey/reference/games-clearing.webp" />
+            <img src="assets/journey/reference/games-clearing.png" alt="Ежонок раскладывает карточки мемори, а Лисёнок запускает бумажный самолётик" width="1120" height="798" loading="lazy" decoding="async" />
+          </picture>
         </div>
         <div class="memory-promo__copy">
-          <p class="eyebrow">Игровая полянка</p>
+          <p class="journey-meta">Игровая полянка</p>
           <h2 id="memoryPromoTitle">Поиграем с Лисёнком?</h2>
-          <p>Открывай карточки с героями любимых историй или отправляйся с друзьями в полёт на биплане.</p>
-          <div class="memory-promo__actions">
-            <a class="button primary" data-open-memory href="/games/memory">Играть в мемори</a>
-            <a class="button secondary" href="/endless-flight.html">Лететь на биплане</a>
+          <p>Две небольшие игры для перерыва между историями.</p>
+          <div class="games-clearing__grid">
+            <a class="game-pass game-pass--memory" data-open-memory href="/games/memory">
+              <span class="game-pass__number">Игра 01</span>
+              <strong>Мемори</strong>
+              <span>Найди пары с героями и лесными находками.</span>
+              <span class="game-pass__action">Открыть карточки →</span>
+            </a>
+            <a class="game-pass game-pass--flight" href="/endless-flight.html">
+              <span class="game-pass__number">Игра 02</span>
+              <strong>Бесконечный полёт</strong>
+              <span>Лети на биплане над облаками вместе с друзьями.</span>
+              <span class="game-pass__action">Взлететь →</span>
+            </a>
           </div>
         </div>
       </section>
