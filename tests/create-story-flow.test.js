@@ -229,6 +229,26 @@ test("overlay keeps generation pending until ready, restores focus, and opens th
   assert.equal(trigger.focused, true);
 });
 
+test("overlay reports the prior state when an explicit close hides it", () => {
+  const { window, documentRef, trigger, overlay, closeButton } = createOverlayEnvironment();
+  loadFlow(window, documentRef);
+  const hiddenStates = [];
+  const flow = window.HFCreateStoryFlow.create({
+    root: overlay,
+    onHide: ({ state }) => hiddenStates.push(state)
+  });
+
+  flow.start({ ageGroup: "5-6", trigger });
+  closeButton.click();
+  flow.start({ ageGroup: "7-8", trigger });
+  flow.setReady({ storyId: "story-42" });
+  closeButton.click();
+  flow.setError({ message: "Сеть недоступна" });
+  closeButton.click();
+
+  assert.deepEqual(hiddenStates, ["generating", "ready", "error"]);
+});
+
 test("overlay has one phase interval and cleans it up when hidden", () => {
   const { window, documentRef, trigger, overlay } = createOverlayEnvironment();
   loadFlow(window, documentRef);

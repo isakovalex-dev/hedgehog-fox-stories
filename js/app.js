@@ -46,7 +46,10 @@
   const generationFlow = window.HFCreateStoryFlow.create({
     root: document.querySelector("#generationOverlay"),
     onOpenStory: (storyId) => openStory(storyId),
-    onRetry: () => generatorForm.requestSubmit()
+    onRetry: () => generatorForm.requestSubmit(),
+    onHide: ({ state }) => {
+      if (state !== "generating") submitButton.disabled = false;
+    }
   });
   const subscriptionScreen = document.querySelector("#subscriptionScreen");
   const subscriptionTitle = document.querySelector("#subscriptionTitle");

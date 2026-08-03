@@ -18,6 +18,7 @@
     const body = documentRef && documentRef.body;
     const onOpenStory = typeof options?.onOpenStory === "function" ? options.onOpenStory : () => {};
     const onRetry = typeof options?.onRetry === "function" ? options.onRetry : () => {};
+    const onHide = typeof options?.onHide === "function" ? options.onHide : () => {};
     const elements = {
       title: find("#generationOverlayTitle"),
       progress: find("#generationProgress"),
@@ -270,6 +271,7 @@
 
     function hide() {
       if (!root) return;
+      const previousState = state;
       clearTimers();
       removeListeners(staticBindings);
       removeListeners(taskBindings);
@@ -277,6 +279,7 @@
       body?.classList?.remove("create-overlay-open");
       open = false;
       if (triggerElement?.focus) triggerElement.focus();
+      onHide({ state: previousState });
     }
 
     function destroy() {
