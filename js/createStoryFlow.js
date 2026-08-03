@@ -115,6 +115,18 @@
       if (element) element.hidden = hidden;
     }
 
+    function isFocusable(element) {
+      if (!element || element.disabled) return false;
+
+      let currentElement = element;
+      while (currentElement) {
+        if (currentElement.hidden) return false;
+        if (currentElement === root) break;
+        currentElement = currentElement.parentElement;
+      }
+      return true;
+    }
+
     function renderTask() {
       removeListeners(taskBindings);
       const task = tasks[taskIndex];
@@ -209,6 +221,7 @@
       phaseIndex = phases.length ? phases.length - 1 : 0;
       updatePhase();
       if (elements.open) elements.open.dataset.storyId = storyId;
+      elements.open?.focus?.();
     }
 
     function setError({ message } = {}) {
@@ -237,7 +250,7 @@
       }
       if (event.key !== "Tab") return;
 
-      const focusableElements = findAll(FOCUSABLE_SELECTOR).filter((element) => !element.hidden && !element.disabled);
+      const focusableElements = findAll(FOCUSABLE_SELECTOR).filter(isFocusable);
       if (!focusableElements.length) {
         event.preventDefault();
         root.focus?.();

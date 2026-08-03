@@ -155,6 +155,8 @@ function createOverlayEnvironment() {
   const closeButton = new FakeElement(documentRef, "generationClose");
   const openButton = new FakeElement(documentRef, "generationOpenStoryButton");
   const phases = Array.from({ length: 5 }, () => new FakeElement(documentRef));
+  overlay.append(taskPanel, closeButton, skipButton, nextButton, retryButton, openButton);
+  taskPanel.append(taskText, taskOptions, feedback, hint);
   const elements = {
     "#generationOverlayTitle": title,
     "#generationProgress": progress,
@@ -241,6 +243,34 @@ test("overlay has one phase interval and cleans it up when hidden", () => {
   flow.hide();
   assert.equal(window.clearedIntervals.length, 2);
   assert.equal(window.timeoutCalls.length, 0);
+});
+
+test("ready state moves focus back into the overlay after pending Escape", () => {
+  const { window, documentRef, trigger, overlay, openButton } = createOverlayEnvironment();
+  loadFlow(window, documentRef);
+  const flow = window.HFCreateStoryFlow.create({ root: overlay });
+
+  flow.start({ ageGroup: "7-8", trigger });
+  overlay.dispatch("keydown", { key: "Escape" });
+  assert.equal(documentRef.activeElement, trigger);
+
+  flow.setReady({ storyId: "story-42" });
+  assert.equal(flow.isOpen(), true);
+  assert.equal(documentRef.activeElement, openButton);
+});
+
+test("ready state excludes answers inside the hidden task panel from Tab wrapping", () => {
+  const { window, documentRef, trigger, overlay, closeButton, openButton } = createOverlayEnvironment();
+  loadFlow(window, documentRef);
+  const flow = window.HFCreateStoryFlow.create({ root: overlay });
+
+  flow.start({ ageGroup: "7-8", trigger });
+  flow.setReady({ storyId: "story-42" });
+  openButton.focus();
+  const tabEvent = overlay.dispatch("keydown", { key: "Tab" });
+
+  assert.equal(tabEvent.defaultPrevented, true);
+  assert.equal(documentRef.activeElement, closeButton);
 });
 
 test("overlay traps Tab, hides with Escape without retrying, and follows answer feedback rules", () => {
