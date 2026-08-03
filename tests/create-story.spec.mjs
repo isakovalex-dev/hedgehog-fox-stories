@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test.beforeEach(async ({ page }) => {
   await page.route("**/create", (route) => route.fulfill({ path: "dist/index.html" }));
   await page.route("https://ynidvdesfolavhngubqv.supabase.co/**", (route) =>
-    route.fulfill({ contentType: "application/json", status: 500, body: "{}" })
+    route.fulfill({ contentType: "application/json", body: "[]" })
   );
   await page.route("**/auth/v1/user", (route) =>
     route.fulfill({ contentType: "application/json", body: JSON.stringify({ id: "test-user" }) })
@@ -139,9 +139,6 @@ test("create form recovers from a validation error without browser errors", asyn
     })
   );
 
-  await page.goto("/create");
-  await page.waitForFunction(() => window.HFSupabaseService?.isAuthenticated?.());
-
   const browserErrors = [];
   const expectedValidationTransportError =
     "Failed to load resource: the server responded with a status of 422 (Unprocessable Entity)";
@@ -151,6 +148,9 @@ test("create form recovers from a validation error without browser errors", asyn
       browserErrors.push(message.text());
     }
   });
+
+  await page.goto("/create");
+  await page.waitForFunction(() => window.HFSupabaseService?.isAuthenticated?.());
 
   const topic = "Тихий лес";
   const lesson = "Беречь друзей";
