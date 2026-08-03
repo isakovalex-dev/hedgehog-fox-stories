@@ -239,15 +239,36 @@
         <p class="pricing-note">Бесплатный режим включает 1 новую историю за 30 дней.</p>
       </section>
 
-      <section class="generator-section" id="generator">
-        <div class="section-heading">
-          <p class="eyebrow">Создать историю</p>
-          <h2>Новая сказка для вечера</h2>
+      <section class="generator-section create-story-section" id="generator" aria-labelledby="createStoryTitle">
+        <img
+          class="create-page-background"
+          src="assets/create/create-page-background.png"
+          width="1440"
+          height="810"
+          alt=""
+          aria-hidden="true"
+        />
+
+        <div class="create-hero" id="createHero">
+          <div class="create-hero__copy">
+            <p class="eyebrow">Создать историю</p>
+            <h2 id="createStoryTitle">Новая сказка для вечера</h2>
+            <p>Расскажите, о чём мечтается сегодня, — и Ежонок с Лисёнком помогут собрать добрую книжку.</p>
+          </div>
+          <img
+            class="create-hero__illustration"
+            src="assets/create/create-hero.png"
+            width="960"
+            height="640"
+            alt="Ежонок и Лисёнок придумывают сказку у раскрытой книги"
+            loading="lazy"
+            decoding="async"
+          />
         </div>
 
-        <div class="generator-shell">
-          <form class="generator-form" id="generatorForm" novalidate>
-            <label class="field">
+        <div class="generator-shell create-generator-shell">
+          <form class="generator-form create-story-form" id="generatorForm" novalidate>
+            <label class="field create-field" for="storyTopic">
               <span>Тема истории</span>
               <input
                 id="storyTopic"
@@ -259,13 +280,31 @@
               />
             </label>
 
-            <fieldset class="field-group">
-              <legend>Возраст</legend>
-              <label><input type="radio" name="ageGroup" value="5-7" checked /> 5–7</label>
-              <label><input type="radio" name="ageGroup" value="8-10" /> 8–10</label>
+            <fieldset class="field-group create-options" id="ageGroupOptions">
+              <legend>Возраст ребёнка</legend>
+              <div class="create-choice-grid">
+                <label class="create-choice create-age-choice">
+                  <input type="radio" name="ageGroup" value="5-6" checked />
+                  <span class="create-choice__check" aria-hidden="true">✓</span>
+                  <span class="create-choice__copy"><strong>5–6 лет</strong><span>Простые слова, короткие предложения и увлекательные приключения</span></span>
+                  <img src="assets/create/create-hedgehog.png" width="160" height="180" alt="" />
+                </label>
+                <label class="create-choice create-age-choice">
+                  <input type="radio" name="ageGroup" value="7-8" />
+                  <span class="create-choice__check" aria-hidden="true">✓</span>
+                  <span class="create-choice__copy"><strong>7–8 лет</strong><span>Больше загадок, дружбы и смелых открытий в каждом путешествии</span></span>
+                  <img src="assets/create/create-fox-lantern.png" width="160" height="180" alt="" />
+                </label>
+                <label class="create-choice create-age-choice">
+                  <input type="radio" name="ageGroup" value="9-10" />
+                  <span class="create-choice__check" aria-hidden="true">✓</span>
+                  <span class="create-choice__copy"><strong>9–10 лет</strong><span>Неожиданные повороты, важные решения и герои, которым хочется верить</span></span>
+                  <img src="assets/create/create-hero.png" width="160" height="180" alt="" />
+                </label>
+              </div>
             </fieldset>
 
-            <label class="field">
+            <label class="field create-field" for="storyMood">
               <span>Настроение</span>
               <select id="storyMood" name="mood">
                 <option value="bedtime">Перед сном</option>
@@ -275,7 +314,7 @@
               </select>
             </label>
 
-            <label class="field">
+            <label class="field create-field" for="storyLesson">
               <span>Чему должна научить история</span>
               <textarea
                 id="storyLesson"
@@ -287,17 +326,21 @@
               ></textarea>
             </label>
 
-            <fieldset class="field-group">
+            <fieldset class="field-group create-options" id="pageCountOptions">
               <legend>Количество страниц</legend>
-              <label><input type="radio" name="pageCount" value="3" checked /> 3</label>
-              <label><input type="radio" name="pageCount" value="4" /> 4</label>
-              <label><input type="radio" name="pageCount" value="5" /> 5</label>
+              <div class="create-page-counts">
+                <label class="create-choice create-page-choice"><input type="radio" name="pageCount" value="3" /><span>3 страницы</span></label>
+                <label class="create-choice create-page-choice"><input type="radio" name="pageCount" value="5" checked /><span>5 страниц</span></label>
+                <label class="create-choice create-page-choice"><input type="radio" name="pageCount" value="7" /><span>7 страниц</span></label>
+              </div>
             </fieldset>
 
-            <fieldset class="field-group">
+            <fieldset class="field-group create-options">
               <legend>Иллюстрации</legend>
-              <label><input type="radio" name="illustrations" value="yes" checked /> Да</label>
-              <label><input type="radio" name="illustrations" value="no" /> Нет</label>
+              <div class="create-illustration-options">
+                <label class="create-choice"><input type="radio" name="illustrations" value="yes" checked /><span>Да, с иллюстрациями</span></label>
+                <label class="create-choice"><input type="radio" name="illustrations" value="no" /><span>Только текст</span></label>
+              </div>
             </fieldset>
 
             <div class="ai-notice" role="note">
@@ -309,30 +352,7 @@
             </div>
 
             <div class="generator-actions">
-              <button class="button primary" type="submit">Создать историю</button>
-              <p class="generation-status" id="generationStatus" aria-live="polite"></p>
-            </div>
-
-            <div class="generation-wait-panel hidden" id="generationWaitPanel" aria-live="polite">
-              <div class="generation-wait-heading">
-                <p class="eyebrow">Пока история создаётся</p>
-                <h3 id="generationWaitTitle">Ежонок собирает слова...</h3>
-              </div>
-              <div class="generation-task">
-                <p id="generationTaskText">Решите маленькую задачку.</p>
-                <div class="generation-task-answer">
-                  <input
-                    id="generationTaskAnswer"
-                    type="text"
-                    inputmode="text"
-                    autocomplete="off"
-                    placeholder="Ответ"
-                  />
-                  <button class="button secondary" id="checkGenerationTaskButton" type="button">Проверить</button>
-                  <button class="button quiet" id="nextGenerationTaskButton" type="button">Другая задачка</button>
-                </div>
-                <p class="generation-task-feedback" id="generationTaskFeedback"></p>
-              </div>
+              <button class="button primary" type="submit">Создать сказку</button>
             </div>
           </form>
 
@@ -838,37 +858,69 @@
 
     </main>
 
-    <div class="generation-experience hidden" id="generationExperience" role="dialog" aria-modal="true" aria-labelledby="generationExperienceTitle">
-      <div class="generation-experience__paper">
-        <header class="generation-experience__header">
+    <div
+      class="generation-overlay"
+      id="generationOverlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="generationOverlayTitle"
+      tabindex="-1"
+      hidden
+    >
+      <div class="generation-overlay__paper">
+        <img
+          class="generation-overlay__background"
+          src="assets/create/generation-modal-background.png"
+          width="1200"
+          height="800"
+          alt=""
+          aria-hidden="true"
+        />
+        <button class="button quiet generation-overlay__close" id="generationClose" type="button">Закрыть</button>
+        <header class="generation-overlay__header">
           <div>
             <p class="eyebrow">Новая книжка уже в пути</p>
-            <h2 id="generationExperienceTitle">Мы создаём вашу историю…</h2>
-            <p>Ежик придумывает сюжет, а Лисенок готовит иллюстрации. Это может занять несколько минут.</p>
+            <h2 id="generationOverlayTitle">Мы создаём вашу историю…</h2>
+            <p>Ежонок придумывает сюжет, а Лисёнок готовит иллюстрации. Это может занять несколько минут.</p>
           </div>
-          <button class="sound-toggle" id="gameSoundToggle" type="button" aria-pressed="false">Звук выключен</button>
+          <img
+            class="generation-overlay__hero"
+            src="assets/create/generation-hero.png"
+            width="960"
+            height="640"
+            alt="Ежонок и Лисёнок вместе рисуют новую историю"
+            decoding="async"
+          />
         </header>
-        <ol class="generation-steps" id="generationSteps" aria-label="Этапы создания истории">
-          <li class="active">Придумываем сюжет</li><li>Пишем историю</li><li>Готовим иллюстрации</li><li>Собираем книжку</li>
+
+        <p class="generation-status" id="generationStatus" aria-live="polite"></p>
+
+        <ol class="generation-progress" id="generationProgress" aria-label="Этапы создания истории">
+          <li class="is-active" data-generation-phase>Придумываем героев</li>
+          <li data-generation-phase>Собираем сюжет</li>
+          <li data-generation-phase>Пишем историю</li>
+          <li data-generation-phase>Рисуем иллюстрации</li>
+          <li data-generation-phase>Собираем книжку</li>
         </ol>
-        <div class="story-ready-notice hidden" id="storyReadyNotice" role="status">
-          <strong id="storyReadyText">История готова!</strong>
-          <div><button class="button primary" id="openReadyStoryButton" type="button">Открыть историю</button><button class="button secondary" id="finishRoundButton" type="button">Закончить раунд</button></div>
-        </div>
-        <div class="generation-error-notice hidden" id="generationErrorNotice" role="alert">
-          <strong>Историю пока не удалось создать.</strong><span> Игру можно продолжить — прогресс сохранён.</span>
-          <button class="button secondary" id="retryGenerationButton" type="button">Попробовать ещё раз</button>
-        </div>
-        <section id="gameSelector" class="game-selector" aria-labelledby="gameSelectorTitle">
-          <h3 id="gameSelectorTitle">Пока история создаётся, выбери маленькую игру</h3>
-          <div class="game-card-grid" id="gameCardGrid"></div>
-          <button class="wait-link" id="justWaitButton" type="button">Можно просто подождать</button>
+
+        <section class="generation-tasks-panel" id="generationTasksPanel" aria-labelledby="generationTaskTitle">
+          <p class="eyebrow">Пока ждём</p>
+          <h3 id="generationTaskTitle">Маленькая задачка</h3>
+          <p id="generationTaskText">Решите маленькую задачку.</p>
+          <div class="generation-task-options" id="generationTaskOptions" aria-label="Варианты ответа"></div>
+          <p class="generation-task-feedback" id="generationTaskFeedback" aria-live="assertive"></p>
+          <p class="generation-task-hint" id="generationTaskHint" hidden></p>
+          <div class="generation-task-actions">
+            <button class="button quiet" id="generationTaskSkip" type="button">Пропустить</button>
+            <button class="button quiet" id="generationTaskNext" type="button" hidden>Другая задачка</button>
+          </div>
         </section>
-        <section class="mini-game-shell hidden" id="miniGameShell" aria-live="polite">
-          <div class="mini-game-toolbar"><button class="button quiet" id="backToGamesButton" type="button">← Другие игры</button><button class="button quiet" id="difficultyButton" type="button">Сложность: 7–8 лет</button></div>
-          <div id="miniGameContent"></div>
-        </section>
-        <aside class="reward-collection" aria-label="Коллекция наград"><strong>Моя коллекция</strong><div id="rewardCollection"></div></aside>
+
+        <p class="generation-error-message" id="generationErrorMessage"></p>
+        <div class="generation-overlay__actions">
+          <button class="button secondary" id="generationRetry" type="button" hidden>Попробовать ещё раз</button>
+          <button class="button primary" id="generationOpenStoryButton" type="button" hidden>Открыть сказку</button>
+        </div>
       </div>
     </div>
 
