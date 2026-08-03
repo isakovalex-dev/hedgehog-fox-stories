@@ -705,14 +705,16 @@ function cleanText(value, fallback, maxLength) {
   return (text || fallback).slice(0, maxLength);
 }
 
-function getPageCount(value) {
-  const pageCount = Number(value || 3);
-  if (!Number.isInteger(pageCount)) return 3;
-  return Math.min(5, Math.max(1, pageCount));
+const SUPPORTED_AGE_GROUPS = new Set(["5-6", "7-8", "9-10", "5-7", "8-10"]);
+
+function normalizePageCount(value) {
+  const pageCount = Number(value || 5);
+  if (!Number.isInteger(pageCount)) return 5;
+  return Math.min(7, Math.max(1, pageCount));
 }
 
-function getAgeGroup(value) {
-  return value === "8-10" ? "8-10" : "5-7";
+function normalizeAgeGroup(value) {
+  return SUPPORTED_AGE_GROUPS.has(value) ? value : "5-6";
 }
 
 function getMood(value) {
@@ -746,9 +748,9 @@ function validateGenerationRequest(body) {
   const errors = [];
   const topic = cleanText(body.topic, "маленькое приключение", 80);
   const lesson = cleanText(body.lesson, "доброта становится сильнее, когда ей делятся", 120);
-  const ageGroup = getAgeGroup(body.ageGroup);
+  const ageGroup = normalizeAgeGroup(body.ageGroup);
   const mood = getMood(body.mood);
-  const pageCount = getPageCount(body.pageCount);
+  const pageCount = normalizePageCount(body.pageCount);
 
   if (containsUnsafeContent(`${topic} ${lesson}`)) {
     errors.push("Тема или урок истории не подходят для детской сказки.");
@@ -798,11 +800,13 @@ function getMockPageText({ topic, mood, lesson, pageNumber, pageCount }) {
 }
 
 function buildMockStory(input) {
+  const ageGroup = normalizeAgeGroup(input.ageGroup);
+  const pageCount = normalizePageCount(input.pageCount);
   const scenes = MOOD_CONFIG[input.mood].scenes;
-  const pages = Array.from({ length: input.pageCount }, (_, index) => {
+  const pages = Array.from({ length: pageCount }, (_, index) => {
     const pageNumber = index + 1;
     const sceneTag = scenes[index % scenes.length] || "forest_day";
-    const text = getMockPageText({ ...input, pageNumber });
+    const text = getMockPageText({ ...input, pageNumber, pageCount });
 
     return {
       pageNumber,
@@ -815,7 +819,7 @@ function buildMockStory(input) {
   return {
     id: `backend-mock-${Date.now()}`,
     title: `Ежонок, Лисёнок и ${capitalize(input.topic)}`,
-    ageGroup: input.ageGroup,
+    ageGroup,
     mood: MOOD_CONFIG[input.mood].label,
     lesson: input.lesson,
     pages
@@ -840,12 +844,12 @@ function validateGeneratedStory(story) {
     errors.push("Generated story title is missing or too long.");
   }
 
-  if (!["5-7", "8-10"].includes(story.ageGroup)) {
+  if (normalizeAgeGroup(story.ageGroup) !== story.ageGroup) {
     errors.push("Generated story ageGroup is invalid.");
   }
 
-  if (!Array.isArray(story.pages) || story.pages.length < 1 || story.pages.length > 5) {
-    errors.push("Generated story must contain 1-5 pages.");
+  if (!Array.isArray(story.pages) || story.pages.length < 1 || story.pages.length > 7) {
+    errors.push("Generated story must contain 1-7 pages.");
   }
 
   (story.pages || []).forEach((page, index) => {
@@ -871,7 +875,7 @@ function normalizeGeneratedStory(rawStory, input) {
   }
 
   const title = cleanText(rawStory.title, "", MAX_STORY_TITLE_LENGTH);
-  const ageGroup = getAgeGroup(rawStory.ageGroup || input.ageGroup);
+  const ageGroup = normalizeAgeGroup(rawStory.ageGroup || input.ageGroup);
   const mood = cleanText(rawStory.mood, MOOD_CONFIG[input.mood].label, 80);
   const lesson = cleanText(rawStory.lesson, input.lesson, MAX_STORY_LESSON_LENGTH);
   const rawPages = Array.isArray(rawStory.pages) ? rawStory.pages : [];
@@ -880,8 +884,8 @@ function normalizeGeneratedStory(rawStory, input) {
     throw createHttpError(502, "AI response title is missing");
   }
 
-  if (rawPages.length < 1 || rawPages.length > 5) {
-    throw createHttpError(502, "AI response must contain 1-5 pages");
+  if (rawPages.length < 1 || rawPages.length > 7) {
+    throw createHttpError(502, "AI response must contain 1-7 pages");
   }
 
   assertSafeGeneratedText(`${title} ${mood} ${lesson}`, "story metadata");
@@ -948,7 +952,7 @@ function getAiUserPrompt(input) {
     task: "generate_child_story",
     outputFormat: {
       title: "Название истории",
-      ageGroup: "5-7 или 8-10",
+      ageGroup: "5-6, 7-8, 9-10, 5-7 или 8-10",
       mood: "настроение на русском",
       lesson: "короткий урок истории",
       pages: [
@@ -962,11 +966,11 @@ function getAiUserPrompt(input) {
     },
     constraints: {
       topic: input.topic,
-      ageGroup: input.ageGroup,
+      ageGroup: normalizeAgeGroup(input.ageGroup),
       mood: MOOD_CONFIG[input.mood].label,
       lesson: input.lesson,
-      pageCount: input.pageCount,
-      maxPages: 5,
+      pageCount: normalizePageCount(input.pageCount),
+      maxPages: 7,
       heroes: ["Ежонок", "Лисёнок"],
       allowedSceneTags: ALLOWED_SCENE_TAGS
     }
@@ -1135,5 +1139,7 @@ async function handler(req, res) {
     sendGenerationFailure(req, res, error, Date.now() - startedAt);
   }
 }
+
+handler.__testables = { normalizeAgeGroup, normalizePageCount };
 
 module.exports = handler;

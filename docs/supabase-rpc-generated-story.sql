@@ -26,8 +26,8 @@ begin
     raise exception 'Story pages are required';
   end if;
 
-  if jsonb_array_length(p_pages) > 5 then
-    raise exception 'Story cannot contain more than 5 pages';
+  if jsonb_array_length(p_pages) > 7 then
+    raise exception 'Story cannot contain more than 7 pages';
   end if;
 
   select *
@@ -56,7 +56,10 @@ begin
   values (
     v_user_id,
     left(trim(coalesce(p_title, 'Новая история')), 120),
-    case when p_age_group = '8-10' then '8-10' else '5-7' end,
+    case
+      when p_age_group in ('5-6', '7-8', '9-10', '5-7', '8-10') then p_age_group
+      else '5-6'
+    end,
     left(trim(coalesce(p_mood, '')), 80),
     left(trim(coalesce(p_lesson, '')), 160),
     coalesce(nullif(p_visibility, ''), 'private')
