@@ -243,7 +243,8 @@
       updatePhase();
       renderTask();
       phaseTimerId = window.setInterval(() => {
-        phaseIndex = phases.length ? (phaseIndex + 1) % phases.length : 0;
+        const pendingPhaseCount = Math.max(phases.length - 1, 1);
+        phaseIndex = phases.length ? (phaseIndex + 1) % pendingPhaseCount : 0;
         updatePhase();
       }, PHASE_INTERVAL_MS);
     }
@@ -272,6 +273,7 @@
       setHidden(elements.open, true);
       setHidden(elements.taskPanel, true);
       setHidden(elements.retry, false);
+      elements.retry?.focus?.();
     }
 
     function openStory() {
@@ -316,8 +318,8 @@
       root.hidden = true;
       body?.classList?.remove("create-overlay-open");
       open = false;
-      if (triggerElement?.focus) triggerElement.focus();
       onHide({ state: previousState });
+      if (triggerElement?.focus) triggerElement.focus();
     }
 
     function destroy() {

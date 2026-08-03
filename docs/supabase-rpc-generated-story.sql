@@ -26,8 +26,8 @@ begin
     raise exception 'Story pages are required';
   end if;
 
-  if jsonb_array_length(p_pages) > 5 then
-    raise exception 'Story cannot contain more than 5 pages';
+  if jsonb_array_length(p_pages) > 7 then
+    raise exception 'Story cannot contain more than 7 pages';
   end if;
 
   select *

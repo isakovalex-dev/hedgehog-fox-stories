@@ -9,6 +9,10 @@ test("app delegates generation lifecycle to the create-story flow", () => {
   assert.match(source, /generationFlow\.start\(\{ ageGroup: getFormValue\(formData, "ageGroup", "5-6"\), trigger: submitButton \}\)/);
   assert.match(source, /generationFlow\.setReady\(\{ storyId: savedStory\.id \}\)/);
   assert.match(source, /onOpenStory: \(storyId\) => openStory\(storyId\)/);
+  assert.match(source, /storyMoodHelp/);
+  assert.match(source, /pageCountHelp/);
+  assert.match(source, /navGeneratorButton\?\.classList\.toggle\("active", route\.name === "create"\)/);
+  assert.match(source, /navGeneratorButton\?\.setAttribute\("aria-current", "page"\)/);
   assert.doesNotMatch(source, /generationTaskTimerId/);
   assert.doesNotMatch(source, /generationMessageTimerId/);
 });

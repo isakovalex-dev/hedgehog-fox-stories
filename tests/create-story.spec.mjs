@@ -105,6 +105,10 @@ test("generation dialog keeps approved paper tokens and responsive task cards", 
   const overlay = page.locator("#generationOverlay");
   const paper = overlay.locator(".generation-overlay__paper");
   await expect(overlay).toBeVisible();
+  await expect(page.locator("body")).toHaveClass(/create-overlay-open/);
+  await expect
+    .poll(() => page.locator("body").evaluate((element) => getComputedStyle(element).overflowY))
+    .toBe("hidden");
   await expect(overlay.locator(".generation-task-card")).toHaveCount(1);
   expect(await overlay.locator(".generation-task-card--active button").count()).toBeGreaterThan(0);
 
@@ -163,13 +167,34 @@ test("create form recovers from a validation error without browser errors", asyn
   await expect(overlay).toHaveAttribute("data-state", "error");
   await expect(overlay).toContainText("Пока не получилось создать сказку");
   await expect(overlay.locator("#generationErrorMessage")).toContainText("Не удалось создать историю");
+  await expect(page.getByRole("button", { name: "Попробовать ещё раз" })).toBeFocused();
 
   await page.getByRole("button", { name: "Закрыть" }).click();
   await expect(overlay).toBeHidden();
   await expect(submitButton).toBeEnabled();
+  await expect(submitButton).toBeFocused();
   await expect(page.getByLabel(/Тема истории/)).toHaveValue(topic);
   await expect(page.getByLabel(/Чему должна научить/)).toHaveValue(lesson);
   expect(browserErrors).toEqual([]);
+});
+
+test("create route marks the generator navigation current and keeps form helper text in sync", async ({ page }) => {
+  await page.goto("/create");
+
+  const generatorNavigation = page.locator("#navGeneratorButton");
+  await expect(generatorNavigation).toHaveClass(/active/);
+  await expect(generatorNavigation).toHaveAttribute("aria-current", "page");
+  await expect(page.locator("#storyMoodHelp")).toContainText("спокой");
+  await expect(page.locator("#pageCountHelp")).toContainText("рекомендуем");
+
+  await page.getByLabel("Приключение").selectOption("adventure");
+  await expect(page.locator("#storyMoodHelp")).toContainText("открыт");
+  await page.getByLabel(/7 страниц/).check();
+  await expect(page.locator("#pageCountHelp")).toContainText("Длинн");
+
+  await page.locator("#navStoriesButton").click();
+  await expect(generatorNavigation).not.toHaveClass(/active/);
+  await expect(generatorNavigation).not.toHaveAttribute("aria-current", "page");
 });
 
 for (const width of [320, 375, 430, 768, 1024, 1440, 1920]) {

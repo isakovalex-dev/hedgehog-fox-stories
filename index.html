@@ -33,7 +33,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=25" />
+    <link rel="stylesheet" href="styles.css?v=26" />
   </head>
   <body>
     <a class="skip-link" href="#mainContent">Перейти к содержанию</a>
@@ -306,12 +306,13 @@
 
             <label class="field create-field" for="storyMood">
               <span>Настроение</span>
-              <select id="storyMood" name="mood">
+              <select id="storyMood" name="mood" aria-describedby="storyMoodHelp">
                 <option value="bedtime">Перед сном</option>
                 <option value="adventure">Приключение</option>
                 <option value="friendship">Про дружбу</option>
                 <option value="bravery">Про смелость</option>
               </select>
+              <span class="create-field-help" id="storyMoodHelp" aria-live="polite">Тёплая и спокойная история для завершения дня.</span>
             </label>
 
             <label class="field create-field" for="storyLesson">
@@ -326,13 +327,14 @@
               ></textarea>
             </label>
 
-            <fieldset class="field-group create-options" id="pageCountOptions">
+            <fieldset class="field-group create-options" id="pageCountOptions" aria-describedby="pageCountHelp">
               <legend>Количество страниц</legend>
               <div class="create-page-counts">
                 <label class="create-choice create-page-choice"><input type="radio" name="pageCount" value="3" /><span>3 страницы</span></label>
                 <label class="create-choice create-page-choice"><input type="radio" name="pageCount" value="5" checked /><span>5 страниц</span></label>
                 <label class="create-choice create-page-choice"><input type="radio" name="pageCount" value="7" /><span>7 страниц</span></label>
               </div>
+              <p class="create-field-help" id="pageCountHelp" aria-live="polite">5 страниц — рекомендуемый размер для уютной сказки перед сном.</p>
             </fieldset>
 
             <fieldset class="field-group create-options">
@@ -946,8 +948,8 @@
     <script src="js/storageService.js?v=12"></script>
     <script src="js/supabaseService.js?v=17"></script>
     <script src="js/storyService.js?v=13"></script>
-    <script src="js/generationTasks.js?v=1"></script>
-    <script src="js/createStoryFlow.js?v=1"></script>
+    <script src="js/generationTasks.js?v=2"></script>
+    <script src="js/createStoryFlow.js?v=2"></script>
     <script src="js/likeService.js?v=12"></script>
     <script src="js/subscriptionService.js?v=12"></script>
     <script src="js/analyticsService.js?v=14"></script>
@@ -955,7 +957,7 @@
     <script src="js/miniGames.js?v=1"></script>
     <script src="js/memoryGame.js?v=2"></script>
     <script src="js/introSplash.js?v=1"></script>
-    <script src="js/app.js?v=27"></script>
+    <script src="js/app.js?v=28"></script>
     <script>
       window.va = window.va || function () {
         (window.vaq = window.vaq || []).push(arguments);

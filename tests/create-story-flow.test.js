@@ -73,6 +73,7 @@ class FakeElement {
   }
 
   focus() {
+    if (this.disabled) return;
     this.focused = true;
     this.ownerDocument.activeElement = this;
   }
@@ -265,6 +266,25 @@ test("overlay has one phase interval and cleans it up when hidden", () => {
   assert.equal(window.timeoutCalls.length, 0);
 });
 
+test("pending progress cycles only through the first four phases until the story is ready", () => {
+  const { window, documentRef, trigger, overlay, phases } = createOverlayEnvironment();
+  loadFlow(window, documentRef);
+  const flow = window.HFCreateStoryFlow.create({ root: overlay });
+
+  flow.start({ ageGroup: "5-6", trigger });
+  const cycle = window.intervalCalls[0].callback;
+  cycle();
+  cycle();
+  cycle();
+  cycle();
+
+  assert.equal(phases[4].classList.contains("is-active"), false);
+  assert.equal(phases[4].classList.contains("is-complete"), false);
+
+  flow.setReady({ storyId: "story-42" });
+  assert.equal(phases[4].classList.contains("is-complete"), true);
+});
+
 test("ready state moves focus back into the overlay after pending Escape", () => {
   const { window, documentRef, trigger, overlay, openButton } = createOverlayEnvironment();
   loadFlow(window, documentRef);
@@ -325,4 +345,23 @@ test("overlay traps Tab, hides with Escape without retrying, and follows answer 
   flow.setError({ message: "Сеть недоступна" });
   retryButton.click();
   assert.equal(retries, 1);
+});
+
+test("error state focuses Retry and enables the trigger before focus is restored", () => {
+  const { window, documentRef, trigger, overlay, retryButton } = createOverlayEnvironment();
+  loadFlow(window, documentRef);
+  trigger.disabled = true;
+  const flow = window.HFCreateStoryFlow.create({
+    root: overlay,
+    onHide: () => {
+      trigger.disabled = false;
+    }
+  });
+
+  flow.start({ ageGroup: "9-10", trigger });
+  flow.setError({ message: "Сеть недоступна" });
+  assert.equal(documentRef.activeElement, retryButton);
+
+  flow.hide();
+  assert.equal(documentRef.activeElement, trigger);
 });

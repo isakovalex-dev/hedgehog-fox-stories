@@ -43,6 +43,9 @@
   const generatorForm = document.querySelector("#generatorForm");
   const submitButton = generatorForm.querySelector('button[type="submit"]');
   const generationStatus = document.querySelector("#generationStatus");
+  const storyMood = document.querySelector("#storyMood");
+  const storyMoodHelp = document.querySelector("#storyMoodHelp");
+  const pageCountHelp = document.querySelector("#pageCountHelp");
   const generationFlow = window.HFCreateStoryFlow.create({
     root: document.querySelector("#generationOverlay"),
     onOpenStory: (storyId) => openStory(storyId),
@@ -90,6 +93,30 @@
     friendship: "про дружбу",
     bravery: "про смелость"
   };
+
+  const moodDescriptions = {
+    bedtime: "Тёплая и спокойная история для завершения дня.",
+    adventure: "Бодрая история с новыми открытиями и добрыми сюрпризами.",
+    friendship: "Нежная история о поддержке, заботе и дружбе.",
+    bravery: "Ободряющая история о маленьких смелых шагах."
+  };
+
+  const pageCountDescriptions = {
+    3: "Короткая сказка, когда хочется прочитать её быстро.",
+    5: "5 страниц — рекомендуемый размер для уютной сказки перед сном.",
+    7: "Длинная сказка для неспешного путешествия с героями."
+  };
+
+  function updateCreateFormHelpers() {
+    if (storyMoodHelp) {
+      storyMoodHelp.textContent = moodDescriptions[storyMood?.value] || moodDescriptions.bedtime;
+    }
+
+    if (pageCountHelp) {
+      const selectedPageCount = generatorForm.querySelector('input[name="pageCount"]:checked')?.value || "5";
+      pageCountHelp.textContent = pageCountDescriptions[selectedPageCount] || pageCountDescriptions[5];
+    }
+  }
 
   const moodTags = {
     bedtime: "bedtime",
@@ -365,7 +392,10 @@
     renderStories();
     navStoriesButton?.classList.toggle("active", route.name === "stories");
     navMemoryButton?.classList.toggle("active", route.name === "memory");
+    navGeneratorButton?.classList.toggle("active", route.name === "create");
     navLibraryButton?.classList.toggle("active", route.name === "library");
+    if (route.name === "create") navGeneratorButton?.setAttribute("aria-current", "page");
+    else navGeneratorButton?.removeAttribute("aria-current");
     updateDocumentMeta(null, route);
 
     if (route.name === "memory") {
@@ -2095,6 +2125,11 @@
   }
 
   generatorForm.addEventListener("submit", handleGeneratorSubmit);
+  storyMood?.addEventListener("change", updateCreateFormHelpers);
+  generatorForm.querySelectorAll('input[name="pageCount"]').forEach((input) => {
+    input.addEventListener("change", updateCreateFormHelpers);
+  });
+  updateCreateFormHelpers();
 
   paymentButtons.forEach((button) => {
     button.addEventListener("click", () => {

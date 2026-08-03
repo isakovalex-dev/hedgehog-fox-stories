@@ -16,6 +16,10 @@
   --soft-shadow: 0 10px 26px rgba(95, 67, 42, 0.1);
 }
 
+body.create-overlay-open {
+  overflow: hidden;
+}
+
 /* Create story: a quiet paper workshop framed by the supplied watercolor characters. */
 .create-story-section {
   --create-paper: #fbfaf5;
@@ -182,6 +186,17 @@
   font-family: "Nunito", Arial, sans-serif;
   font-size: 0.98rem;
   font-weight: 900;
+}
+
+.create-story-form .field > .create-field-help,
+.create-story-form .field-group > .create-field-help {
+  display: block;
+  margin: 0;
+  color: rgba(77, 65, 54, 0.72);
+  font-family: "Nunito", Arial, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.45;
 }
 
 .create-story-form .field input,
