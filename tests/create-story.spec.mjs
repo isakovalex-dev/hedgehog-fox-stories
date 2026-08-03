@@ -130,6 +130,48 @@ test("generation dialog keeps approved paper tokens and responsive task cards", 
   previewTasks.forEach((previewTask) => expect(previewTask).not.toContain(activeTask));
 });
 
+test("create form recovers from a validation error without browser errors", async ({ page }) => {
+  await page.route("**/api/generate-story", (route) =>
+    route.fulfill({
+      contentType: "application/json",
+      status: 422,
+      body: JSON.stringify({ error: "Тема истории слишком короткая." })
+    })
+  );
+
+  await page.goto("/create");
+  await page.waitForFunction(() => window.HFSupabaseService?.isAuthenticated?.());
+
+  const browserErrors = [];
+  const expectedValidationTransportError =
+    "Failed to load resource: the server responded with a status of 422 (Unprocessable Entity)";
+  page.on("pageerror", (error) => browserErrors.push(error.message));
+  page.on("console", (message) => {
+    if (message.type() === "error" && message.text() !== expectedValidationTransportError) {
+      browserErrors.push(message.text());
+    }
+  });
+
+  const topic = "Тихий лес";
+  const lesson = "Беречь друзей";
+  const submitButton = page.getByRole("button", { name: /Создать сказку/ });
+  await page.getByLabel(/Тема истории/).fill(topic);
+  await page.getByLabel(/Чему должна научить/).fill(lesson);
+  await submitButton.click();
+
+  const overlay = page.locator("#generationOverlay");
+  await expect(overlay).toHaveAttribute("data-state", "error");
+  await expect(overlay).toContainText("Пока не получилось создать сказку");
+  await expect(overlay.locator("#generationErrorMessage")).toContainText("Не удалось создать историю");
+
+  await page.getByRole("button", { name: "Закрыть" }).click();
+  await expect(overlay).toBeHidden();
+  await expect(submitButton).toBeEnabled();
+  await expect(page.getByLabel(/Тема истории/)).toHaveValue(topic);
+  await expect(page.getByLabel(/Чему должна научить/)).toHaveValue(lesson);
+  expect(browserErrors).toEqual([]);
+});
+
 for (const width of [320, 375, 430, 768, 1024, 1440, 1920]) {
   test(`create page has no horizontal overflow at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
