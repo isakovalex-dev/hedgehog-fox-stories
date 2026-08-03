@@ -10,7 +10,6 @@
   const { EVENTS, trackEvent } = analyticsService;
   const BACKEND_GENERATION_TIMEOUT_MS = 30000;
   const PAYMENT_CHECKOUT_TIMEOUT_MS = 20000;
-  const generationMiniGamesEnabled = appConfig.GENERATION_MINI_GAMES_ENABLED === true;
   const paymentReturnIntent = new URLSearchParams(window.location.search).get("payment") === "return";
 
   const storyList = document.querySelector("#storyList");
@@ -42,14 +41,13 @@
   const readerLike = document.querySelector("#readerLike");
   const readerIllustrationAction = document.querySelector("#readerIllustrationAction");
   const generatorForm = document.querySelector("#generatorForm");
+  const submitButton = generatorForm.querySelector('button[type="submit"]');
   const generationStatus = document.querySelector("#generationStatus");
-  const generationWaitPanel = document.querySelector("#generationWaitPanel");
-  const generationWaitTitle = document.querySelector("#generationWaitTitle");
-  const generationTaskText = document.querySelector("#generationTaskText");
-  const generationTaskAnswer = document.querySelector("#generationTaskAnswer");
-  const generationTaskFeedback = document.querySelector("#generationTaskFeedback");
-  const checkGenerationTaskButton = document.querySelector("#checkGenerationTaskButton");
-  const nextGenerationTaskButton = document.querySelector("#nextGenerationTaskButton");
+  const generationFlow = window.HFCreateStoryFlow.create({
+    root: document.querySelector("#generationOverlay"),
+    onOpenStory: (storyId) => openStory(storyId),
+    onRetry: () => generatorForm.requestSubmit()
+  });
   const subscriptionScreen = document.querySelector("#subscriptionScreen");
   const subscriptionTitle = document.querySelector("#subscriptionTitle");
   const subscriptionUsageText = document.querySelector("#subscriptionUsageText");
@@ -156,10 +154,7 @@
   let activeStoryFinishedTracked = false;
   let authNotice = { message: "", tone: "" };
   let passwordRecoverySession = null;
-  let activeGenerationTask = null;
-  let generationTaskTimerId = null;
-  let generationMessageTimerId = null;
-  let generationWaitMessageIndex = 0;
+  let generationInProgress = false;
   let librarySearchQuery = "";
   let librarySortMode = "newest";
   let activeRoute = "home";
@@ -382,23 +377,6 @@
     }
   }
 
-  const generationWaitMessages = [
-    "Ежонок собирает слова...",
-    "Лисёнок выбирает тёплые картинки...",
-    "Страницы складываются в сказку...",
-    "Герои ищут добрый конец...",
-    "История почти готова..."
-  ];
-
-  const missingLetterTasks = [
-    { word: "л_са", answer: "и", hint: "рыжая лесная героиня" },
-    { word: "ёж_к", answer: "и", hint: "маленький колючий друг" },
-    { word: "м_ре", answer: "о", hint: "большая вода" },
-    { word: "др_г", answer: "у", hint: "тот, кто рядом" },
-    { word: "с_нце", answer: "о", hint: "светит утром" },
-    { word: "зв_зда", answer: "е", hint: "горит в небе ночью" }
-  ];
-
   function escapeHtml(value) {
     return String(value)
       .replace(/&/g, "&amp;")
@@ -495,146 +473,6 @@
   function updateGenerationStatus(message = "") {
     if (!generationStatus) return;
     generationStatus.textContent = message || getUsageText();
-  }
-
-  function getRandomInteger(min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-  }
-
-  function pickRandom(items) {
-    return items[getRandomInteger(0, items.length - 1)];
-  }
-
-  function normalizeTaskAnswer(value) {
-    return String(value || "")
-      .trim()
-      .toLowerCase()
-      .replace(/ё/g, "е");
-  }
-
-  function buildArithmeticTask(ageGroup) {
-    const isOlder = ageGroup === "8-10";
-    const taskType = isOlder ? pickRandom(["addition", "subtraction", "multiplication"]) : pickRandom(["addition", "subtraction"]);
-
-    if (taskType === "multiplication") {
-      const left = getRandomInteger(2, 5);
-      const right = getRandomInteger(2, 6);
-      return {
-        text: `Таблица умножения: сколько будет ${left} × ${right}?`,
-        answer: String(left * right),
-        success: "Верно! Таблица умножения помогла Лисёнку.",
-        retry: "Почти. Попробуйте ещё раз."
-      };
-    }
-
-    if (taskType === "subtraction") {
-      const answer = getRandomInteger(2, isOlder ? 18 : 9);
-      const right = getRandomInteger(1, isOlder ? 12 : 6);
-      const left = answer + right;
-      return {
-        text: `Посчитайте: ${left} − ${right} = ?`,
-        answer: String(answer),
-        success: "Правильно! Ежонок аккуратно записал ответ.",
-        retry: "Почти. Посчитайте ещё раз не спеша."
-      };
-    }
-
-    const left = getRandomInteger(2, isOlder ? 24 : 9);
-    const right = getRandomInteger(1, isOlder ? 18 : 8);
-    return {
-      text: `Посчитайте: ${left} + ${right} = ?`,
-      answer: String(left + right),
-      success: "Точно! Ещё одна страница стала ближе.",
-      retry: "Почти. Попробуйте сложить ещё раз."
-    };
-  }
-
-  function buildMissingLetterTask() {
-    const task = pickRandom(missingLetterTasks);
-    return {
-      text: `Вставьте пропущенную букву: ${task.word}. Подсказка: ${task.hint}.`,
-      answer: task.answer,
-      success: "Верно! Слово снова целое.",
-      retry: "Почти. Нужна одна буква."
-    };
-  }
-
-  function buildGenerationTask(formData = null) {
-    const ageGroup = formData ? getFormValue(formData, "ageGroup", "5-7") : "5-7";
-    return Math.random() < 0.68 ? buildArithmeticTask(ageGroup) : buildMissingLetterTask();
-  }
-
-  function renderGenerationTask(task) {
-    activeGenerationTask = task;
-
-    if (generationTaskText) {
-      generationTaskText.textContent = task.text;
-    }
-
-    if (generationTaskAnswer) {
-      generationTaskAnswer.value = "";
-    }
-
-    if (generationTaskFeedback) {
-      generationTaskFeedback.textContent = "";
-    }
-  }
-
-  function updateGenerationWaitTitle() {
-    if (!generationWaitTitle) return;
-
-    generationWaitTitle.textContent = generationWaitMessages[generationWaitMessageIndex];
-    generationWaitMessageIndex = (generationWaitMessageIndex + 1) % generationWaitMessages.length;
-  }
-
-  function startGenerationWaiting(formData) {
-    if (!generationWaitPanel) return;
-
-    generationWaitMessageIndex = 0;
-    generationWaitPanel.classList.toggle("is-simple", !generationMiniGamesEnabled);
-    generationWaitPanel.classList.remove("hidden");
-    updateGenerationWaitTitle();
-
-    window.clearInterval(generationTaskTimerId);
-    window.clearInterval(generationMessageTimerId);
-
-    renderGenerationTask(buildGenerationTask(formData));
-    generationTaskTimerId = window.setInterval(() => {
-      renderGenerationTask(buildGenerationTask(formData));
-    }, 18000);
-
-    if (generationMiniGamesEnabled) {
-      window.HFMiniGames?.open?.(getFormValue(formData, "ageGroup", "5-7"));
-    } else {
-      // Полноэкранные мини-игры отключены, а компактные задания под формой остаются.
-      window.HFMiniGames?.close?.();
-    }
-
-    generationMessageTimerId = window.setInterval(updateGenerationWaitTitle, 12000);
-  }
-
-  function stopGenerationWaiting() {
-    window.clearInterval(generationTaskTimerId);
-    window.clearInterval(generationMessageTimerId);
-    generationTaskTimerId = null;
-    generationMessageTimerId = null;
-    generationWaitMessageIndex = 0;
-    activeGenerationTask = null;
-    generationWaitPanel?.classList.add("hidden");
-  }
-
-  function checkGenerationTaskAnswer() {
-    if (!activeGenerationTask || !generationTaskAnswer || !generationTaskFeedback) return;
-
-    const answer = normalizeTaskAnswer(generationTaskAnswer.value);
-    const expected = normalizeTaskAnswer(activeGenerationTask.answer);
-
-    if (!answer) {
-      generationTaskFeedback.textContent = "Введите ответ.";
-      return;
-    }
-
-    generationTaskFeedback.textContent = answer === expected ? activeGenerationTask.success : activeGenerationTask.retry;
   }
 
   function getStorageStatusText() {
@@ -1866,6 +1704,8 @@
   async function handleGeneratorSubmit(event) {
     event.preventDefault();
 
+    if (generationInProgress) return;
+
     if (!validateGeneratorForm()) return;
 
     if (!subscriptionService.canGenerateStory()) {
@@ -1874,10 +1714,13 @@
     }
 
     const formData = new FormData(generatorForm);
+    let generationFailed = false;
+    generationInProgress = true;
+    submitButton.disabled = true;
+    generationFlow.start({ ageGroup: getFormValue(formData, "ageGroup", "5-6"), trigger: submitButton });
 
     try {
       updateGenerationStatus("Создаю историю...");
-      startGenerationWaiting(formData);
       const generated = await generateStory(formData);
       const story = generated.story;
       const isBackendGenerated = generated.mode.startsWith("backend-");
@@ -1924,8 +1767,6 @@
       renderSubscriptionPanel();
       renderAuthPanel();
       renderAllStoryLists();
-      generatorForm.reset();
-      librarySection.scrollIntoView({ behavior: "smooth", block: "start" });
       trackEvent(EVENTS.STORY_GENERATED_MOCK, {
         storyId: savedStory.id,
         pageCount: savedStory.pages.length,
@@ -1936,18 +1777,17 @@
         meta: generated.meta,
         fallbackReason: generated.fallbackReason
       });
-      if (generationMiniGamesEnabled) {
-        window.HFMiniGames?.storyReady?.(savedStory.id);
-      }
+      generationFlow.setReady({ storyId: savedStory.id });
     } catch (error) {
       console.warn("[app] Cannot save generated story", error);
-      updateGenerationStatus(`Не удалось создать историю: ${error.message || "ошибка"}`);
+      const message = `Не удалось создать историю: ${error.message || "ошибка"}`;
+      generationFailed = true;
+      updateGenerationStatus(message);
+      generationFlow.setError({ message });
       renderAuthPanel();
-      if (generationMiniGamesEnabled) {
-        window.HFMiniGames?.storyError?.();
-      }
     } finally {
-      stopGenerationWaiting();
+      generationInProgress = false;
+      if (generationFailed || !generationFlow.isOpen()) submitButton.disabled = false;
     }
   }
 
@@ -2259,18 +2099,6 @@
     });
   });
 
-  document.querySelector("#openReadyStoryButton")?.addEventListener("click", () => {
-    const storyId = window.HFMiniGames?.getStoryId?.();
-    if (!storyId) return;
-    trackEvent(EVENTS.STORY_OPENED_FROM_GAME, { storyId });
-    window.HFMiniGames.close();
-    openStory(storyId);
-  });
-
-  document.querySelector("#retryGenerationButton")?.addEventListener("click", () => {
-    generatorForm.requestSubmit();
-  });
-
   if (authForm) {
     authForm.addEventListener("submit", handleAuthSubmit);
   }
@@ -2294,26 +2122,6 @@
   passwordToggleButtons.forEach((button) => {
     button.addEventListener("click", handlePasswordToggle);
   });
-
-  if (checkGenerationTaskButton) {
-    checkGenerationTaskButton.addEventListener("click", checkGenerationTaskAnswer);
-  }
-
-  if (nextGenerationTaskButton) {
-    nextGenerationTaskButton.addEventListener("click", () => {
-      renderGenerationTask(buildGenerationTask(new FormData(generatorForm)));
-      generationTaskAnswer?.focus();
-    });
-  }
-
-  if (generationTaskAnswer) {
-    generationTaskAnswer.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        checkGenerationTaskAnswer();
-      }
-    });
-  }
 
   if (readerLike) {
     readerLike.addEventListener("click", (event) => {
