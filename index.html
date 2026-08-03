@@ -906,13 +906,17 @@
         <section class="generation-tasks-panel" id="generationTasksPanel" aria-labelledby="generationTaskTitle">
           <p class="eyebrow">Пока ждём</p>
           <h3 id="generationTaskTitle">Маленькая задачка</h3>
-          <p id="generationTaskText">Решите маленькую задачку.</p>
-          <div class="generation-task-options" id="generationTaskOptions" aria-label="Варианты ответа"></div>
-          <p class="generation-task-feedback" id="generationTaskFeedback" aria-live="assertive"></p>
-          <p class="generation-task-hint" id="generationTaskHint" hidden></p>
-          <div class="generation-task-actions">
-            <button class="button quiet" id="generationTaskSkip" type="button">Пропустить</button>
-            <button class="button quiet" id="generationTaskNext" type="button" hidden>Другая задачка</button>
+          <div class="generation-task-cards" id="generationTaskCards">
+            <article class="generation-task-card generation-task-card--active" id="generationTaskCard">
+              <p id="generationTaskText">Решите маленькую задачку.</p>
+              <div class="generation-task-options" id="generationTaskOptions" aria-label="Варианты ответа"></div>
+              <p class="generation-task-feedback" id="generationTaskFeedback" aria-live="assertive"></p>
+              <p class="generation-task-hint" id="generationTaskHint" hidden></p>
+              <div class="generation-task-actions">
+                <button class="button quiet" id="generationTaskSkip" type="button">Пропустить</button>
+                <button class="button quiet" id="generationTaskNext" type="button" hidden>Другая задачка</button>
+              </div>
+            </article>
           </div>
         </section>
 

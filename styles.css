@@ -396,6 +396,11 @@
 }
 
 .generation-overlay {
+  --create-paper: #fbfaf5;
+  --create-warm-paper: #f1ead8;
+  --create-pine: #73784a;
+  --create-ochre: #c9923d;
+  --create-ink: #4d4136;
   position: fixed;
   z-index: 100;
   inset: 0;
@@ -403,6 +408,7 @@
   place-items: center;
   padding: clamp(0.75rem, 3vw, 2rem);
   overflow: hidden;
+  color: var(--create-ink);
   background: rgba(47, 42, 30, 0.22);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
@@ -428,7 +434,7 @@
   border: 1px solid rgba(115, 120, 74, 0.28);
   border-radius: clamp(1rem, 2.6vw, 1.8rem);
   background: var(--create-paper);
-  box-shadow: 0 26px 62px rgba(47, 42, 30, 0.24);
+  box-shadow: 0 12px 30px rgba(77, 65, 54, 0.14);
   transform: translateY(0);
   transition: opacity 180ms ease, transform 180ms ease;
 }
@@ -514,8 +520,7 @@
   color: var(--create-ink);
 }
 
-.generation-tasks-panel,
-.generation-task-card {
+.generation-tasks-panel {
   display: grid;
   gap: 0.75rem;
   min-width: 0;
@@ -523,6 +528,47 @@
   border: 1px solid rgba(201, 146, 61, 0.35);
   border-radius: 1rem 1.35rem 1.1rem 1.25rem;
   background: rgba(241, 234, 216, 0.72);
+}
+
+.generation-task-cards {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.generation-task-card {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: clamp(0.9rem, 2vw, 1.25rem);
+  border: 1px solid rgba(201, 146, 61, 0.35);
+  border-radius: 1rem 1.35rem 1.1rem 1.25rem;
+  background: rgba(251, 250, 245, 0.78);
+}
+
+.generation-task-card--active {
+  border-color: rgba(201, 146, 61, 0.52);
+  background: rgba(251, 250, 245, 0.9);
+}
+
+.generation-task-card--preview {
+  color: rgba(77, 65, 54, 0.74);
+  background: rgba(241, 234, 216, 0.5);
+}
+
+.generation-task-card__eyebrow,
+.generation-task-card__text {
+  margin: 0;
+  font-family: "Nunito", Arial, sans-serif;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.generation-task-card__eyebrow {
+  color: var(--create-pine);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .generation-tasks-panel h3 {
@@ -578,32 +624,13 @@
 }
 
 @media (min-width: 960px) {
-  .generation-tasks-panel {
-    grid-template-columns: minmax(0, 1fr) minmax(13rem, 0.72fr);
-    column-gap: 1.5rem;
+  .generation-task-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
   }
 
-  .generation-tasks-panel .eyebrow,
-  .generation-tasks-panel h3,
-  .generation-tasks-panel > p,
-  .generation-task-options,
-  .generation-task-feedback,
-  .generation-task-hint,
-  .generation-task-actions {
-    grid-column: 1;
-  }
-
-  .generation-tasks-panel::after {
-    content: "Сказка собирается по кусочкам — совсем скоро можно будет открыть первую страницу.";
-    grid-column: 2;
-    grid-row: 1 / span 6;
-    align-self: stretch;
-    padding: 1rem;
-    border: 1px solid rgba(115, 120, 74, 0.2);
-    border-radius: 0.9rem;
-    color: rgba(77, 65, 54, 0.76);
-    background: rgba(251, 250, 245, 0.68);
-    font: 700 0.86rem/1.45 "Nunito", Arial, sans-serif;
+  .generation-task-card--active {
+    border-color: var(--create-ochre);
   }
 }
 

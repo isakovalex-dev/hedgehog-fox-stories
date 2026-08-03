@@ -92,6 +92,44 @@ test("create form sends selected values and opens the ready story", async ({ pag
   await expect(page).toHaveURL(/\/stories\/story-7$/);
 });
 
+test("generation dialog keeps approved paper tokens and responsive task cards", async ({ page }) => {
+  await page.route("**/api/generate-story", () => new Promise(() => {}));
+  await page.setViewportSize({ width: 320, height: 700 });
+  await page.goto("/create");
+
+  await expect(page.getByLabel(/5 страниц/)).toBeChecked();
+  await page.getByLabel(/Тема истории/).fill("Тихий лес");
+  await page.getByLabel(/Чему должна научить/).fill("Беречь друзей");
+  await page.getByRole("button", { name: /Создать сказку/ }).click();
+
+  const overlay = page.locator("#generationOverlay");
+  const paper = overlay.locator(".generation-overlay__paper");
+  await expect(overlay).toBeVisible();
+  await expect(overlay.locator(".generation-task-card")).toHaveCount(1);
+  expect(await overlay.locator(".generation-task-card--active button").count()).toBeGreaterThan(0);
+
+  const mobileDialog = await paper.evaluate((element) => {
+    const styles = getComputedStyle(element);
+    return {
+      background: styles.backgroundColor,
+      color: styles.color,
+      horizontalFits: element.scrollWidth <= element.clientWidth,
+      verticalContainment: styles.overflowY === "auto" && styles.overscrollBehavior === "contain"
+    };
+  });
+  expect(mobileDialog.background).toBe("rgb(251, 250, 245)");
+  expect(mobileDialog.color).toBe("rgb(77, 65, 54)");
+  expect(mobileDialog.horizontalFits).toBe(true);
+  expect(mobileDialog.verticalContainment).toBe(true);
+
+  await page.setViewportSize({ width: 960, height: 700 });
+  await expect(overlay.locator(".generation-task-card")).toHaveCount(3);
+  await expect(overlay.locator(".generation-task-card--preview button")).toHaveCount(0);
+  const activeTask = await overlay.locator("#generationTaskText").innerText();
+  const previewTasks = await overlay.locator(".generation-task-card--preview").allInnerTexts();
+  previewTasks.forEach((previewTask) => expect(previewTask).not.toContain(activeTask));
+});
+
 for (const width of [320, 375, 430, 768, 1024, 1440, 1920]) {
   test(`create page has no horizontal overflow at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });

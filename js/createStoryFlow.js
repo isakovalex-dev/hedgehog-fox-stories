@@ -23,6 +23,8 @@
       title: find("#generationOverlayTitle"),
       progress: find("#generationProgress"),
       taskPanel: find("#generationTasksPanel"),
+      taskCards: find("#generationTaskCards"),
+      activeTaskCard: find("#generationTaskCard"),
       taskText: find("#generationTaskText"),
       taskOptions: find("#generationTaskOptions"),
       feedback: find("#generationTaskFeedback"),
@@ -106,6 +108,7 @@
       addListener(elements.retry, "click", () => onRetry(), staticBindings);
       addListener(elements.skip, "click", advanceTask, staticBindings);
       addListener(elements.next, "click", advanceTask, staticBindings);
+      addListener(window, "resize", refreshTaskCards, staticBindings);
     }
 
     function setText(element, value) {
@@ -128,6 +131,40 @@
       return true;
     }
 
+    function shouldShowTaskPreviews() {
+      return Boolean(window.matchMedia?.("(min-width: 960px)").matches);
+    }
+
+    function createPreviewCard(task, position) {
+      const preview = documentRef.createElement("article");
+      const label = documentRef.createElement("p");
+      const text = documentRef.createElement("p");
+      preview.className = "generation-task-card generation-task-card--preview";
+      preview.setAttribute?.("aria-hidden", "true");
+      label.className = "generation-task-card__eyebrow";
+      label.textContent = `Следующая задачка ${position}`;
+      text.className = "generation-task-card__text";
+      text.textContent = task.text || "Новая маленькая задачка уже ждёт.";
+      preview.append?.(label, text);
+      return preview;
+    }
+
+    function renderTaskCards(task) {
+      if (!elements.taskCards || !elements.activeTaskCard) return;
+      const previews = shouldShowTaskPreviews()
+        ? tasks
+            .map((previewTask, index) => ({ previewTask, index }))
+            .filter(({ index }) => index !== taskIndex)
+            .slice(0, 2)
+            .map(({ previewTask }, index) => createPreviewCard(previewTask, index + 1))
+        : [];
+      elements.taskCards.replaceChildren?.(elements.activeTaskCard, ...previews);
+    }
+
+    function refreshTaskCards() {
+      if (state === "generating" && tasks[taskIndex]) renderTaskCards(tasks[taskIndex]);
+    }
+
     function renderTask() {
       removeListeners(taskBindings);
       const task = tasks[taskIndex];
@@ -142,6 +179,7 @@
       }
 
       setHidden(elements.taskPanel, false);
+      renderTaskCards(task);
       setText(elements.taskText, task.text || "");
       if (!elements.taskOptions) return;
 
