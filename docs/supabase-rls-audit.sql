@@ -8,7 +8,11 @@ with expected_tables(table_name) as (
     ('story_pages'),
     ('story_likes'),
     ('subscriptions'),
-    ('generation_usage')
+    ('generation_usage'),
+    ('payment_events'),
+    ('ai_usage_counters'),
+    ('ai_generation_reservations'),
+    ('api_rate_windows')
 ),
 rls_status as (
   select
@@ -49,7 +53,11 @@ where schemaname = 'public'
     'story_pages',
     'story_likes',
     'subscriptions',
-    'generation_usage'
+    'generation_usage',
+    'payment_events',
+    'ai_usage_counters',
+    'ai_generation_reservations',
+    'api_rate_windows'
   )
 order by tablename, policyname;
 
@@ -70,11 +78,15 @@ with policy_counts as (
 ),
 expected_tables(table_name, minimum_policy_count) as (
   values
-    ('stories', 3),
-    ('story_pages', 3),
+    ('stories', 5),
+    ('story_pages', 4),
     ('story_likes', 3),
-    ('subscriptions', 3),
-    ('generation_usage', 3)
+    ('subscriptions', 1),
+    ('generation_usage', 1),
+    ('payment_events', 0),
+    ('ai_usage_counters', 1),
+    ('ai_generation_reservations', 0),
+    ('api_rate_windows', 0)
 )
 select
   expected_tables.table_name,
@@ -110,3 +122,38 @@ from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public'
   and p.proname = 'create_generated_story_with_usage';
+
+select
+  n.nspname as schema_name,
+  p.proname as function_name,
+  pg_get_function_arguments(p.oid) as arguments,
+  p.prosecdef as security_definer,
+  p.proacl as function_acl
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.proname in (
+    'reserve_ai_usage',
+    'complete_ai_usage',
+    'release_ai_usage',
+    'enforce_api_rate_limit',
+    'create_story_from_reservation',
+    'get_current_usage',
+    'apply_yookassa_payment',
+    'create_generated_story_with_usage',
+    'get_generation_access'
+  )
+order by p.proname, pg_get_function_identity_arguments(p.oid);
+
+select
+  schemaname,
+  tablename,
+  policyname,
+  roles,
+  cmd,
+  qual,
+  with_check
+from pg_policies
+where schemaname = 'storage'
+  and tablename = 'objects'
+  and policyname = 'story_illustrations_owner_read';
