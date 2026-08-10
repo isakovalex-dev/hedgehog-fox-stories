@@ -5,13 +5,20 @@ process.env.OPENAI_IMAGE_API_KEY = "test-key";
 process.env.IMAGE_MODEL = "gpt-image-2";
 process.env.IMAGE_SIZE = "1536x1024";
 process.env.IMAGE_QUALITY = "medium";
-process.env.SUPABASE_SECRET_KEY = "test-secret";
+process.env.SUPABASE_URL = "https://supabase.example.test";
+process.env.SUPABASE_ANON_KEY = "test-anon-key";
+process.env.SUPABASE_SECRET_KEY = "test-service-key";
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const handler = require("../api/generate-story-illustration.js");
+
+const USER_ID = "a0a1a2a3-a4a5-4a6a-8a8a-a9aaabacadae";
+const RESERVATION_ID = "b0b1b2b3-b4b5-4b6b-8b8b-b9babbbcbdbE".toLowerCase();
+const IDEMPOTENCY_KEY = "c0c1c2c3-c4c5-4c6c-8c8c-c9cacbcccdce";
+const PROVIDER_URL = "https://api.openai.com/v1/images/generations";
 
 function json(value, status = 200, headers = {}) {
   return new Response(JSON.stringify(value), {
@@ -20,78 +27,261 @@ function json(value, status = 200, headers = {}) {
   });
 }
 
-async function runRequest(body, onProviderRequest) {
-  const originalFetch = global.fetch;
-  global.fetch = async (url, options = {}) => {
-    const requestUrl = String(url);
-
-    if (requestUrl.includes("/auth/v1/user")) return json({ id: "user-1" });
-    if (requestUrl.includes("/rest/v1/stories?")) return json([{ id: "story-1", title: "Test", mood: "calm" }]);
-    if (requestUrl.includes("/rest/v1/story_pages?")) {
-      return json([
-        {
-          id: "page-1",
-          page_number: 1,
-          text: "Ежонок нашёл красный воздушный шар у реки.",
-          image_prompt: "Hedgehog finds a red balloon by a river.",
-          image_url: ""
-        }
-      ]);
-    }
-    if (requestUrl.startsWith("https://api.openai.com/v1/images/")) {
-      onProviderRequest(requestUrl, options);
-      return json(
-        { data: [{ b64_json: Buffer.from("image-bytes").toString("base64") }], usage: { output_tokens: 34 } },
-        200,
-        { "x-request-id": "req-test" }
-      );
-    }
-    if (requestUrl.includes("/storage/v1/object/")) return json({ Key: "ok" });
-    if (requestUrl.includes("/rest/v1/story_pages?id=")) return new Response("", { status: 204 });
-    throw new Error(`Unexpected URL: ${requestUrl}`);
+function getPage(imageUrl = "") {
+  return {
+    id: "page-1",
+    page_number: 1,
+    text: "Ежонок нашёл красный воздушный шар у реки.",
+    image_prompt: "Hedgehog finds a red balloon by a river.",
+    image_url: imageUrl
   };
+}
 
+async function runRequest(fetchHandler, body = {}, pageImageUrl = "") {
+  const originalFetch = global.fetch;
+  const headers = {};
   let output = "";
+  global.fetch = fetchHandler;
   const req = {
     method: "POST",
-    headers: { origin: "http://localhost:8031", authorization: "Bearer test" },
-    body: { storyId: "story-1", pageNumber: 1, force: true, ...body }
+    headers: {
+      origin: "http://localhost:8031",
+      authorization: "Bearer caller-token",
+      "x-idempotency-key": IDEMPOTENCY_KEY
+    },
+    body: { storyId: "story-1", pageNumber: 1, ...body }
   };
-  const res = { statusCode: 0, setHeader() {}, end(value) { output = value; } };
+  const res = {
+    statusCode: 0,
+    setHeader(name, value) { headers[String(name).toLowerCase()] = value; },
+    end(value) { output = value; }
+  };
 
   try {
     await handler(req, res);
-    return JSON.parse(output);
+    return { statusCode: res.statusCode, body: JSON.parse(output), headers };
   } finally {
     global.fetch = originalFetch;
   }
 }
 
+function auth(url) {
+  return String(url) === "https://supabase.example.test/auth/v1/user";
+}
+
+function story(url) {
+  return String(url).includes("/rest/v1/stories?");
+}
+
+function page(url) {
+  return String(url).includes("/rest/v1/story_pages?");
+}
+
+function reserve(url) {
+  return String(url) === "https://supabase.example.test/rest/v1/rpc/reserve_ai_usage";
+}
+
+function complete(url) {
+  return String(url) === "https://supabase.example.test/rest/v1/rpc/complete_ai_usage";
+}
+
+function release(url) {
+  return String(url) === "https://supabase.example.test/rest/v1/rpc/release_ai_usage";
+}
+
+function providerResponse() {
+  return json(
+    { data: [{ b64_json: Buffer.from("image-bytes").toString("base64") }], usage: { output_tokens: 34 } },
+    200,
+    { "x-request-id": "req-test" }
+  );
+}
+
+function standardResponses(url, options, pageImageUrl = "") {
+  if (auth(url)) return json({ id: USER_ID });
+  if (story(url)) return json([{ id: "story-1", title: "Test", mood: "calm" }]);
+  if (page(url)) return json([getPage(pageImageUrl)]);
+  if (String(url).includes("/storage/v1/object/")) return json({ Key: "ok" });
+  if (String(url).includes("/rest/v1/story_pages?id=")) return new Response("", { status: 204 });
+  throw new Error(`Unexpected URL: ${url}`);
+}
+
 test("style_only sends no image reference and keeps the style passport before page text", async () => {
-  const result = await runRequest({}, (url, options) => {
-    assert.equal(url, "https://api.openai.com/v1/images/generations");
-    assert.equal(typeof options.body, "string");
-    const payload = JSON.parse(options.body);
-    assert.equal(payload.model, "gpt-image-2");
-    assert.equal(payload.quality, "medium");
-    assert.ok(payload.prompt.includes("STYLE PASSPORT"));
-    assert.ok(payload.prompt.indexOf("STYLE PASSPORT") < payload.prompt.indexOf("EXACT PAGE TEXT IN RUSSIAN"));
+  const result = await runRequest(async (url, options = {}) => {
+    if (String(url) === PROVIDER_URL) {
+      const payload = JSON.parse(options.body);
+      assert.equal(payload.model, "gpt-image-2");
+      assert.equal(payload.quality, "medium");
+      assert.ok(payload.prompt.includes("STYLE PASSPORT"));
+      assert.ok(payload.prompt.indexOf("STYLE PASSPORT") < payload.prompt.indexOf("EXACT PAGE TEXT IN RUSSIAN"));
+      return providerResponse();
+    }
+    if (reserve(url)) return json({ allowed: true, code: "reserved", reservation: { id: RESERVATION_ID } });
+    if (complete(url)) return json({ completed: true, usage: { resource_kind: "image", used_count: 1 } });
+    return standardResponses(url, options);
   });
 
-  assert.equal(result.illustrated, true);
+  assert.equal(result.statusCode, 200);
+  assert.equal(result.body.illustrated, true);
+  assert.deepEqual(result.body.usage, { resource_kind: "image", used_count: 1 });
+  assert.equal(result.headers.vary, "Origin");
 });
 
 test("with_references sends only explicitly selected unique files", async () => {
-  const result = await runRequest(
-    { generationMode: "with_references", referenceIds: ["sea-bench", "sea-bench"] },
-    (url, options) => {
-      assert.equal(url, "https://api.openai.com/v1/images/edits");
+  const result = await runRequest(async (url, options = {}) => {
+    if (String(url) === "https://api.openai.com/v1/images/edits") {
       assert.equal(options.body.getAll("image[]").length, 1);
       assert.equal(options.body.getAll("image[]")[0].name, "sea-bench.png");
+      return providerResponse();
     }
+    if (reserve(url)) return json({ allowed: true, code: "reserved", reservation: { id: RESERVATION_ID } });
+    if (complete(url)) return json({ completed: true, usage: { resource_kind: "image", used_count: 1 } });
+    return standardResponses(url, options);
+  }, { generationMode: "with_references", referenceIds: ["sea-bench", "sea-bench"] });
+
+  assert.equal(result.statusCode, 200);
+  assert.equal(result.body.illustrated, true);
+  assert.equal(result.headers.vary, "Origin");
+});
+
+test("image quota rejection never calls the OpenAI image endpoint", async () => {
+  let providerCalls = 0;
+  let storageCalls = 0;
+  const result = await runRequest(async (url, options = {}) => {
+    if (String(url).startsWith("https://api.openai.com/v1/images/")) providerCalls += 1;
+    if (String(url).includes("/storage/v1/object/")) storageCalls += 1;
+    if (reserve(url)) return json({ allowed: false, code: "quota_exhausted" });
+    return standardResponses(url, options);
+  });
+
+  assert.equal(result.statusCode, 403);
+  assert.deepEqual(result.body, { error: "quota_exhausted", message: "Лимит генерации исчерпан." });
+  assert.equal(providerCalls, 0);
+  assert.equal(storageCalls, 0);
+  assert.equal(result.headers.vary, "Origin");
+  assert.match(result.headers["access-control-allow-headers"], /X-Idempotency-Key/i);
+});
+
+test("a stored current image returns without a reservation or credit", async () => {
+  let providerCalls = 0;
+  let reservationCalls = 0;
+  const result = await runRequest(
+    async (url, options = {}) => {
+      if (String(url).startsWith("https://api.openai.com/v1/images/")) providerCalls += 1;
+      if (reserve(url)) reservationCalls += 1;
+      return standardResponses(url, options, "storage://story-illustrations/" + USER_ID + "/story-1/page-1.webp");
+    },
+    {},
+    "storage://story-illustrations/" + USER_ID + "/story-1/page-1.webp"
   );
 
-  assert.equal(result.illustrated, true);
+  assert.equal(result.statusCode, 200);
+  assert.deepEqual(result.body, { illustrated: true, alreadyExists: true, pageNumber: 1 });
+  assert.equal(reservationCalls, 0);
+  assert.equal(providerCalls, 0);
+  assert.equal(result.headers.vary, "Origin");
+});
+
+test("force true reserves and completes one image credit", async () => {
+  const rpcCalls = [];
+  const writeSteps = [];
+  let providerCalls = 0;
+  const result = await runRequest(
+    async (url, options = {}) => {
+      if (String(url) === PROVIDER_URL) {
+        providerCalls += 1;
+        return providerResponse();
+      }
+      if (reserve(url)) {
+        rpcCalls.push("reserve_ai_usage");
+        assert.deepEqual(JSON.parse(options.body), {
+          p_user_id: USER_ID,
+          p_resource_kind: "image",
+          p_idempotency_key: IDEMPOTENCY_KEY
+        });
+        return json({ allowed: true, code: "reserved", reservation: { id: RESERVATION_ID } });
+      }
+      if (String(url) === "https://supabase.example.test/rest/v1/rpc/complete_ai_usage") {
+        rpcCalls.push("complete_ai_usage");
+        writeSteps.push("complete");
+        assert.deepEqual(JSON.parse(options.body), { p_reservation_id: RESERVATION_ID });
+        return json({ completed: true, usage: { resource_kind: "image", used_count: 1 } });
+      }
+      if (String(url).includes("/storage/v1/object/")) {
+        writeSteps.push("upload");
+        return json({ Key: "ok" });
+      }
+      if (String(url).includes("/rest/v1/story_pages?id=")) {
+        writeSteps.push("link");
+        return new Response(null, { status: 204 });
+      }
+      return standardResponses(url, options, "storage://story-illustrations/" + USER_ID + "/story-1/page-1.webp");
+    },
+    { force: true },
+    "storage://story-illustrations/" + USER_ID + "/story-1/page-1.webp"
+  );
+
+  assert.equal(result.statusCode, 200);
+  assert.equal(providerCalls, 1);
+  assert.deepEqual(rpcCalls, ["reserve_ai_usage", "complete_ai_usage"]);
+  assert.deepEqual(writeSteps, ["upload", "link", "complete"]);
+  assert.deepEqual(result.body, {
+    illustrated: true,
+    alreadyExists: false,
+    regenerated: true,
+    pageNumber: 1,
+    usage: { resource_kind: "image", used_count: 1 }
+  });
+  assert.equal(result.headers.vary, "Origin");
+});
+
+test("provider or Storage failure releases a pending image reservation", async () => {
+  for (const failureTarget of ["provider", "storage"]) {
+    let releasedReservationId = null;
+    let providerCalls = 0;
+    const result = await runRequest(async (url, options = {}) => {
+      if (String(url) === PROVIDER_URL) {
+        providerCalls += 1;
+        if (failureTarget === "provider") return json({ error: { message: "provider token secret" } }, 503);
+        return providerResponse();
+      }
+      if (reserve(url)) return json({ allowed: true, code: "reserved", reservation: { id: RESERVATION_ID } });
+      if (release(url)) {
+        releasedReservationId = JSON.parse(options.body).p_reservation_id;
+        return json({ released: true });
+      }
+      if (failureTarget === "storage" && String(url).includes("/storage/v1/object/")) {
+        return json({ message: "storage provider secret" }, 500);
+      }
+      return standardResponses(url, options);
+    });
+
+    assert.equal(providerCalls, failureTarget === "provider" ? 2 : 1);
+    assert.equal(releasedReservationId, RESERVATION_ID);
+    if (failureTarget === "provider") {
+      assert.equal(result.statusCode, 502);
+      assert.deepEqual(result.body, { error: "provider_unavailable", message: "Сервис генерации временно недоступен." });
+    } else {
+      assert.equal(result.statusCode, 500);
+      assert.deepEqual(result.body, { error: "internal_error", message: "Внутренняя ошибка сервера." });
+    }
+    assert.doesNotMatch(JSON.stringify(result.body), /secret/);
+    assert.equal(result.headers.vary, "Origin");
+  }
+});
+
+test("an idempotency replay does not make a second image-provider request", async () => {
+  let providerCalls = 0;
+  const result = await runRequest(async (url, options = {}) => {
+    if (String(url).startsWith("https://api.openai.com/v1/images/")) providerCalls += 1;
+    if (reserve(url)) return json({ allowed: false, code: "idempotency_replayed" });
+    return standardResponses(url, options);
+  });
+
+  assert.equal(result.statusCode, 409);
+  assert.deepEqual(result.body, { error: "idempotency_replayed", message: "Этот запрос уже обработан." });
+  assert.equal(providerCalls, 0);
+  assert.equal(result.headers.vary, "Origin");
 });
 
 test("style profile contains source hashes and code has no model or quality fallback", () => {

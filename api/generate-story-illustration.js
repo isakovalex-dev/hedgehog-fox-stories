@@ -4,6 +4,14 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const BUNDLED_STYLE_PROFILE = require("../assets/illustration-style-profile.json");
+const {
+  authenticateRequest,
+  readIdempotencyKey,
+  reserveAiUsage,
+  completeAiUsage,
+  releaseAiUsage,
+  toPublicError
+} = require("./_ai-usage.js");
 
 const DEFAULT_ORIGIN = "https://ezhik-i-lisenok.ru";
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ynidvdesfolavhngubqv.supabase.co";
@@ -24,10 +32,6 @@ const MAX_EXPLICIT_REFERENCES = 2;
 const MAX_REFERENCE_BYTES = 5 * 1024 * 1024;
 const GENERATION_MODES = new Set(["style_only", "with_references", "iteration"]);
 const LOCAL_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/;
-const ILLUSTRATION_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
-const ILLUSTRATION_RATE_LIMIT_MAX_REQUESTS = 12;
-const illustrationRequestTimes = new Map();
-
 function createHttpError(statusCode, message, details = null) {
   const error = new Error(message);
   error.statusCode = statusCode;
@@ -55,8 +59,9 @@ function getAllowedOrigin(origin) {
 
 function setCorsHeaders(req, res) {
   res.setHeader("Access-Control-Allow-Origin", getAllowedOrigin(req.headers?.origin || ""));
+  res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Idempotency-Key");
   res.setHeader("Access-Control-Max-Age", "86400");
 }
 
@@ -132,20 +137,6 @@ async function supabaseRequest(path, options = {}, accessToken) {
   });
 
   return parseJsonResponse(response, "Supabase request failed");
-}
-
-async function getAuthenticatedUser(req) {
-  const accessToken = getBearerToken(req);
-  if (!accessToken) {
-    throw createHttpError(401, "Authorization token is required");
-  }
-
-  const user = await supabaseRequest("/auth/v1/user", { method: "GET" }, accessToken);
-  if (!user?.id) {
-    throw createHttpError(401, "Authorization token is invalid");
-  }
-
-  return { user, accessToken };
 }
 
 function validateStoryId(storyId) {
@@ -509,24 +500,6 @@ function getStorageReference(objectPath) {
   return STORAGE_REFERENCE_PREFIX + objectPath;
 }
 
-function enforceIllustrationRateLimit(userId) {
-  const now = Date.now();
-  const requestTimes = (illustrationRequestTimes.get(userId) || []).filter(
-    (time) => now - time < ILLUSTRATION_RATE_LIMIT_WINDOW_MS
-  );
-
-  if (requestTimes.length >= ILLUSTRATION_RATE_LIMIT_MAX_REQUESTS) {
-    const retryAfterSeconds = Math.max(
-      1,
-      Math.ceil((ILLUSTRATION_RATE_LIMIT_WINDOW_MS - (now - requestTimes[0])) / 1000)
-    );
-    throw createHttpError(429, `Слишком много запросов на иллюстрации. Повторите через ${retryAfterSeconds} сек.`);
-  }
-
-  requestTimes.push(now);
-  illustrationRequestTimes.set(userId, requestTimes);
-}
-
 function hasCurrentPageIllustration(imageUrl, pageNumber) {
   const expectedPathPart = "/page-" + pageNumber;
   const value = String(imageUrl || "");
@@ -579,6 +552,8 @@ async function saveImageReference(pageId, storageReference) {
 
 async function handler(req, res) {
   const startedAt = Date.now();
+  let reservationId = null;
+  let reservationCompleted = false;
   setCorsHeaders(req, res);
 
   if (req.method === "OPTIONS") {
@@ -600,7 +575,8 @@ async function handler(req, res) {
     const storyId = validateStoryId(body.storyId);
     const pageNumber = validatePageNumber(body.pageNumber);
     const force = body.force === true;
-    const { user, accessToken } = await getAuthenticatedUser(req);
+    const accessToken = getBearerToken(req);
+    const user = await authenticateRequest(req);
     const { story, page } = await fetchStoryAndPage(storyId, pageNumber, accessToken);
     const styleProfile = await loadStyleProfile();
     const generationOptions = getGenerationOptions(body, styleProfile);
@@ -629,7 +605,13 @@ async function handler(req, res) {
       return;
     }
 
-    enforceIllustrationRateLimit(user.id);
+    const idempotencyKey = readIdempotencyKey(req);
+    const reservation = await reserveAiUsage({
+      userId: user.id,
+      resourceKind: "image",
+      idempotencyKey
+    });
+    reservationId = reservation.reservation.id;
 
     const prompt = buildIllustrationPrompt(
       story,
@@ -638,7 +620,13 @@ async function handler(req, res) {
       generationOptions.userInstructions,
       generationOptions.mode
     );
-    const imageResult = await createImage(prompt, generationOptions, page, user.id, story.id);
+    let imageResult;
+    try {
+      imageResult = await createImage(prompt, generationOptions, page, user.id, story.id);
+    } catch (error) {
+      if (!error.code && error.statusCode === 502) error.code = "provider_unavailable";
+      throw error;
+    }
     const objectPath = getObjectPath(
       user.id,
       story.id,
@@ -649,6 +637,8 @@ async function handler(req, res) {
 
     await uploadImage(objectPath, imageResult.imageBytes);
     await saveImageReference(page.id, storageReference);
+    const completion = await completeAiUsage(reservationId);
+    reservationCompleted = true;
 
     logIllustrationEvent("illustration_succeeded", {
       model: IMAGE_MODEL,
@@ -676,17 +666,28 @@ async function handler(req, res) {
       illustrated: true,
       alreadyExists: false,
       regenerated: force,
-      pageNumber
+      pageNumber,
+      usage: completion?.usage || null
     });
   } catch (error) {
+    if (reservationId && !reservationCompleted) {
+      try {
+        await releaseAiUsage(reservationId);
+      } catch (releaseError) {
+        logIllustrationEvent("illustration_reservation_release_failed", {
+          error: getSafeLogError(releaseError),
+          reservationId
+        });
+      }
+    }
+    const publicError = toPublicError(error);
     logIllustrationEvent("illustration_failed", {
-      error: getSafeLogError(error),
+      error: { code: publicError.code, statusCode: publicError.statusCode },
       durationMs: Date.now() - startedAt
     });
-    sendJson(req, res, error.statusCode || 500, {
-      error: "Illustration endpoint failed",
-      message: error.message || "Unknown error"
-    });
+    const payload = { error: publicError.code, message: publicError.publicMessage };
+    if (publicError.retryAfterSeconds) payload.retryAfterSeconds = publicError.retryAfterSeconds;
+    sendJson(req, res, publicError.statusCode, payload);
   }
 }
 
