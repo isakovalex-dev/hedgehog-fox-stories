@@ -39,6 +39,12 @@ function createHttpError(statusCode, message, details = null) {
   return error;
 }
 
+function createInvalidRequestError(message) {
+  const error = createHttpError(400, message);
+  error.code = "invalid_request";
+  return error;
+}
+
 function getSafeLogError(error) {
   return {
     statusCode: Number(error?.statusCode) || 500,
@@ -103,7 +109,7 @@ async function getRequestBody(req) {
   try {
     return JSON.parse(rawBody);
   } catch (error) {
-    throw createHttpError(400, "Illustration request body must be valid JSON");
+    throw createInvalidRequestError("Illustration request body must be valid JSON");
   }
 }
 
@@ -143,7 +149,7 @@ function validateStoryId(storyId) {
   const normalized = String(storyId || "").trim();
 
   if (!/^[a-zA-Z0-9-]{1,80}$/.test(normalized) || normalized.length > MAX_STORY_ID_LENGTH) {
-    throw createHttpError(400, "Story id is invalid");
+    throw createInvalidRequestError("Story id is invalid");
   }
 
   return normalized;
@@ -211,7 +217,7 @@ function validatePageNumber(pageNumber) {
   const normalized = Number(pageNumber || 1);
 
   if (!Number.isInteger(normalized) || normalized < 1 || normalized > 5) {
-    throw createHttpError(400, "Page number must be between 1 and 5");
+    throw createInvalidRequestError("Page number must be between 1 and 5");
   }
 
   return normalized;
@@ -308,23 +314,23 @@ function getGenerationOptions(body, styleProfile) {
     : [];
 
   if (!GENERATION_MODES.has(mode)) {
-    throw createHttpError(400, "Illustration generation mode is invalid");
+    throw createInvalidRequestError("Illustration generation mode is invalid");
   }
 
   if (referenceIds.length > MAX_EXPLICIT_REFERENCES) {
-    throw createHttpError(400, `Choose at most ${MAX_EXPLICIT_REFERENCES} illustration references`);
+    throw createInvalidRequestError(`Choose at most ${MAX_EXPLICIT_REFERENCES} illustration references`);
   }
 
   if (mode === "style_only" && referenceIds.length) {
-    throw createHttpError(400, "style_only generation does not accept image references");
+    throw createInvalidRequestError("style_only generation does not accept image references");
   }
 
   if (mode === "with_references" && !referenceIds.length) {
-    throw createHttpError(400, "Choose at least one illustration reference");
+    throw createInvalidRequestError("Choose at least one illustration reference");
   }
 
   if (mode === "iteration" && !userInstructions) {
-    throw createHttpError(400, "Describe the illustration change for iteration mode");
+    throw createInvalidRequestError("Describe the illustration change for iteration mode");
   }
 
   const referencesById = new Map(
@@ -333,7 +339,7 @@ function getGenerationOptions(body, styleProfile) {
   const selectedReferences = referenceIds.map((referenceId) => referencesById.get(referenceId));
 
   if (selectedReferences.some((reference) => !reference)) {
-    throw createHttpError(400, "An illustration reference is not available");
+    throw createInvalidRequestError("An illustration reference is not available");
   }
 
   return { mode, userInstructions, selectedReferences };

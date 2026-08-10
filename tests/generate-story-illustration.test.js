@@ -49,7 +49,7 @@ async function runRequest(fetchHandler, body = {}, pageImageUrl = "") {
       authorization: "Bearer caller-token",
       "x-idempotency-key": IDEMPOTENCY_KEY
     },
-    body: { storyId: "story-1", pageNumber: 1, ...body }
+    body: typeof body === "string" ? body : { storyId: "story-1", pageNumber: 1, ...body }
   };
   const res = {
     statusCode: 0,
@@ -162,6 +162,29 @@ test("image quota rejection never calls the OpenAI image endpoint", async () => 
   assert.match(result.headers["access-control-allow-headers"], /X-Idempotency-Key/i);
 });
 
+test("local image validation failures return a redacted invalid_request response", async () => {
+  const cases = [
+    { name: "invalid JSON", body: "{not-json", privateDetail: "valid JSON" },
+    { name: "invalid story id", body: { storyId: "story/invalid" }, privateDetail: "Story id" },
+    { name: "invalid page number", body: { pageNumber: 6 }, privateDetail: "between 1 and 5" },
+    { name: "invalid generation mode", body: { generationMode: "unsupported" }, privateDetail: "generation mode" }
+  ];
+
+  for (const scenario of cases) {
+    const result = await runRequest(async (url, options = {}) => {
+      if (scenario.name === "invalid generation mode") return standardResponses(url, options);
+      throw new Error(`Unexpected request for ${scenario.name}: ${url}`);
+    }, scenario.body);
+
+    assert.equal(result.statusCode, 400, scenario.name);
+    assert.deepEqual(result.body, {
+      error: "invalid_request",
+      message: "Некорректный запрос."
+    }, scenario.name);
+    assert.doesNotMatch(JSON.stringify(result.body), new RegExp(scenario.privateDetail, "i"), scenario.name);
+  }
+});
+
 test("a stored current image returns without a reservation or credit", async () => {
   let providerCalls = 0;
   let reservationCalls = 0;
@@ -268,6 +291,52 @@ test("provider or Storage failure releases a pending image reservation", async (
     assert.doesNotMatch(JSON.stringify(result.body), /secret/);
     assert.equal(result.headers.vary, "Origin");
   }
+});
+
+test("a failed page link releases the pending image reservation exactly once", async () => {
+  let releaseCalls = 0;
+  let releasedReservationId = null;
+  const result = await runRequest(async (url, options = {}) => {
+    if (String(url) === PROVIDER_URL) return providerResponse();
+    if (reserve(url)) return json({ allowed: true, code: "reserved", reservation: { id: RESERVATION_ID } });
+    if (release(url)) {
+      releaseCalls += 1;
+      releasedReservationId = JSON.parse(options.body).p_reservation_id;
+      return json({ released: true });
+    }
+    if (String(url).includes("/rest/v1/story_pages?id=")) {
+      return json({ message: "page link secret" }, 500);
+    }
+    return standardResponses(url, options);
+  });
+
+  assert.equal(releaseCalls, 1);
+  assert.equal(releasedReservationId, RESERVATION_ID);
+  assert.equal(result.statusCode, 500);
+  assert.deepEqual(result.body, { error: "internal_error", message: "Внутренняя ошибка сервера." });
+  assert.doesNotMatch(JSON.stringify(result.body), /secret|link/i);
+});
+
+test("a failed image completion releases the pending reservation exactly once", async () => {
+  let releaseCalls = 0;
+  let releasedReservationId = null;
+  const result = await runRequest(async (url, options = {}) => {
+    if (String(url) === PROVIDER_URL) return providerResponse();
+    if (reserve(url)) return json({ allowed: true, code: "reserved", reservation: { id: RESERVATION_ID } });
+    if (complete(url)) return json({ message: "completion secret" }, 500);
+    if (release(url)) {
+      releaseCalls += 1;
+      releasedReservationId = JSON.parse(options.body).p_reservation_id;
+      return json({ released: true });
+    }
+    return standardResponses(url, options);
+  });
+
+  assert.equal(releaseCalls, 1);
+  assert.equal(releasedReservationId, RESERVATION_ID);
+  assert.equal(result.statusCode, 500);
+  assert.deepEqual(result.body, { error: "internal_error", message: "Внутренняя ошибка сервера." });
+  assert.doesNotMatch(JSON.stringify(result.body), /secret|completion/i);
 });
 
 test("an idempotency replay does not make a second image-provider request", async () => {
