@@ -72,7 +72,11 @@ with policy_counts as (
       'story_pages',
       'story_likes',
       'subscriptions',
-      'generation_usage'
+      'generation_usage',
+      'payment_events',
+      'ai_usage_counters',
+      'ai_generation_reservations',
+      'api_rate_windows'
     )
   group by tablename
 ),

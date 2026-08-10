@@ -1,4 +1,4 @@
-+begin;
+begin;
 
 create or replace function pg_temp.assert_true(p_condition boolean, p_message text)
 returns void
@@ -211,6 +211,32 @@ select pg_temp.assert_true(
   'complete increments usage exactly once'
 );
 
+-- Finalization must reclaim an expired reservation without creating a story
+-- or consuming its credit.
+select public.reserve_ai_usage(
+  '22222222-2222-2222-2222-222222222222', 'story',
+  'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb9'::uuid
+);
+update public.ai_generation_reservations
+   set created_at = now() - interval '20 minutes',
+       expires_at = now() - interval '1 second'
+ where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb9'::uuid;
+select pg_temp.assert_true(
+  (public.create_story_from_reservation(
+    (select id from public.ai_generation_reservations
+      where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb9'::uuid),
+    'expired', '5-6', '', '', 'private',
+    '[{"text":"expired","scene_tag":"forest_day"}]'::jsonb
+  )->>'code') = 'reservation_expired',
+  'expired story reservation is rejected before story creation'
+);
+select pg_temp.assert_true(
+  (select status = 'released' from public.ai_generation_reservations
+    where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb9'::uuid)
+  and not exists (select 1 from public.stories where title = 'expired'),
+  'expired finalization releases its reservation without creating a story'
+);
+
 insert into public.stories (id, user_id, title, age_group, mood, lesson, visibility)
 values ('33333333-3333-3333-3333-333333333333',
         '22222222-2222-2222-2222-222222222222',
@@ -230,6 +256,12 @@ on conflict do nothing;
 
 set local role authenticated;
 set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select pg_temp.expect_error(
+  $$select public.reserve_ai_usage(
+    '11111111-1111-1111-1111-111111111111', 'story',
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3'::uuid)$$,
+  'authenticated cannot execute a service-role-only reservation RPC'
+);
 select pg_temp.expect_error(
   $$insert into public.stories (user_id, title, age_group, mood, lesson, visibility)
     values ('22222222-2222-2222-2222-222222222222', 'forbidden', '5-6', '', '', 'private')$$,

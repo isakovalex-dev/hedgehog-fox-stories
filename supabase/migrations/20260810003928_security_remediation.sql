@@ -1,4 +1,5 @@
 begin;
+-- Applies after the authoritative baseline migration.
 
 do $$
 begin
@@ -254,18 +255,20 @@ begin
     raise exception 'invalid reservation arguments';
   end if;
 
+  -- Create the first free subscription without relying on a lock for an
+  -- absent row, then take the subscription lock before using its period.
+  insert into public.subscriptions (
+    user_id, status, provider, current_period_start, current_period_end
+  ) values (
+    p_user_id, 'free', 'system', v_now, v_now + interval '30 days'
+  ) on conflict (user_id) do nothing;
+
   select * into v_subscription
     from public.subscriptions
    where user_id = p_user_id
    for update;
 
-  if not found then
-    insert into public.subscriptions (
-      user_id, status, provider, current_period_start, current_period_end
-    ) values (
-      p_user_id, 'free', 'system', v_now, v_now + interval '30 days'
-    ) returning * into v_subscription;
-  elsif v_subscription.status in ('active', 'trial')
+  if v_subscription.status in ('active', 'trial')
     and coalesce(v_subscription.current_period_end, '-infinity'::timestamptz) <= v_now then
     update public.subscriptions
        set status = 'expired', updated_at = v_now
@@ -454,10 +457,11 @@ declare
   v_reservation public.ai_generation_reservations%rowtype;
   v_counter public.ai_usage_counters%rowtype;
 begin
+  -- Every reservation transition locks counter, then reservation. The first
+  -- unlocked read only discovers the immutable counter key.
   select * into v_reservation
     from public.ai_generation_reservations
-   where id = p_reservation_id
-   for update;
+   where id = p_reservation_id;
   if not found then
     raise exception 'reservation not found';
   end if;
@@ -472,6 +476,11 @@ begin
     raise exception 'counter not found';
   end if;
 
+  select * into v_reservation
+    from public.ai_generation_reservations
+   where id = p_reservation_id
+   for update;
+
   if v_reservation.status <> 'reserved' then
     return jsonb_build_object(
       'completed', false,
@@ -482,6 +491,25 @@ begin
         'reserved_count', v_counter.reserved_count,
         'remaining_count', v_counter.limit_count - v_counter.used_count - v_counter.reserved_count
       )
+    );
+  end if;
+
+  if v_reservation.expires_at <= v_now then
+    update public.ai_generation_reservations
+       set status = 'released', released_at = v_now
+     where id = v_reservation.id;
+    update public.ai_usage_counters
+       set reserved_count = greatest(0, reserved_count - 1), updated_at = v_now
+     where user_id = v_counter.user_id
+       and resource_kind = v_counter.resource_kind
+       and period_start = v_counter.period_start
+    returning * into v_counter;
+    return jsonb_build_object(
+      'completed', false, 'code', 'reservation_expired',
+      'usage', jsonb_build_object('resource_kind', v_counter.resource_kind,
+        'limit_count', v_counter.limit_count, 'used_count', v_counter.used_count,
+        'reserved_count', v_counter.reserved_count,
+        'remaining_count', v_counter.limit_count - v_counter.used_count - v_counter.reserved_count)
     );
   end if;
 
@@ -522,10 +550,10 @@ declare
   v_reservation public.ai_generation_reservations%rowtype;
   v_counter public.ai_usage_counters%rowtype;
 begin
+  -- Match complete_ai_usage: counter lock always precedes reservation lock.
   select * into v_reservation
     from public.ai_generation_reservations
-   where id = p_reservation_id
-   for update;
+   where id = p_reservation_id;
   if not found then
     raise exception 'reservation not found';
   end if;
@@ -539,6 +567,11 @@ begin
   if not found then
     raise exception 'counter not found';
   end if;
+
+  select * into v_reservation
+    from public.ai_generation_reservations
+   where id = p_reservation_id
+   for update;
 
   if v_reservation.status <> 'reserved' then
     return jsonb_build_object(
@@ -606,15 +639,13 @@ begin
     raise exception 'story cannot contain more than 7 pages';
   end if;
 
+  -- Discover the immutable counter key first, then take locks in the same
+  -- counter -> reservation order as every other reservation transition.
   select * into v_reservation
     from public.ai_generation_reservations
-   where id = p_reservation_id
-   for update;
+   where id = p_reservation_id;
   if not found or v_reservation.resource_kind <> 'story' then
     raise exception 'story reservation not found';
-  end if;
-  if v_reservation.status <> 'reserved' then
-    raise exception 'story reservation is not pending';
   end if;
 
   select * into v_counter
@@ -625,6 +656,32 @@ begin
    for update;
   if not found or v_counter.reserved_count < 1 then
     raise exception 'story counter is not reserved';
+  end if;
+
+  select * into v_reservation
+    from public.ai_generation_reservations
+   where id = p_reservation_id
+   for update;
+  if v_reservation.status <> 'reserved' then
+    raise exception 'story reservation is not pending';
+  end if;
+  if v_reservation.expires_at <= v_now then
+    update public.ai_generation_reservations
+       set status = 'released', released_at = v_now
+     where id = v_reservation.id;
+    update public.ai_usage_counters
+       set reserved_count = greatest(0, reserved_count - 1), updated_at = v_now
+     where user_id = v_counter.user_id
+       and resource_kind = 'story'
+       and period_start = v_counter.period_start
+    returning * into v_counter;
+    return jsonb_build_object(
+      'created', false, 'code', 'reservation_expired',
+      'usage', jsonb_build_object('resource_kind', 'story',
+        'limit_count', v_counter.limit_count, 'used_count', v_counter.used_count,
+        'reserved_count', v_counter.reserved_count,
+        'remaining_count', v_counter.limit_count - v_counter.used_count - v_counter.reserved_count)
+    );
   end if;
 
   insert into public.stories (
@@ -853,40 +910,30 @@ begin
     );
   end if;
 
-  select id
-    into v_subscription_id
+  -- A payment may arrive while the user's first free reservation is being
+  -- created. Insert-or-ignore, then lock the resulting row avoids a unique
+  -- violation on the one-row-per-user subscription invariant.
+  insert into public.subscriptions (
+    user_id, status, provider, provider_subscription_id,
+    current_period_start, current_period_end
+  ) values (
+    p_user_id, 'active', 'yookassa', trim(p_provider_payment_id),
+    v_period_start, v_period_end
+  ) on conflict (user_id) do nothing;
+
+  select id into v_subscription_id
     from public.subscriptions
    where user_id = p_user_id
    for update;
 
-  if found then
-    update public.subscriptions
-       set status = 'active',
-           provider = 'yookassa',
-           provider_subscription_id = trim(p_provider_payment_id),
-           current_period_start = v_period_start,
-           current_period_end = v_period_end,
-           updated_at = now()
-     where id = v_subscription_id;
-  else
-    insert into public.subscriptions (
-      user_id,
-      status,
-      provider,
-      provider_subscription_id,
-      current_period_start,
-      current_period_end
-    )
-    values (
-      p_user_id,
-      'active',
-      'yookassa',
-      trim(p_provider_payment_id),
-      v_period_start,
-      v_period_end
-    )
-    returning id into v_subscription_id;
-  end if;
+  update public.subscriptions
+     set status = 'active',
+         provider = 'yookassa',
+         provider_subscription_id = trim(p_provider_payment_id),
+         current_period_start = v_period_start,
+         current_period_end = v_period_end,
+         updated_at = now()
+   where id = v_subscription_id;
 
   insert into public.ai_usage_counters (
     user_id, resource_kind, period_start, period_end, limit_count, used_count, reserved_count
