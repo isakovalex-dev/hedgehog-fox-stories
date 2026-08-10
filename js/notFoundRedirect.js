@@ -1,0 +1,6 @@
+(function (window) {
+  "use strict";
+
+  const requestedPath = window.location.pathname + window.location.search + window.location.hash;
+  window.location.replace("/?route=" + encodeURIComponent(requestedPath));
+})(window);

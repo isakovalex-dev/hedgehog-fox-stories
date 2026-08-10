@@ -52,3 +52,21 @@ test("operations runbook defines the 48-hour report-only observation gate", asyn
   assert.match(operations, /Content-Security-Policy/);
   assert.match(operations, /non-production/i);
 });
+
+test("404 redirect and analytics scripts stay reachable from a nested missing URL", async () => {
+  const html = await readProjectFile("404.html");
+  await readProjectFile("js/notFoundRedirect.js");
+  await readProjectFile("js/vercelAnalytics.js");
+  const scripts = [...html.matchAll(/<script(?:\s+defer)?\s+src="([^"]+)"><\/script>/g)].map((match) => match[1]);
+
+  assert.ok(scripts.includes("/js/notFoundRedirect.js"));
+  assert.ok(scripts.includes("/js/vercelAnalytics.js"));
+
+  for (const script of ["/js/notFoundRedirect.js", "/js/vercelAnalytics.js"]) {
+    assert.equal(
+      new URL(script, "https://ezhik-i-lisenok.ru/missing/path").pathname,
+      script,
+      `${script} must not resolve beneath the unknown nested path`
+    );
+  }
+});
