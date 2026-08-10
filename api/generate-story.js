@@ -1,5 +1,14 @@
 "use strict";
 
+const {
+  authenticateRequest,
+  readIdempotencyKey,
+  reserveAiUsage,
+  releaseAiUsage,
+  finalizeStoryReservation,
+  toPublicError
+} = require("./_ai-usage.js");
+
 const ALLOWED_SCENE_TAGS = [
   "sea_bench",
   "forest_day",
@@ -42,16 +51,10 @@ const MAX_STORY_TITLE_LENGTH = 120;
 const MAX_STORY_LESSON_LENGTH = 160;
 const MAX_PAGE_TEXT_LENGTH = 700;
 const MAX_IMAGE_PROMPT_LENGTH = 240;
-const SUPABASE_URL = process.env.SUPABASE_URL || "https://ynidvdesfolavhngubqv.supabase.co";
-const SUPABASE_ANON_KEY =
-  process.env.SUPABASE_ANON_KEY || "sb_publishable_nQg--YaINF8OoBd4wceHkA_yo76Z5hy";
 const AI_GENERATION_ENABLED = process.env.AI_GENERATION_ENABLED === "true";
 const AI_API_BASE_URL = process.env.AI_API_BASE_URL || "";
 const AI_API_KEY = process.env.AI_API_KEY || "";
 const AI_MODEL = process.env.AI_MODEL || "";
-const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
-const RATE_LIMIT_MAX_REQUESTS = 6;
-const generationRequestTimes = new Map();
 const LOCAL_ORIGINS = new Set([
   "http://localhost:8000",
   "http://localhost:8001",
@@ -61,30 +64,10 @@ const LOCAL_ORIGINS = new Set([
   "http://127.0.0.1:8000"
 ]);
 
-function addDays(date, days) {
-  const nextDate = new Date(date);
-  nextDate.setDate(nextDate.getDate() + days);
-  return nextDate;
-}
-
-function getGenerationLimit(status) {
-  if (status === "active") return 20;
-  if (status === "trial") return 3;
-  if (status === "expired") return 0;
-  return 1;
-}
-
 function getAllowedOrigin(origin) {
   if (!origin) return DEFAULT_ORIGIN;
   if (origin === DEFAULT_ORIGIN || LOCAL_ORIGINS.has(origin)) return origin;
   return DEFAULT_ORIGIN;
-}
-
-function getBearerToken(req) {
-  const authorization = req.headers?.authorization || req.headers?.Authorization || "";
-  const match = String(authorization).match(/^Bearer\s+(.+)$/i);
-
-  return match ? match[1] : "";
 }
 
 function createHttpError(statusCode, message, details = null) {
@@ -94,35 +77,6 @@ function createHttpError(statusCode, message, details = null) {
   return error;
 }
 
-function getSafeLogError(error) {
-  return {
-    statusCode: Number(error?.statusCode) || 500,
-    name: String(error?.name || "Error").slice(0, 80),
-    message: String(error?.message || "Unknown error").slice(0, 180)
-  };
-}
-
-function getSafeClientErrorDetails(error) {
-  const details = error?.details;
-
-  if (Array.isArray(details)) {
-    return details.slice(0, 5).map((item) => String(item).slice(0, 200));
-  }
-
-  if (!details || typeof details !== "object") return null;
-
-  const safeDetails = {};
-  if (typeof details.status === "string") safeDetails.status = details.status.slice(0, 40);
-  if (Number.isFinite(Number(details.generationsUsed))) {
-    safeDetails.generationsUsed = Number(details.generationsUsed);
-  }
-  if (Number.isFinite(Number(details.generationLimit))) {
-    safeDetails.generationLimit = Number(details.generationLimit);
-  }
-
-  return Object.keys(safeDetails).length ? safeDetails : null;
-}
-
 function logGenerationEvent(event, fields = {}) {
   console.log(
     "[generate-story]",
@@ -130,365 +84,6 @@ function logGenerationEvent(event, fields = {}) {
       event,
       ...fields
     })
-  );
-}
-
-async function parseSupabaseResponse(response) {
-  const rawText = await response.text();
-  const data = rawText ? JSON.parse(rawText) : null;
-
-  if (!response.ok) {
-    const message =
-      data?.msg ||
-      data?.message ||
-      data?.error_description ||
-      data?.hint ||
-      response.statusText ||
-      "Supabase request failed";
-    throw createHttpError(response.status, message, data);
-  }
-
-  return data;
-}
-
-async function supabaseRequest(path, options = {}, accessToken) {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    throw createHttpError(500, "Supabase backend config is missing");
-  }
-
-  const response = await fetch(`${SUPABASE_URL.replace(/\/$/, "")}${path}`, {
-    ...options,
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-      ...(options.headers || {})
-    }
-  });
-
-  return parseSupabaseResponse(response);
-}
-
-async function getAuthenticatedUser(accessToken) {
-  if (!accessToken) {
-    throw createHttpError(401, "Authorization token is required");
-  }
-
-  const user = await supabaseRequest("/auth/v1/user", { method: "GET" }, accessToken);
-
-  if (!user?.id) {
-    throw createHttpError(401, "Authorization token is invalid");
-  }
-
-  return user;
-}
-
-function getSubscriptionRowPayload(userId, status = "free") {
-  const now = new Date();
-
-  return {
-    user_id: userId,
-    status,
-    provider: "mock",
-    provider_subscription_id: null,
-    current_period_start: now.toISOString(),
-    current_period_end: addDays(now, 30).toISOString(),
-    updated_at: now.toISOString()
-  };
-}
-
-function getGenerationUsageRowPayload(userId, status = "free") {
-  const now = new Date();
-
-  return {
-    user_id: userId,
-    period_start: now.toISOString(),
-    period_end: addDays(now, 30).toISOString(),
-    generations_used: 0,
-    generation_limit: getGenerationLimit(status),
-    updated_at: now.toISOString()
-  };
-}
-
-async function fetchCurrentSubscriptionRow(userId, accessToken) {
-  const rows = await supabaseRequest(
-    `/rest/v1/subscriptions?select=*&user_id=eq.${encodeURIComponent(userId)}&order=updated_at.desc&limit=1`,
-    { method: "GET" },
-    accessToken
-  );
-
-  return Array.isArray(rows) && rows.length ? rows[0] : null;
-}
-
-async function createSubscriptionRow(userId, accessToken, status = "free") {
-  const rows = await supabaseRequest(
-    "/rest/v1/subscriptions?select=*",
-    {
-      method: "POST",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify(getSubscriptionRowPayload(userId, status))
-    },
-    accessToken
-  );
-
-  return Array.isArray(rows) ? rows[0] : rows;
-}
-
-async function ensureSubscriptionRow(userId, accessToken) {
-  const existingRow = await fetchCurrentSubscriptionRow(userId, accessToken);
-  return existingRow || createSubscriptionRow(userId, accessToken, "free");
-}
-
-async function fetchCurrentGenerationUsageRow(userId, accessToken) {
-  const now = new Date().toISOString();
-  const rows = await supabaseRequest(
-    `/rest/v1/generation_usage?select=*&user_id=eq.${encodeURIComponent(userId)}&period_end=gte.${encodeURIComponent(now)}&order=period_start.desc&limit=1`,
-    { method: "GET" },
-    accessToken
-  );
-
-  return Array.isArray(rows) && rows.length ? rows[0] : null;
-}
-
-async function createGenerationUsageRow(userId, accessToken, status = "free") {
-  const rows = await supabaseRequest(
-    "/rest/v1/generation_usage?select=*",
-    {
-      method: "POST",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify(getGenerationUsageRowPayload(userId, status))
-    },
-    accessToken
-  );
-
-  return Array.isArray(rows) ? rows[0] : rows;
-}
-
-async function updateGenerationUsageLimit(usageId, accessToken, generationLimit) {
-  const rows = await supabaseRequest(
-    `/rest/v1/generation_usage?id=eq.${encodeURIComponent(usageId)}&select=*`,
-    {
-      method: "PATCH",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify({
-        generation_limit: generationLimit,
-        updated_at: new Date().toISOString()
-      })
-    },
-    accessToken
-  );
-
-  return Array.isArray(rows) ? rows[0] : rows;
-}
-
-async function updateGenerationUsageCount(usageId, accessToken, generationsUsed) {
-  const rows = await supabaseRequest(
-    `/rest/v1/generation_usage?id=eq.${encodeURIComponent(usageId)}&select=*`,
-    {
-      method: "PATCH",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify({
-        generations_used: generationsUsed,
-        updated_at: new Date().toISOString()
-      })
-    },
-    accessToken
-  );
-
-  return Array.isArray(rows) ? rows[0] : rows;
-}
-
-async function ensureGenerationUsageRow(userId, accessToken, status) {
-  const existingRow = await fetchCurrentGenerationUsageRow(userId, accessToken);
-  const expectedLimit = getGenerationLimit(status);
-
-  if (!existingRow) {
-    return createGenerationUsageRow(userId, accessToken, status);
-  }
-
-  if (Number(existingRow.generation_limit) !== expectedLimit) {
-    return updateGenerationUsageLimit(existingRow.id, accessToken, expectedLimit);
-  }
-
-  return existingRow;
-}
-
-function enforceGenerationRateLimit(userId) {
-  const now = Date.now();
-  const requestTimes = (generationRequestTimes.get(userId) || []).filter(
-    (time) => now - time < RATE_LIMIT_WINDOW_MS
-  );
-
-  if (requestTimes.length >= RATE_LIMIT_MAX_REQUESTS) {
-    const retryAfterSeconds = Math.max(1, Math.ceil((RATE_LIMIT_WINDOW_MS - (now - requestTimes[0])) / 1000));
-    throw createHttpError(429, `Слишком много попыток. Повторите через ${retryAfterSeconds} сек.`, {
-      retryAfterSeconds
-    });
-  }
-
-  requestTimes.push(now);
-  generationRequestTimes.set(userId, requestTimes);
-}
-
-async function checkAuthenticatedGenerationLimit(req) {
-  const accessToken = getBearerToken(req);
-  const user = await getAuthenticatedUser(accessToken);
-  const rows = await supabaseRequest(
-    "/rest/v1/rpc/get_generation_access",
-    {
-      method: "POST",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify({})
-    },
-    accessToken
-  );
-  const payload = Array.isArray(rows) ? rows[0] : rows;
-  const subscription = payload?.subscription;
-  const usage = payload?.usage;
-  const status = subscription?.status || "free";
-  const generationsUsed = Number(usage?.generations_used || 0);
-  const generationLimit = Number(usage?.generation_limit || getGenerationLimit(status));
-
-  if (!subscription?.id || !usage?.id) {
-    throw createHttpError(500, "Generation access is not configured correctly");
-  }
-
-  if (status === "expired" || generationLimit <= 0) {
-    throw createHttpError(403, "Генерация недоступна для текущего тарифа.", {
-      status,
-      generationsUsed,
-      generationLimit
-    });
-  }
-
-  if (generationsUsed >= generationLimit) {
-    throw createHttpError(403, "Лимит генерации исчерпан.", {
-      status,
-      generationsUsed,
-      generationLimit
-    });
-  }
-
-  return {
-    accessToken,
-    userId: user.id,
-    subscription: {
-      id: subscription.id,
-      status,
-      currentPeriodStart: subscription.current_period_start || null,
-      currentPeriodEnd: subscription.current_period_end || null
-    },
-    usage: {
-      id: usage.id,
-      generationsUsed,
-      generationLimit,
-      periodStart: usage.period_start || null,
-      periodEnd: usage.period_end || null
-    }
-  };
-}
-
-async function incrementAuthenticatedGenerationUsage(generationAccess) {
-  const nextGenerationsUsed = generationAccess.usage.generationsUsed + 1;
-  const usageRow = await updateGenerationUsageCount(
-    generationAccess.usage.id,
-    generationAccess.accessToken,
-    nextGenerationsUsed
-  );
-
-  return {
-    id: usageRow.id,
-    generationsUsed: Number(usageRow.generations_used || nextGenerationsUsed),
-    generationLimit: Number(usageRow.generation_limit || generationAccess.usage.generationLimit),
-    periodStart: usageRow.period_start || generationAccess.usage.periodStart || null,
-    periodEnd: usageRow.period_end || generationAccess.usage.periodEnd || null
-  };
-}
-
-function getStoryRowPayload(story, userId) {
-  return {
-    user_id: userId,
-    title: story.title,
-    age_group: story.ageGroup,
-    mood: story.mood || "",
-    lesson: story.lesson || "",
-    visibility: "private"
-  };
-}
-
-async function insertStoryRow(story, generationAccess) {
-  const payload = getStoryRowPayload(story, generationAccess.userId);
-
-  try {
-    const rows = await supabaseRequest(
-      "/rest/v1/stories?select=*",
-      {
-        method: "POST",
-        headers: { Prefer: "return=representation" },
-        body: JSON.stringify(payload)
-      },
-      generationAccess.accessToken
-    );
-
-    return Array.isArray(rows) ? rows[0] : rows;
-  } catch (error) {
-    const message = `${error.message || ""} ${JSON.stringify(error.details || {})}`;
-    if (!message.includes("visibility")) throw error;
-
-    const { visibility, ...payloadWithoutVisibility } = payload;
-    const rows = await supabaseRequest(
-      "/rest/v1/stories?select=*",
-      {
-        method: "POST",
-        headers: { Prefer: "return=representation" },
-        body: JSON.stringify(payloadWithoutVisibility)
-      },
-      generationAccess.accessToken
-    );
-
-    return Array.isArray(rows) ? rows[0] : rows;
-  }
-}
-
-async function insertPageRows(storyId, story, generationAccess) {
-  const pageRows = story.pages.map((page, index) => ({
-    story_id: storyId,
-    page_number: Number(page.pageNumber || index + 1),
-    text: page.text || "",
-    scene_tag: page.sceneTag || "forest_day",
-    image_url: page.imageUrl || "",
-    image_prompt: page.imagePrompt || ""
-  }));
-
-  const rows = await supabaseRequest(
-    "/rest/v1/story_pages?select=*",
-    {
-      method: "POST",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify(pageRows)
-    },
-    generationAccess.accessToken
-  );
-
-  return Array.isArray(rows) ? rows : [rows];
-}
-
-async function deleteStoryRows(storyId, generationAccess) {
-  await supabaseRequest(
-    `/rest/v1/story_pages?story_id=eq.${encodeURIComponent(storyId)}`,
-    {
-      method: "DELETE",
-      headers: { Prefer: "return=minimal" }
-    },
-    generationAccess.accessToken
-  );
-  await supabaseRequest(
-    `/rest/v1/stories?id=eq.${encodeURIComponent(storyId)}`,
-    {
-      method: "DELETE",
-      headers: { Prefer: "return=minimal" }
-    },
-    generationAccess.accessToken
   );
 }
 
@@ -513,16 +108,6 @@ function getSavedStoryFromRows(storyRow, pageRows) {
   };
 }
 
-function getStoryPagesRpcPayload(story) {
-  return story.pages.map((page, index) => ({
-    page_number: Number(page.pageNumber || index + 1),
-    text: page.text || "",
-    scene_tag: page.sceneTag || "forest_day",
-    image_url: page.imageUrl || "",
-    image_prompt: page.imagePrompt || ""
-  }));
-}
-
 function getSavedStoryFromRpcPayload(payload) {
   const story = payload?.story || {};
   const pages = Array.isArray(payload?.pages) ? payload.pages : [];
@@ -530,92 +115,13 @@ function getSavedStoryFromRpcPayload(payload) {
   return getSavedStoryFromRows(story, pages);
 }
 
-function getGenerationUsageFromRpcPayload(payload, generationAccess) {
-  const usage = payload?.usage || {};
-  const generationsUsed = Number(
-    usage.generations_used ?? generationAccess.usage.generationsUsed + 1
-  );
-  const generationLimit = Number(
-    usage.generation_limit ?? generationAccess.usage.generationLimit
-  );
-
-  return {
-    id: usage.id || generationAccess.usage.id,
-    generationsUsed,
-    generationLimit,
-    periodStart: usage.period_start || generationAccess.usage.periodStart || null,
-    periodEnd: usage.period_end || generationAccess.usage.periodEnd || null
-  };
-}
-
-function canFallbackFromRpcError(error) {
-  const source = `${error.message || ""} ${JSON.stringify(error.details || {})}`.toLowerCase();
-
-  return (
-    error.statusCode === 404 ||
-    source.includes("could not find the function") ||
-    source.includes("schema cache")
-  );
-}
-
-async function saveGeneratedStoryWithUsageRpc(story, generationAccess) {
-  const rows = await supabaseRequest(
-    "/rest/v1/rpc/create_generated_story_with_usage",
-    {
-      method: "POST",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify({
-        p_usage_id: generationAccess.usage.id,
-        p_title: story.title,
-        p_age_group: story.ageGroup,
-        p_mood: story.mood || "",
-        p_lesson: story.lesson || "",
-        p_visibility: "private",
-        p_pages: getStoryPagesRpcPayload(story)
-      })
-    },
-    generationAccess.accessToken
-  );
-
-  const payload = Array.isArray(rows) ? rows[0] : rows;
-
-  return {
-    story: getSavedStoryFromRpcPayload(payload),
-    usage: getGenerationUsageFromRpcPayload(payload, generationAccess),
-    storageMode: "rpc"
-  };
-}
-
-async function saveGeneratedStory(story, generationAccess) {
-  const storyRow = await insertStoryRow(story, generationAccess);
-
-  try {
-    const pageRows = await insertPageRows(storyRow.id, story, generationAccess);
-    return getSavedStoryFromRows(storyRow, pageRows);
-  } catch (error) {
-    try {
-      await deleteStoryRows(storyRow.id, generationAccess);
-    } catch (cleanupError) {
-      logGenerationEvent("story_cleanup_failed", {
-        error: getSafeLogError(cleanupError)
-      });
-    }
-
-    throw error;
-  }
-}
-
-async function saveGeneratedStoryAndIncrementUsage(story, generationAccess) {
-  return saveGeneratedStoryWithUsageRpc(story, generationAccess);
-}
-
-
 function setCorsHeaders(req, res) {
   const allowedOrigin = getAllowedOrigin(req.headers?.origin || "");
 
   res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+  res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Idempotency-Key");
   res.setHeader("Access-Control-Max-Age", "86400");
 }
 
@@ -626,24 +132,23 @@ function sendJson(req, res, statusCode, payload) {
   res.end(JSON.stringify(payload));
 }
 
-function buildGenerationSuccessMeta(generationResult, persistenceResult, subscription) {
+function buildGenerationSuccessMeta(generationResult, persistenceResult) {
   return {
     mode: generationResult.mode,
     aiProvider: generationResult.aiProvider,
-    aiFallbackReason: generationResult.aiFallbackReason || null,
-    persistenceMode: persistenceResult.storageMode,
+    persistenceMode: "reservation-finalizer",
     savedToDatabase: true,
     authChecked: true,
-    usageLimitChecked: true,
+    usageReserved: true,
     usageIncremented: true,
-    subscription,
+    subscription: persistenceResult.subscription || null,
     usage: persistenceResult.usage
   };
 }
 
-function sendGenerationSuccess(req, res, generationResult, persistenceResult, subscription, durationMs) {
+function sendGenerationSuccess(req, res, generationResult, persistenceResult, durationMs) {
   const story = generationResult.story;
-  const meta = buildGenerationSuccessMeta(generationResult, persistenceResult, subscription);
+  const meta = buildGenerationSuccessMeta(generationResult, persistenceResult);
 
   logGenerationEvent("generation_succeeded", {
     mode: meta.mode,
@@ -658,15 +163,14 @@ function sendGenerationSuccess(req, res, generationResult, persistenceResult, su
 }
 
 function sendGenerationFailure(req, res, error, durationMs) {
+  const publicError = toPublicError(error);
   logGenerationEvent("generation_failed", {
-    error: getSafeLogError(error),
+    error: { code: publicError.code, statusCode: publicError.statusCode },
     durationMs
   });
-  sendJson(req, res, error.statusCode || 500, {
-    error: "Generation endpoint failed",
-    message: error.message || "Unknown error",
-    details: getSafeClientErrorDetails(error)
-  });
+  const payload = { error: publicError.code, message: publicError.publicMessage };
+  if (publicError.retryAfterSeconds) payload.retryAfterSeconds = publicError.retryAfterSeconds;
+  sendJson(req, res, publicError.statusCode, payload);
 }
 
 function readStreamBody(req) {
@@ -1068,20 +572,17 @@ async function generateStoryContent(input) {
       aiProvider: "openai-compatible"
     };
   } catch (error) {
-    logGenerationEvent("ai_mock_fallback", {
-      error: getSafeLogError(error)
-    });
-    return {
-      story: buildMockStory(input),
-      mode: "mock-fallback",
-      aiProvider: "openai-compatible",
-      aiFallbackReason: error.message || "AI generation failed"
-    };
+    const providerError = new Error("provider_unavailable");
+    providerError.code = "provider_unavailable";
+    providerError.statusCode = 502;
+    throw providerError;
   }
 }
 
 async function handler(req, res) {
   const startedAt = Date.now();
+  let reservationId = null;
+  let storyFinalized = false;
   setCorsHeaders(req, res);
 
   if (req.method === "OPTIONS") {
@@ -1101,41 +602,64 @@ async function handler(req, res) {
   try {
     const body = await getRequestBody(req);
     const requestValidation = validateGenerationRequest(body);
-    const generationAccess = await checkAuthenticatedGenerationLimit(req);
 
     if (requestValidation.errors.length) {
-      sendJson(req, res, 400, {
-        error: "Invalid generation request",
-        details: requestValidation.errors
-      });
-      return;
+      const error = new Error("invalid_request");
+      error.code = "invalid_request";
+      throw error;
     }
 
-    enforceGenerationRateLimit(generationAccess.userId);
+    const user = await authenticateRequest(req);
+    const idempotencyKey = readIdempotencyKey(req);
+    const reservation = await reserveAiUsage({
+      userId: user.id,
+      resourceKind: "story",
+      idempotencyKey
+    });
+    if (!reservation.allowed) {
+      const error = new Error("internal_error");
+      error.code = "internal_error";
+      throw error;
+    }
+    reservationId = reservation.reservation.id;
 
     const generationResult = await generateStoryContent(requestValidation.value);
     const story = generationResult.story;
     const generatedStoryErrors = validateGeneratedStory(story);
 
     if (generatedStoryErrors.length) {
-      sendJson(req, res, 500, {
-        error: "Generated story failed validation",
-        details: generatedStoryErrors
-      });
-      return;
+      const error = new Error("internal_error");
+      error.code = "internal_error";
+      throw error;
     }
 
-    const persistenceResult = await saveGeneratedStoryAndIncrementUsage(story, generationAccess);
+    const finalized = await finalizeStoryReservation({ reservationId, story });
+    storyFinalized = true;
+    const persistenceResult = {
+      story: getSavedStoryFromRpcPayload(finalized),
+      subscription: finalized.subscription,
+      usage: finalized.usage
+    };
 
     sendGenerationSuccess(
       req,
       res,
       generationResult,
       persistenceResult,
-      generationAccess.subscription,
       Date.now() - startedAt
     );
   } catch (error) {
+    if (reservationId && !storyFinalized) {
+      try {
+        await releaseAiUsage(reservationId);
+      } catch (releaseError) {
+        const publicReleaseError = toPublicError(releaseError);
+        logGenerationEvent("story_reservation_release_failed", {
+          code: publicReleaseError.code,
+          statusCode: publicReleaseError.statusCode
+        });
+      }
+    }
     sendGenerationFailure(req, res, error, Date.now() - startedAt);
   }
 }
