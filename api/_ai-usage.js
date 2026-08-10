@@ -5,7 +5,6 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 const PUBLIC_ERRORS = {
   authentication_required: { statusCode: 401, publicMessage: "Требуется авторизация." },
   invalid_request: { statusCode: 400, publicMessage: "Некорректный запрос." },
-  invalid_idempotency_key: { statusCode: 400, publicMessage: "Некорректный запрос." },
   quota_exhausted: { statusCode: 403, publicMessage: "Лимит генерации исчерпан." },
   entitlement_inactive: { statusCode: 403, publicMessage: "Генерация недоступна для текущего тарифа." },
   job_in_progress: { statusCode: 409, publicMessage: "Генерация уже выполняется." },
@@ -132,7 +131,14 @@ function assertUuid(value) {
 function assertReservationAllowed(result) {
   if (!result || typeof result !== "object") throw createError("internal_error");
   if (result.allowed === true && String(result.code) === "reserved" && result.reservation?.id) return result;
-  if (result.allowed === false && PUBLIC_ERRORS[result.code]) throw createError(result.code);
+  if (result.allowed === false && PUBLIC_ERRORS[result.code]) {
+    const error = createError(result.code);
+    const retryAfterSeconds = Number(result.retry_after_seconds);
+    if (result.code === "rate_limited" && Number.isInteger(retryAfterSeconds) && retryAfterSeconds > 0) {
+      error.retryAfterSeconds = retryAfterSeconds;
+    }
+    throw error;
+  }
   throw createError("internal_error");
 }
 
@@ -194,8 +200,10 @@ async function getCurrentUsage(req) {
 }
 
 function toPublicError(error) {
-  const code = Object.prototype.hasOwnProperty.call(PUBLIC_ERRORS, error?.code)
-    ? error.code
+  const code = error?.code === "invalid_idempotency_key"
+    ? "invalid_request"
+    : Object.prototype.hasOwnProperty.call(PUBLIC_ERRORS, error?.code)
+      ? error.code
     : "internal_error";
   const mapped = PUBLIC_ERRORS[code];
   const publicError = {

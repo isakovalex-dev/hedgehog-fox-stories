@@ -97,3 +97,137 @@ test("an upstream body is never copied into the public error", () => {
   assert.equal(publicError.publicMessage.includes(providerToken), false);
   assert.equal(JSON.stringify(publicError).includes(providerToken), false);
 });
+
+test("service RPCs fail closed without a service key and do not fetch", async () => {
+  let fetchCalled = false;
+  global.fetch = async () => {
+    fetchCalled = true;
+    throw new Error("fetch must not be called");
+  };
+  const aiUsage = loadAiUsage();
+  delete process.env.SUPABASE_SECRET_KEY;
+
+  const calls = [
+    () => aiUsage.reserveAiUsage({ userId: USER_ID, resourceKind: "story", idempotencyKey: IDEMPOTENCY_KEY }),
+    () => aiUsage.completeAiUsage(IDEMPOTENCY_KEY),
+    () => aiUsage.releaseAiUsage(IDEMPOTENCY_KEY),
+    () => aiUsage.finalizeStoryReservation({ reservationId: IDEMPOTENCY_KEY })
+  ];
+
+  for (const call of calls) {
+    await assert.rejects(call(), (error) => {
+      assert.equal(error.code, "server_configuration_error");
+      assert.equal(error.statusCode, 500);
+      return true;
+    });
+  }
+  assert.equal(fetchCalled, false);
+});
+
+test("readIdempotencyKey accepts UUID v1-v5 and rejects missing or malformed keys", () => {
+  const aiUsage = loadAiUsage();
+  const validKeys = [
+    "11111111-1111-1111-8111-111111111111",
+    "22222222-2222-2111-8111-111111111111",
+    "33333333-3333-3111-8111-111111111111",
+    "44444444-4444-4111-8111-111111111111",
+    "55555555-5555-5111-8111-111111111111"
+  ];
+
+  for (const key of validKeys) {
+    assert.equal(aiUsage.readIdempotencyKey({ headers: { "x-idempotency-key": key } }), key);
+  }
+  for (const key of [undefined, "not-a-uuid", "11111111-1111-6111-8111-111111111111"]) {
+    assert.throws(
+      () => aiUsage.readIdempotencyKey({ headers: { "x-idempotency-key": key } }),
+      { code: "invalid_idempotency_key", statusCode: 400 }
+    );
+  }
+});
+
+test("rate-limited reservations preserve the RPC retry time in the public error", async () => {
+  global.fetch = async (url) => {
+    if (url.endsWith("/rest/v1/rpc/reserve_ai_usage")) {
+      return jsonResponse({ allowed: false, code: "rate_limited", retry_after_seconds: 73 });
+    }
+    throw new Error(`unexpected network request: ${url}`);
+  };
+  const aiUsage = loadAiUsage();
+
+  await assert.rejects(
+    aiUsage.reserveAiUsage({ userId: USER_ID, resourceKind: "image", idempotencyKey: IDEMPOTENCY_KEY }),
+    (error) => {
+      const publicError = aiUsage.toPublicError(error);
+      assert.equal(publicError.code, "rate_limited");
+      assert.equal(publicError.retryAfterSeconds, 73);
+      return true;
+    }
+  );
+});
+
+test("invalid idempotency helper errors are exposed as stable invalid_request errors", () => {
+  const aiUsage = loadAiUsage();
+  assert.deepEqual(aiUsage.toPublicError({ code: "invalid_idempotency_key" }), {
+    statusCode: 400,
+    code: "invalid_request",
+    publicMessage: "Некорректный запрос."
+  });
+});
+
+test("getCurrentUsage uses only caller JWT and anon credentials", async () => {
+  const requests = [];
+  global.fetch = async (url, options) => {
+    requests.push({ url, options });
+    if (url.endsWith("/auth/v1/user")) return jsonResponse({ id: USER_ID });
+    if (url.endsWith("/rest/v1/rpc/get_current_usage")) return jsonResponse({ used: 1, limit: 3 });
+    throw new Error(`unexpected network request: ${url}`);
+  };
+  const aiUsage = loadAiUsage();
+
+  const usage = await aiUsage.getCurrentUsage({ headers: { authorization: "Bearer caller-jwt" } });
+  assert.deepEqual(usage, { used: 1, limit: 3 });
+  assert.equal(requests.length, 2);
+  for (const request of requests) {
+    assert.equal(request.options.headers.apikey, ANON_KEY);
+    assert.equal(request.options.headers.Authorization, "Bearer caller-jwt");
+    assert.equal(JSON.stringify(request.options.headers).includes(SERVICE_KEY), false);
+  }
+});
+
+test("non-2xx auth and RPC bodies are redacted from public errors", async () => {
+  const secret = "sql-detail-provider-token";
+  global.fetch = async () => jsonResponse({ message: secret, details: secret }, 500);
+  const aiUsage = loadAiUsage();
+
+  for (const operation of [
+    () => aiUsage.authenticateRequest({ headers: { authorization: "Bearer caller-jwt" } }),
+    () => aiUsage.reserveAiUsage({ userId: USER_ID, resourceKind: "story", idempotencyKey: IDEMPOTENCY_KEY })
+  ]) {
+    await assert.rejects(operation(), (error) => {
+      assert.equal(JSON.stringify(aiUsage.toPublicError(error)).includes(secret), false);
+      return true;
+    });
+  }
+});
+
+test("expired finalization is never returned as a created story", async () => {
+  global.fetch = async (url) => {
+    if (url.endsWith("/rest/v1/rpc/create_story_from_reservation")) {
+      return jsonResponse({ created: false, code: "reservation_expired" });
+    }
+    throw new Error(`unexpected network request: ${url}`);
+  };
+  const aiUsage = loadAiUsage();
+
+  await assert.rejects(
+    aiUsage.finalizeStoryReservation({ reservationId: IDEMPOTENCY_KEY }),
+    (error) => {
+      assert.deepEqual(aiUsage.toPublicError(error), {
+        statusCode: 500,
+        code: "internal_error",
+        publicMessage: "Внутренняя ошибка сервера."
+      });
+      return true;
+    }
+  );
+});
