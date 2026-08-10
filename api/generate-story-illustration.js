@@ -39,8 +39,8 @@ function createHttpError(statusCode, message, details = null) {
   return error;
 }
 
-function createInvalidRequestError(message) {
-  const error = createHttpError(400, message);
+function createInvalidRequestError(message, statusCode = 400) {
+  const error = createHttpError(statusCode, message);
   error.code = "invalid_request";
   return error;
 }
@@ -91,7 +91,7 @@ function readStreamBody(req) {
     req.on("data", (chunk) => {
       rawBody += chunk;
       if (rawBody.length > 8 * 1024) {
-        reject(createHttpError(413, "Illustration request body is too large"));
+        reject(createInvalidRequestError("Illustration request body is too large", 413));
       }
     });
 

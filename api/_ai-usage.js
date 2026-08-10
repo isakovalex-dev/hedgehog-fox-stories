@@ -207,7 +207,7 @@ function toPublicError(error) {
     : "internal_error";
   const mapped = PUBLIC_ERRORS[code];
   const publicError = {
-    statusCode: mapped.statusCode,
+    statusCode: code === "invalid_request" && error?.statusCode === 413 ? 413 : mapped.statusCode,
     code,
     publicMessage: mapped.publicMessage
   };

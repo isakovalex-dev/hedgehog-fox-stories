@@ -12,6 +12,7 @@ process.env.SUPABASE_SECRET_KEY = "test-service-key";
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const { Readable } = require("node:stream");
 const test = require("node:test");
 const handler = require("../api/generate-story-illustration.js");
 
@@ -183,6 +184,45 @@ test("local image validation failures return a redacted invalid_request response
     }, scenario.name);
     assert.doesNotMatch(JSON.stringify(result.body), new RegExp(scenario.privateDetail, "i"), scenario.name);
   }
+});
+
+test("an oversized streamed illustration body returns a redacted 413 before downstream requests", async () => {
+  const originalFetch = global.fetch;
+  let downstreamCalls = 0;
+  const headers = {};
+  let output = "";
+  global.fetch = async () => {
+    downstreamCalls += 1;
+    throw new Error("The streamed body must be rejected before downstream requests");
+  };
+  const req = Readable.from([JSON.stringify({ padding: "x".repeat(8 * 1024) })]);
+  req.method = "POST";
+  req.headers = {
+    origin: "http://localhost:8031",
+    authorization: "Bearer caller-token",
+    "x-idempotency-key": IDEMPOTENCY_KEY
+  };
+  const res = {
+    statusCode: 0,
+    setHeader(name, value) { headers[String(name).toLowerCase()] = value; },
+    end(value) { output = value; }
+  };
+
+  try {
+    await handler(req, res);
+  } finally {
+    global.fetch = originalFetch;
+  }
+
+  const result = { statusCode: res.statusCode, body: JSON.parse(output), headers };
+  assert.equal(result.statusCode, 413);
+  assert.deepEqual(result.body, {
+    error: "invalid_request",
+    message: "Некорректный запрос."
+  });
+  assert.doesNotMatch(JSON.stringify(result.body), /body is too large/i);
+  assert.equal(downstreamCalls, 0);
+  assert.equal(result.headers.vary, "Origin");
 });
 
 test("a stored current image returns without a reservation or credit", async () => {
