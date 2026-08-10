@@ -440,90 +440,30 @@
     return 1;
   }
 
-  function getSubscriptionFromRow(row) {
-    return {
-      id: row.id,
-      userId: row.user_id,
-      status: row.status || "free",
-      provider: row.provider || "mock",
-      providerSubscriptionId: row.provider_subscription_id || null,
-      currentPeriodStart: row.current_period_start || null,
-      currentPeriodEnd: row.current_period_end || null,
-      createdAt: row.created_at || null,
-      updatedAt: row.updated_at || null,
-      storage: "supabase"
-    };
-  }
-
-  function getGenerationUsageFromRow(row) {
-    return {
-      id: row.id,
-      userId: row.user_id,
-      periodStart: row.period_start || null,
-      periodEnd: row.period_end || null,
-      generationsUsed: Number.isFinite(row.generations_used) ? row.generations_used : 0,
-      generationLimit: Number.isFinite(row.generation_limit) ? row.generation_limit : 1,
-      createdAt: row.created_at || null,
-      updatedAt: row.updated_at || null,
-      storage: "supabase"
-    };
-  }
-
-  async function fetchCurrentSubscriptionRow(userId) {
-    const rows = await rest(
-      `/rest/v1/subscriptions?select=*&user_id=eq.${encodeURIComponent(userId)}&order=updated_at.desc&limit=1`,
-      { method: "GET" }
-    );
-
-    return Array.isArray(rows) && rows.length ? rows[0] : null;
-  }
-
-  async function fetchCurrentGenerationUsageRow(userId) {
-    const now = new Date().toISOString();
-    const rows = await rest(
-      `/rest/v1/generation_usage?select=*&user_id=eq.${encodeURIComponent(userId)}&period_end=gte.${encodeURIComponent(now)}&order=period_start.desc&limit=1`,
-      { method: "GET" }
-    );
-
-    return Array.isArray(rows) && rows.length ? rows[0] : null;
-  }
-
   async function fetchSubscriptionBundle() {
     const user = getCurrentUser();
     if (!user?.id) throw new Error("User is not authenticated");
 
-    const [subscriptionRow, usageRow] = await Promise.all([
-      fetchCurrentSubscriptionRow(user.id),
-      fetchCurrentGenerationUsageRow(user.id)
-    ]);
-    const now = new Date().toISOString();
-    const defaultSubscription = {
-      id: null,
-      userId: user.id,
-      status: "free",
-      provider: "pending-server-setup",
-      providerSubscriptionId: null,
-      currentPeriodStart: now,
-      currentPeriodEnd: null,
-      createdAt: null,
-      updatedAt: null,
-      storage: "supabase"
-    };
-    const defaultUsage = {
-      id: null,
-      userId: user.id,
-      periodStart: now,
-      periodEnd: null,
-      generationsUsed: 0,
-      generationLimit: 1,
-      createdAt: null,
-      updatedAt: null,
-      storage: "supabase"
-    };
+    const payload = await rest("/rest/v1/rpc/get_current_usage", { method: "POST", body: "{}" });
+    const subscription = payload?.subscription || {};
+    const story = payload?.story || {};
+    const image = payload?.image || {};
 
     return {
-      subscription: subscriptionRow ? getSubscriptionFromRow(subscriptionRow) : defaultSubscription,
-      usage: usageRow ? getGenerationUsageFromRow(usageRow) : defaultUsage
+      subscription: {
+        status: subscription.status || "free",
+        currentPeriodStart: subscription.period_start || null,
+        currentPeriodEnd: subscription.period_end || null
+      },
+      usage: {
+        generationsUsed: Number(story.used_count) || 0,
+        generationLimit: Number(story.limit_count) || 0,
+        imagesUsed: Number(image.used_count) || 0,
+        imageLimit: Number(image.limit_count) || 0,
+        storyRemaining: Number(story.remaining_count) || 0,
+        imageRemaining: Number(image.remaining_count) || 0,
+        storage: "supabase"
+      }
     };
   }
 

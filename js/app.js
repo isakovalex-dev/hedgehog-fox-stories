@@ -1510,6 +1510,13 @@
     return Boolean(error?.isBackendUnavailable);
   }
 
+  function createIdempotencyKey() {
+    if (typeof window.crypto?.randomUUID !== "function") {
+      throw new Error("Браузер не поддерживает безопасный идентификатор запроса.");
+    }
+    return window.crypto.randomUUID();
+  }
+
   async function requestBackendStory(formData) {
     if (!canUseGenerationApi()) {
       const error = new Error("Generation API is disabled");
@@ -1517,6 +1524,7 @@
       throw error;
     }
 
+    const idempotencyKey = createIdempotencyKey();
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), BACKEND_GENERATION_TIMEOUT_MS);
     const session = await supabaseService?.ensureFreshSession?.();
@@ -1533,6 +1541,7 @@
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "X-Idempotency-Key": idempotencyKey,
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
         },
         body: JSON.stringify(getGenerationRequestPayload(formData)),
@@ -1568,6 +1577,7 @@
       return { illustrated: false, reason: "disabled" };
     }
 
+    const idempotencyKey = createIdempotencyKey();
     const session = await supabaseService?.ensureFreshSession?.();
     const accessToken = session?.access_token || "";
     if (!accessToken) return { illustrated: false, reason: "signed_out" };
@@ -1580,6 +1590,7 @@
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "X-Idempotency-Key": idempotencyKey,
           Authorization: `Bearer ${accessToken}`
         },
         body: JSON.stringify({ storyId, pageNumber, force: options.force === true }),
@@ -1741,10 +1752,7 @@
 
     if (!validateGeneratorForm()) return;
 
-    if (!subscriptionService.canGenerateStory()) {
-      showSubscriptionScreen();
-      return;
-    }
+    if (!subscriptionService.canGenerateStory()) showSubscriptionScreen();
 
     const formData = new FormData(generatorForm);
     let generationFailed = false;

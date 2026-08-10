@@ -20,6 +20,7 @@ function getAllowedOrigin(origin) {
 
 function setCorsHeaders(req, res) {
   res.setHeader("Access-Control-Allow-Origin", getAllowedOrigin(req.headers?.origin || ""));
+  res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.setHeader("Access-Control-Max-Age", "86400");
@@ -36,6 +37,12 @@ function createHttpError(statusCode, message) {
   const error = new Error(message);
   error.statusCode = statusCode;
   return error;
+}
+
+function getPublicError(error) {
+  if (error?.statusCode === 401) return { statusCode: 401, error: "unauthorized", message: "Требуется авторизация." };
+  if (error?.statusCode >= 400 && error?.statusCode < 500) return { statusCode: error.statusCode, error: "invalid_request", message: "Некорректный запрос." };
+  return { statusCode: 500, error: "illustration_unavailable", message: "Иллюстрация временно недоступна." };
 }
 
 function logSigningEvent(event, details = {}) {
@@ -207,13 +214,10 @@ async function handler(req, res) {
     sendJson(req, res, 200, { signedUrl, expiresIn: SIGNED_URL_TTL_SECONDS });
   } catch (error) {
     logSigningEvent("signed_url_failed", {
-      statusCode: error.statusCode || 500,
-      message: error.message || "Unknown error"
+      statusCode: error.statusCode || 500
     });
-    sendJson(req, res, error.statusCode || 500, {
-      error: "Illustration URL request failed",
-      message: error.message || "Unknown error"
-    });
+    const publicError = getPublicError(error);
+    sendJson(req, res, publicError.statusCode, { error: publicError.error, message: publicError.message });
   }
 }
 

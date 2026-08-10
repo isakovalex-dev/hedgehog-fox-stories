@@ -28,9 +28,18 @@ function createHttpError(statusCode, message, details = null) {
 function getSafeLogError(error) {
   return {
     statusCode: Number(error?.statusCode) || 500,
-    name: String(error?.name || "Error").slice(0, 80),
-    message: String(error?.message || "Unknown error").slice(0, 180)
+    code: String(error?.code || "payment_webhook_failed").slice(0, 80)
   };
+}
+
+function truncateProviderPaymentId(paymentId) {
+  return String(paymentId || "").slice(0, 80);
+}
+
+function getPublicWebhookError(error) {
+  if (error?.statusCode === 401) return { statusCode: 401, error: "unauthorized", message: "Недопустимый запрос оплаты." };
+  if (error?.statusCode >= 400 && error?.statusCode < 500) return { statusCode: error.statusCode, error: "invalid_payment", message: "Недопустимый запрос оплаты." };
+  return { statusCode: 500, error: "payment_webhook_failed", message: "Не удалось обработать уведомление об оплате." };
 }
 
 function logPaymentEvent(event, fields = {}) {
@@ -273,6 +282,7 @@ async function handler(req, res) {
       logPaymentEvent("webhook_processed", {
         provider: "yookassa",
         eventType: payload?.event || "unknown",
+        providerPaymentId: truncateProviderPaymentId(payload?.object?.id),
         subscriptionUpdated: result.subscriptionUpdated === true,
         alreadyProcessed: result.alreadyProcessed === true,
         durationMs: Date.now() - startedAt
@@ -294,11 +304,8 @@ async function handler(req, res) {
       error: getSafeLogError(error),
       durationMs: Date.now() - startedAt
     });
-    sendJson(res, error.statusCode || 500, {
-      error: "Payment webhook failed",
-      message: error.message || "Unknown error",
-      details: null
-    });
+    const publicError = getPublicWebhookError(error);
+    sendJson(res, publicError.statusCode, { error: publicError.error, message: publicError.message });
   }
 }
 
