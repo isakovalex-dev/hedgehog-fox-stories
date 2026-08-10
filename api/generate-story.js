@@ -115,6 +115,24 @@ function getSavedStoryFromRpcPayload(payload) {
   return getSavedStoryFromRows(story, pages);
 }
 
+function getStoryFinalizerInput(reservationId, story) {
+  return {
+    reservationId,
+    title: story.title,
+    ageGroup: story.ageGroup,
+    mood: story.mood || "",
+    lesson: story.lesson || "",
+    visibility: "private",
+    pages: story.pages.map((page, index) => ({
+      page_number: Number(page.pageNumber || index + 1),
+      text: page.text || "",
+      scene_tag: page.sceneTag || "forest_day",
+      image_url: page.imageUrl || "",
+      image_prompt: page.imagePrompt || ""
+    }))
+  };
+}
+
 function setCorsHeaders(req, res) {
   const allowedOrigin = getAllowedOrigin(req.headers?.origin || "");
 
@@ -633,7 +651,7 @@ async function handler(req, res) {
       throw error;
     }
 
-    const finalized = await finalizeStoryReservation({ reservationId, story });
+    const finalized = await finalizeStoryReservation(getStoryFinalizerInput(reservationId, story));
     storyFinalized = true;
     const persistenceResult = {
       story: getSavedStoryFromRpcPayload(finalized),

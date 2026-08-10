@@ -119,7 +119,21 @@ test("one accepted request calls the provider once then creates the story from i
       if (reservation(url)) return json({ allowed: true, code: "reserved", reservation: { id: RESERVATION_ID } });
       if (finalizer(url)) {
         const payload = JSON.parse(options.body);
-        assert.equal(payload.p_reservation_id, RESERVATION_ID);
+        assert.deepEqual(payload, {
+          p_reservation_id: RESERVATION_ID,
+          p_title: "Добрая прогулка",
+          p_age_group: "5-6",
+          p_mood: "перед сном",
+          p_lesson: "друзья помогают друг другу",
+          p_visibility: "private",
+          p_pages: [{
+            page_number: 1,
+            text: "Ежонок и Лисёнок вместе нашли тёплую тропинку у дома.",
+            scene_tag: "cozy_house",
+            image_url: "",
+            image_prompt: "Ежонок и Лисёнок идут по тёплой тропинке возле уютного дома вечером."
+          }]
+        });
         return json({
           story: { id: "story-1", title: "Добрая прогулка", age_group: "5-6", mood: "перед сном", lesson: "друзья помогают друг другу" },
           pages: [{ page_number: 1, text: "Ежонок и Лисёнок вместе нашли тёплую тропинку у дома.", scene_tag: "cozy_house", image_url: "", image_prompt: "Ежонок и Лисёнок идут по тёплой тропинке возле уютного дома вечером." }],
