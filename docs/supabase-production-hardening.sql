@@ -1,6 +1,11 @@
--- Production hardening for generation limits.
--- Run once in Supabase SQL Editor after docs/supabase-rpc-generated-story.sql.
--- This script keeps browser access read-only for subscriptions and usage.
+-- RETIRED — DO NOT RUN.
+--
+-- This pre-migration script grants browser access to the legacy
+-- create_generated_story_with_usage and get_generation_access RPCs. It is kept
+-- only as historical context. It is superseded by the versioned migration
+-- supabase/migrations/20260810003928_security_remediation.sql, which revokes
+-- those legacy entry points and uses server-only reservations instead.
+-- Do not run this file in local, non-production, or production environments.
 
 begin;
 

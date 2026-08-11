@@ -104,50 +104,50 @@ from expected_tables
 left join policy_counts on policy_counts.tablename = expected_tables.table_name
 order by expected_tables.table_name;
 
+-- Function ACL audit. The legacy functions may still exist for migration
+-- compatibility, but no browser role or service_role may execute them.
+with expected_functions(function_name, authenticated_execute, service_role_execute) as (
+  values
+    ('reserve_ai_usage', false, true),
+    ('complete_ai_usage', false, true),
+    ('release_ai_usage', false, true),
+    ('enforce_api_rate_limit', false, true),
+    ('create_story_from_reservation', false, true),
+    ('get_current_usage', true, false),
+    ('apply_yookassa_payment', false, true),
+    ('create_generated_story_with_usage', false, false),
+    ('get_generation_access', false, false)
+), function_privileges as (
+  select
+    expected_functions.*,
+    p.oid,
+    pg_get_function_identity_arguments(p.oid) as arguments,
+    p.prosecdef as security_definer,
+    has_function_privilege('anon', p.oid, 'execute') as anon_execute,
+    has_function_privilege('authenticated', p.oid, 'execute') as actual_authenticated_execute,
+    has_function_privilege('service_role', p.oid, 'execute') as actual_service_role_execute
+  from expected_functions
+  left join pg_proc p
+    on p.proname = expected_functions.function_name
+   and p.pronamespace = 'public'::regnamespace
+)
 select
-  routine_schema,
-  routine_name,
-  routine_type,
-  data_type
-from information_schema.routines
-where routine_schema = 'public'
-  and routine_name = 'create_generated_story_with_usage';
-
-select
-  n.nspname as schema_name,
-  p.proname as function_name,
-  pg_get_function_arguments(p.oid) as arguments,
-  pg_get_function_result(p.oid) as result_type,
+  function_name,
+  arguments,
+  security_definer,
+  anon_execute,
+  actual_authenticated_execute as authenticated_execute,
+  actual_service_role_execute as service_role_execute,
   case
-    when p.prosecdef then 'security_definer'
-    else 'security_invoker'
-  end as security_mode
-from pg_proc p
-join pg_namespace n on n.oid = p.pronamespace
-where n.nspname = 'public'
-  and p.proname = 'create_generated_story_with_usage';
-
-select
-  n.nspname as schema_name,
-  p.proname as function_name,
-  pg_get_function_arguments(p.oid) as arguments,
-  p.prosecdef as security_definer,
-  p.proacl as function_acl
-from pg_proc p
-join pg_namespace n on n.oid = p.pronamespace
-where n.nspname = 'public'
-  and p.proname in (
-    'reserve_ai_usage',
-    'complete_ai_usage',
-    'release_ai_usage',
-    'enforce_api_rate_limit',
-    'create_story_from_reservation',
-    'get_current_usage',
-    'apply_yookassa_payment',
-    'create_generated_story_with_usage',
-    'get_generation_access'
-  )
-order by p.proname, pg_get_function_identity_arguments(p.oid);
+    when oid is null then 'missing_function'
+    when anon_execute or actual_authenticated_execute <> authenticated_execute
+      then 'browser_execute_grant'
+    when actual_service_role_execute <> service_role_execute
+      then 'service_role_grant_mismatch'
+    else 'ok'
+  end as audit_status
+from function_privileges
+order by function_name, arguments;
 
 select
   schemaname,

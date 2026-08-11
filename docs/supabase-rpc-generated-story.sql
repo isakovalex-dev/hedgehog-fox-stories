@@ -1,3 +1,11 @@
+-- RETIRED — DO NOT RUN.
+--
+-- This legacy browser-callable finalizer is retained solely to explain the
+-- previous schema. The versioned security migration
+-- supabase/migrations/20260810003928_security_remediation.sql revokes all
+-- browser and service-role execution of it and replaces it with the
+-- server-only create_story_from_reservation flow.
+
 create or replace function public.create_generated_story_with_usage(
   p_usage_id uuid,
   p_title text,

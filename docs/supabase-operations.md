@@ -1,5 +1,10 @@
 ## Local database verification
 
+This is the database release gate for the versioned migration
+`supabase/migrations/20260810003928_security_remediation.sql`. Run it from the
+repository root only against the disposable local Docker stack. Do not use
+`--linked`, a project ref, or a production connection string.
+
 ```bash
 supabase start
 supabase db reset
@@ -8,7 +13,19 @@ psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
   --file tests/supabase-security.sql
 ```
 
-The command targets only the local Docker database. It must not be run with a production connection string.
+Then inspect the same local database with the current audit query:
+
+```bash
+psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+  --set ON_ERROR_STOP=1 \
+  --file docs/supabase-rls-audit.sql
+```
+
+The commands target only the local Docker database. A successful local gate is
+not evidence that a remote project was migrated. Apply the versioned migration
+to a non-production project first, review the audit output there, and obtain
+explicit approval before any production migration. This runbook never
+authorizes applying the retired SQL files under `docs/`.
 
 ## CSP staging rollout
 
