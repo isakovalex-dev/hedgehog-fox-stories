@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { readFile } = require("node:fs/promises");
+const { readFile, readdir } = require("node:fs/promises");
 const { resolve } = require("node:path");
 
 const root = resolve(__dirname, "..");
@@ -8,6 +8,20 @@ const root = resolve(__dirname, "..");
 async function readProjectFile(path) {
   return readFile(resolve(root, path), "utf8");
 }
+
+test("every static HTML route keeps executable scripts external for the global CSP", async () => {
+  const staticHtmlFiles = (await readdir(root)).filter((file) => file.endsWith(".html"));
+  assert.ok(staticHtmlFiles.length > 0, "project must contain static HTML pages");
+
+  for (const file of staticHtmlFiles) {
+    const html = await readProjectFile(file);
+    const inlineScripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)]
+      .map((match) => match[1].trim())
+      .filter(Boolean);
+
+    assert.deepEqual(inlineScripts, [], `${file} must not contain executable inline scripts`);
+  }
+});
 
 test("initial deployment sends exact report-only CSP and browser security headers", async () => {
   const config = JSON.parse(await readProjectFile("vercel.json"));
