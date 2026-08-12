@@ -57,6 +57,17 @@ test("RLS audit exposes raw function ACLs", async () => {
   assert.match(audit, /function_acl/);
 });
 
+test("Storage migration preserves the owner-read policy without altering Supabase-managed RLS", async () => {
+  const migration = await readProjectFile(
+    "supabase/migrations/20260810003928_security_remediation.sql"
+  );
+
+  assert.doesNotMatch(migration, /alter\s+table\s+storage\.objects\s+enable\s+row\s+level\s+security/i);
+  assert.match(migration, /create\s+policy\s+story_illustrations_owner_read\s+on\s+storage\.objects/i);
+  assert.match(migration, /bucket_id\s*=\s*'story-illustrations'/i);
+  assert.match(migration, /storage\.foldername\(name\)\)\[1\]\s*=\s*\(select\s+auth\.uid\(\)::text\)/i);
+});
+
 test("security audit records remediation findings as pending verification", async () => {
   const audit = await readProjectFile("SECURITY-AUDIT.md");
 

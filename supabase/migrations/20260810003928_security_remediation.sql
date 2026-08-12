@@ -221,7 +221,8 @@ create policy ai_usage_counters_owner_read on public.ai_usage_counters
   for select to authenticated
   using ((select auth.uid()) = user_id);
 
-alter table storage.objects enable row level security;
+-- Supabase Storage already enables RLS on this managed table. Migrations may
+-- define least-privilege policies, but must not alter its RLS setting.
 drop policy if exists story_illustrations_owner_read on storage.objects;
 create policy story_illustrations_owner_read on storage.objects
   for select to authenticated
