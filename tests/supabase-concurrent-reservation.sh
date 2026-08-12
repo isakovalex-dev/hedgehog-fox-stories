@@ -13,10 +13,10 @@ trap 'rm -rf "$work_dir"' EXIT
 psql "$database_url" --set ON_ERROR_STOP=1 <<SQL
 insert into auth.users (
   id, instance_id, aud, role, email, encrypted_password,
-  email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at
 ) values (
   '$test_user_id', '00000000-0000-0000-0000-000000000000', 'authenticated',
-  'authenticated', 'task2-concurrent@example.invalid', '', now(), '{}'::jsonb,
+  'authenticated', 'task2-concurrent@example.invalid', '', '{}'::jsonb,
   '{}'::jsonb, now(), now()
 ) on conflict (id) do nothing;
 delete from public.ai_generation_reservations where user_id = '$test_user_id';

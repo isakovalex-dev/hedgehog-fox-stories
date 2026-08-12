@@ -33,15 +33,15 @@ declare
 begin
   insert into auth.users (
     id, instance_id, aud, role, email, encrypted_password,
-    email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+    raw_app_meta_data, raw_user_meta_data,
     created_at, updated_at
   )
   values
     (v_user_a, '00000000-0000-0000-0000-000000000000', 'authenticated',
-     'authenticated', 'task2-user-a@example.invalid', '', now(), '{}'::jsonb,
+     'authenticated', 'task2-user-a@example.invalid', '', '{}'::jsonb,
      '{}'::jsonb, now(), now()),
     (v_user_b, '00000000-0000-0000-0000-000000000000', 'authenticated',
-     'authenticated', 'task2-user-b@example.invalid', '', now(), '{}'::jsonb,
+     'authenticated', 'task2-user-b@example.invalid', '', '{}'::jsonb,
      '{}'::jsonb, now(), now())
   on conflict (id) do nothing;
 end;

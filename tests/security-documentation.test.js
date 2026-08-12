@@ -68,6 +68,16 @@ test("Storage migration preserves the owner-read policy without altering Supabas
   assert.match(migration, /storage\.foldername\(name\)\)\[1\]\s*=\s*\(select\s+auth\.uid\(\)::text\)/i);
 });
 
+test("local Supabase Auth fixtures avoid the removed email_confirmed_at column", async () => {
+  for (const fixture of [
+    "tests/supabase-security.sql",
+    "tests/supabase-concurrent-reservation.sh",
+  ]) {
+    const content = await readProjectFile(fixture);
+    assert.doesNotMatch(content, /\bemail_confirmed_at\b/i);
+  }
+});
+
 test("security audit records remediation findings as pending verification", async () => {
   const audit = await readProjectFile("SECURITY-AUDIT.md");
 
