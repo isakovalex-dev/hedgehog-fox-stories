@@ -123,6 +123,7 @@ with expected_functions(function_name, authenticated_execute, service_role_execu
     p.oid,
     pg_get_function_identity_arguments(p.oid) as arguments,
     p.prosecdef as security_definer,
+    p.proacl as function_acl,
     has_function_privilege('anon', p.oid, 'execute') as anon_execute,
     has_function_privilege('authenticated', p.oid, 'execute') as actual_authenticated_execute,
     has_function_privilege('service_role', p.oid, 'execute') as actual_service_role_execute
@@ -135,6 +136,7 @@ select
   function_name,
   arguments,
   security_definer,
+  function_acl,
   anon_execute,
   actual_authenticated_execute as authenticated_execute,
   actual_service_role_execute as service_role_execute,
