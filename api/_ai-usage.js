@@ -156,7 +156,13 @@ async function reserveAiUsage(input) {
 }
 
 async function completeAiUsage(reservationId) {
-  return callServiceRpc("complete_ai_usage", { p_reservation_id: assertUuid(reservationId) });
+  const result = await callServiceRpc("complete_ai_usage", {
+    p_reservation_id: assertUuid(reservationId)
+  });
+  if (!result || typeof result !== "object" || result.completed !== true) {
+    throw createError("internal_error");
+  }
+  return result;
 }
 
 async function releaseAiUsage(reservationId) {

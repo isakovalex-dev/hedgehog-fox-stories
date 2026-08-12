@@ -53,6 +53,13 @@ function getSafeLogError(error) {
   };
 }
 
+function getSafeCleanupError(error) {
+  return {
+    statusCode: Number(error?.statusCode) || 500,
+    name: String(error?.name || "Error").slice(0, 80)
+  };
+}
+
 function logIllustrationEvent(event, fields = {}) {
   console.log("[generate-story-illustration]", JSON.stringify({ event, ...fields }));
 }
@@ -538,6 +545,23 @@ async function uploadImage(objectPath, imageBytes) {
   await parseJsonResponse(response, "Illustration upload failed");
 }
 
+async function deleteImage(objectPath) {
+  const response = await fetch(
+    SUPABASE_URL.replace(/\/$/, "") + "/storage/v1/object/" + IMAGE_BUCKET,
+    {
+      method: "DELETE",
+      headers: {
+        apikey: SUPABASE_SECRET_KEY,
+        Authorization: "Bearer " + SUPABASE_SECRET_KEY,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ prefixes: [objectPath] })
+    }
+  );
+
+  await parseJsonResponse(response, "Illustration cleanup failed");
+}
+
 async function saveImageReference(pageId, storageReference) {
   const response = await fetch(
     SUPABASE_URL.replace(/\/$/, "") + "/rest/v1/story_pages?id=eq." + encodeURIComponent(pageId),
@@ -560,6 +584,10 @@ async function handler(req, res) {
   const startedAt = Date.now();
   let reservationId = null;
   let reservationCompleted = false;
+  let uploadedObjectPath = null;
+  let pageLinkAttempted = false;
+  let pageIdToRestore = null;
+  let previousImageReference = null;
   setCorsHeaders(req, res);
 
   if (req.method === "OPTIONS") {
@@ -584,6 +612,8 @@ async function handler(req, res) {
     const accessToken = getBearerToken(req);
     const user = await authenticateRequest(req);
     const { story, page } = await fetchStoryAndPage(storyId, pageNumber, accessToken);
+    pageIdToRestore = page.id;
+    previousImageReference = page.image_url;
     const styleProfile = await loadStyleProfile();
     const generationOptions = getGenerationOptions(body, styleProfile);
 
@@ -642,6 +672,8 @@ async function handler(req, res) {
     const storageReference = getStorageReference(objectPath);
 
     await uploadImage(objectPath, imageResult.imageBytes);
+    uploadedObjectPath = objectPath;
+    pageLinkAttempted = true;
     await saveImageReference(page.id, storageReference);
     const completion = await completeAiUsage(reservationId);
     reservationCompleted = true;
@@ -676,6 +708,27 @@ async function handler(req, res) {
       usage: completion?.usage || null
     });
   } catch (error) {
+    if (!reservationCompleted && uploadedObjectPath) {
+      if (pageLinkAttempted && pageIdToRestore) {
+        try {
+          await saveImageReference(pageIdToRestore, previousImageReference);
+        } catch (restoreError) {
+          logIllustrationEvent("illustration_artifact_cleanup_failed", {
+            cleanupStep: "restore_page_reference",
+            error: getSafeCleanupError(restoreError)
+          });
+        }
+      }
+
+      try {
+        await deleteImage(uploadedObjectPath);
+      } catch (deleteError) {
+        logIllustrationEvent("illustration_artifact_cleanup_failed", {
+          cleanupStep: "delete_uploaded_object",
+          error: getSafeCleanupError(deleteError)
+        });
+      }
+    }
     if (reservationId && !reservationCompleted) {
       try {
         await releaseAiUsage(reservationId);

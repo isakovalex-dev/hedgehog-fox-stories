@@ -4,12 +4,15 @@
 
 The findings below are **implemented, pending non-production verification**.
 This is an implementation-status record, not evidence that the migration has
-been applied to staging or production. The local database release gate remains
-blocked because the required Docker image pull did not complete; no remote
-Supabase, Vercel, or production command was run for this release.
+been applied to staging or production. After commit `9c66af7`, the migration
+applies through its initial local phase. The remaining local release block is
+observed lifecycle instability between Supabase CLI 2.113.0 and Docker 29.6.2:
+the CLI does not retain a stable, fully initialized local stack long enough to
+complete the release gate. No remote Supabase, Vercel, or production command
+was run for this release.
 
 - Migration name: `supabase/migrations/20260810003928_security_remediation.sql`
-- Test results: blocked — local database reset, SQL contract, and advisor checks remain pending; do not record a pass until they complete.
+- Test results: local-only advisors returned no issues. The SQL contract, true two-session concurrency test, and stable non-production RLS/ACL audit have not passed and remain mandatory; do not record a release pass until all three complete against a stable disposable database.
 - Staging URL: blocked — not recorded until the non-production deployment is verified.
 - Deploy timestamp: blocked — no deployment timestamp recorded.
 - Reviewer: blocked — awaiting security review after non-production verification.

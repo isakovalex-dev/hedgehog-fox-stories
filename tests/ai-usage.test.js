@@ -231,3 +231,25 @@ test("expired finalization is never returned as a created story", async () => {
     }
   );
 });
+
+test("an HTTP-successful image completion must explicitly report completed true", async () => {
+  global.fetch = async (url) => {
+    if (url.endsWith("/rest/v1/rpc/complete_ai_usage")) {
+      return jsonResponse({ completed: false, code: "reservation_expired" });
+    }
+    throw new Error(`unexpected network request: ${url}`);
+  };
+  const aiUsage = loadAiUsage();
+
+  await assert.rejects(
+    aiUsage.completeAiUsage(IDEMPOTENCY_KEY),
+    (error) => {
+      assert.deepEqual(aiUsage.toPublicError(error), {
+        statusCode: 500,
+        code: "internal_error",
+        publicMessage: "Внутренняя ошибка сервера."
+      });
+      return true;
+    }
+  );
+});

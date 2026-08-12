@@ -36,6 +36,8 @@ supabase db reset
 psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
   --set ON_ERROR_STOP=1 \
   --file tests/supabase-security.sql
+SUPABASE_LOCAL_DB_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+  bash tests/supabase-concurrent-reservation.sh
 psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
   --set ON_ERROR_STOP=1 \
   --file docs/supabase-rls-audit.sql
@@ -44,6 +46,11 @@ node --test tests/*.test.js
 npm run build
 npm run test:e2e
 ```
+
+The two-session reservation runner must pass and its output must be archived as
+release evidence. `SUPABASE_LOCAL_DB_URL` must point only to the local or other
+disposable non-production database initialized for this gate. Never set it to a
+linked production database or a production connection string.
 
 Then apply and verify the versioned migration in a non-production project,
 review the read-only audit output, and verify the headers on its URL:

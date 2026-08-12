@@ -379,6 +379,107 @@ test("a failed image completion releases the pending reservation exactly once", 
   assert.doesNotMatch(JSON.stringify(result.body), /secret|completion/i);
 });
 
+test("an expired completion restores the prior page image and deletes only the newly uploaded object", async () => {
+  const priorImageUrl = "storage://story-illustrations/" + USER_ID + "/story-1/page-1.webp";
+  const pageReferences = [];
+  const uploadedObjectPaths = [];
+  const deletedObjectPaths = [];
+  let releaseCalls = 0;
+  const result = await runRequest(
+    async (url, options = {}) => {
+      const requestUrl = String(url);
+      if (requestUrl === PROVIDER_URL) return providerResponse();
+      if (reserve(url)) return json({ allowed: true, code: "reserved", reservation: { id: RESERVATION_ID } });
+      if (complete(url)) return json({ completed: false, code: "reservation_expired" });
+      if (release(url)) {
+        releaseCalls += 1;
+        return json({ released: false });
+      }
+      if (requestUrl.includes("/storage/v1/object/")) {
+        if (options.method === "POST") {
+          uploadedObjectPaths.push(
+            decodeURIComponent(requestUrl.split("/storage/v1/object/story-illustrations/")[1])
+          );
+        }
+        if (options.method === "DELETE") {
+          deletedObjectPaths.push(...JSON.parse(options.body).prefixes);
+        }
+        return json({ Key: "ok" });
+      }
+      if (requestUrl.includes("/rest/v1/story_pages?id=")) {
+        pageReferences.push(JSON.parse(options.body).image_url);
+        return new Response(null, { status: 204 });
+      }
+      return standardResponses(url, options, priorImageUrl);
+    },
+    { force: true },
+    priorImageUrl
+  );
+
+  assert.equal(result.statusCode, 500);
+  assert.deepEqual(result.body, {
+    error: "internal_error",
+    message: "Внутренняя ошибка сервера."
+  });
+  assert.doesNotMatch(JSON.stringify(result.body), /reservation_expired/);
+  assert.equal(uploadedObjectPaths.length, 1);
+  assert.deepEqual(deletedObjectPaths, uploadedObjectPaths);
+  assert.equal(deletedObjectPaths.some((objectPath) => objectPath.endsWith("/page-1.webp")), false);
+  assert.equal(pageReferences.length, 2);
+  assert.match(pageReferences[0], /\/page-1-\d+\.webp$/);
+  assert.equal(pageReferences[1], priorImageUrl);
+  assert.equal(releaseCalls, 1);
+});
+
+test("artifact cleanup failure remains fail-closed and logs no upstream detail", async () => {
+  const priorImageUrl = "storage://story-illustrations/" + USER_ID + "/story-1/page-1.webp";
+  const originalConsoleLog = console.log;
+  const logLines = [];
+  const pageReferences = [];
+  const cleanupSecret = "storage-cleanup-secret";
+  let deleteCalls = 0;
+  let result;
+  console.log = (...values) => logLines.push(values.join(" "));
+
+  try {
+    result = await runRequest(
+      async (url, options = {}) => {
+        const requestUrl = String(url);
+        if (requestUrl === PROVIDER_URL) return providerResponse();
+        if (reserve(url)) return json({ allowed: true, code: "reserved", reservation: { id: RESERVATION_ID } });
+        if (complete(url)) return json({ completed: false, code: "reservation_expired" });
+        if (release(url)) return json({ released: false });
+        if (requestUrl.includes("/storage/v1/object/") && options.method === "DELETE") {
+          deleteCalls += 1;
+          assert.deepEqual(Object.keys(JSON.parse(options.body)), ["prefixes"]);
+          assert.equal(JSON.parse(options.body).prefixes.length, 1);
+          return json({ message: cleanupSecret }, 500);
+        }
+        if (requestUrl.includes("/storage/v1/object/")) return json({ Key: "ok" });
+        if (requestUrl.includes("/rest/v1/story_pages?id=")) {
+          pageReferences.push(JSON.parse(options.body).image_url);
+          return new Response(null, { status: 204 });
+        }
+        return standardResponses(url, options, priorImageUrl);
+      },
+      { force: true },
+      priorImageUrl
+    );
+  } finally {
+    console.log = originalConsoleLog;
+  }
+
+  assert.equal(result.statusCode, 500);
+  assert.deepEqual(result.body, {
+    error: "internal_error",
+    message: "Внутренняя ошибка сервера."
+  });
+  assert.equal(deleteCalls, 1);
+  assert.equal(pageReferences.at(-1), priorImageUrl);
+  assert.match(logLines.join("\n"), /illustration_artifact_cleanup_failed/);
+  assert.doesNotMatch(logLines.join("\n"), new RegExp(cleanupSecret));
+});
+
 test("an idempotency replay does not make a second image-provider request", async () => {
   let providerCalls = 0;
   const result = await runRequest(async (url, options = {}) => {
