@@ -121,7 +121,8 @@ begin
     );
   end if;
 
-  if p_new_image_url !~ format('^storage://story-illustrations/%s/.+\.webp$', v_reservation.user_id) then
+  if p_new_image_url is null
+     or p_new_image_url !~ format('^storage://story-illustrations/%s/.+\.webp$', v_reservation.user_id) then
     raise exception 'new image URL must be a user-owned WebP storage URL';
   end if;
 

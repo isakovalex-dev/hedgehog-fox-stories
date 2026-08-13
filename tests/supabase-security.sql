@@ -250,7 +250,10 @@ values
    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/old-ref.webp'),
   ('66666666-6666-6666-6666-666666666666',
    '44444444-4444-4444-4444-444444444444', 2, 'Expired page', 'forest_day',
-   'storage://story-illustrations/22222222-2222-2222-2222-222222222222/expired-old.webp')
+   'storage://story-illustrations/22222222-2222-2222-2222-222222222222/expired-old.webp'),
+  ('77777777-7777-7777-7777-777777777777',
+   '44444444-4444-4444-4444-444444444444', 3, 'Null URL page', 'forest_day',
+   'storage://story-illustrations/22222222-2222-2222-2222-222222222222/null-old.webp')
 on conflict (id) do update set image_url = excluded.image_url;
 insert into storage.objects (bucket_id, name, owner_id)
 values
@@ -263,6 +266,8 @@ values
   ('story-illustrations', '22222222-2222-2222-2222-222222222222/expired-old.webp',
    '22222222-2222-2222-2222-222222222222'),
   ('story-illustrations', '22222222-2222-2222-2222-222222222222/expired-new.webp',
+   '22222222-2222-2222-2222-222222222222'),
+  ('story-illustrations', '22222222-2222-2222-2222-222222222222/null-old.webp',
    '22222222-2222-2222-2222-222222222222')
 on conflict do nothing;
 
@@ -302,6 +307,37 @@ select pg_temp.assert_true(
   'completed image finalization replays without consuming another credit'
 );
 
+select public.reserve_ai_usage(
+  '22222222-2222-2222-2222-222222222222', 'image',
+  'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba6'::uuid
+);
+select pg_temp.expect_error(
+  $$select public.finalize_image_generation(
+    (select id from public.ai_generation_reservations
+      where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba6'::uuid),
+    '77777777-7777-7777-7777-777777777777'::uuid,
+    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/null-old.webp',
+    null::text
+  )$$,
+  'a null image URL is rejected before page or reservation changes'
+);
+select pg_temp.assert_true(
+  (select image_url from public.story_pages
+    where id = '77777777-7777-7777-7777-777777777777') =
+      'storage://story-illustrations/22222222-2222-2222-2222-222222222222/null-old.webp'
+  and (select status = 'reserved' from public.ai_generation_reservations
+       where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba6'::uuid)
+  and (select used_count = 2 and reserved_count = 1 from public.ai_usage_counters
+       where user_id = '22222222-2222-2222-2222-222222222222'
+         and resource_kind = 'image'
+       order by period_start desc limit 1),
+  'null image URL leaves the page and reservation unchanged'
+);
+select public.release_ai_usage(
+  (select id from public.ai_generation_reservations
+    where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba6'::uuid)
+);
+
 update public.story_pages
    set image_url = 'storage://story-illustrations/22222222-2222-2222-2222-222222222222/newer.webp'
  where id = '55555555-5555-5555-5555-555555555555';
@@ -327,6 +363,20 @@ select pg_temp.assert_true(
          and resource_kind = 'image'
        order by period_start desc limit 1),
   'CAS conflict preserves the newer URL and releases the reservation once'
+);
+select pg_temp.assert_true(
+  (public.finalize_image_generation(
+    (select id from public.ai_generation_reservations
+      where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba2'::uuid),
+    '55555555-5555-5555-5555-555555555555',
+    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/completed.webp',
+    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/old-ref.webp'
+  )->>'code') = 'reservation_terminal'
+  and (select used_count = 2 and reserved_count = 0 from public.ai_usage_counters
+       where user_id = '22222222-2222-2222-2222-222222222222'
+         and resource_kind = 'image'
+       order by period_start desc limit 1),
+  'CAS conflict retry is terminal and does not release capacity twice'
 );
 
 select public.reserve_ai_usage(
@@ -356,6 +406,68 @@ select pg_temp.assert_true(
        order by period_start desc limit 1),
   'expired image reservation preserves the URL and does not leak reserved capacity'
 );
+select pg_temp.assert_true(
+  (public.finalize_image_generation(
+    (select id from public.ai_generation_reservations
+      where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba3'::uuid),
+    '66666666-6666-6666-6666-666666666666',
+    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/expired-old.webp',
+    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/expired-new.webp'
+  )->>'code') = 'reservation_terminal'
+  and (select used_count = 2 and reserved_count = 0 from public.ai_usage_counters
+       where user_id = '22222222-2222-2222-2222-222222222222'
+         and resource_kind = 'image'
+       order by period_start desc limit 1),
+  'expired reservation retry is terminal and does not release capacity twice'
+);
+
+insert into public.stories (id, user_id, title, age_group, mood, lesson, visibility)
+values ('88888888-8888-8888-8888-888888888888',
+        '11111111-1111-1111-1111-111111111111',
+        'User A image page', '5-6', '', '', 'private')
+on conflict (id) do update set user_id = excluded.user_id;
+insert into public.story_pages (id, story_id, page_number, text, scene_tag, image_url)
+values ('99999999-9999-9999-9999-999999999999',
+        '88888888-8888-8888-8888-888888888888', 1, 'Foreign page', 'forest_day',
+        'storage://story-illustrations/11111111-1111-1111-1111-111111111111/foreign-old.webp')
+on conflict (id) do update set image_url = excluded.image_url;
+select public.reserve_ai_usage(
+  '22222222-2222-2222-2222-222222222222', 'image',
+  'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba4'::uuid
+);
+select pg_temp.assert_true(
+  (public.finalize_image_generation(
+    (select id from public.ai_generation_reservations
+      where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba4'::uuid),
+    '99999999-9999-9999-9999-999999999999',
+    'storage://story-illustrations/11111111-1111-1111-1111-111111111111/foreign-old.webp',
+    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/old-ref.webp'
+  )->>'code') = 'page_not_owned'
+  and (select image_url from public.story_pages
+       where id = '99999999-9999-9999-9999-999999999999') =
+      'storage://story-illustrations/11111111-1111-1111-1111-111111111111/foreign-old.webp'
+  and (select status = 'released' from public.ai_generation_reservations
+       where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba4'::uuid)
+  and (select used_count = 2 and reserved_count = 0 from public.ai_usage_counters
+       where user_id = '22222222-2222-2222-2222-222222222222'
+         and resource_kind = 'image'
+       order by period_start desc limit 1),
+  'foreign page is unchanged and its reservation is released once'
+);
+select pg_temp.assert_true(
+  (public.finalize_image_generation(
+    (select id from public.ai_generation_reservations
+      where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba4'::uuid),
+    '99999999-9999-9999-9999-999999999999',
+    'storage://story-illustrations/11111111-1111-1111-1111-111111111111/foreign-old.webp',
+    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/old-ref.webp'
+  )->>'code') = 'reservation_terminal'
+  and (select used_count = 2 and reserved_count = 0 from public.ai_usage_counters
+       where user_id = '22222222-2222-2222-2222-222222222222'
+         and resource_kind = 'image'
+       order by period_start desc limit 1),
+  'foreign-page retry is terminal and does not release capacity twice'
+);
 
 insert into public.stories (id, user_id, title, age_group, mood, lesson, visibility)
 values ('33333333-3333-3333-3333-333333333333',
@@ -376,6 +488,14 @@ on conflict do nothing;
 
 set local role authenticated;
 set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select pg_temp.assert_true(
+  not has_function_privilege(
+    'authenticated',
+    'public.finalize_image_generation(uuid, uuid, text, text)',
+    'EXECUTE'
+  ),
+  'authenticated has no execute privilege on image finalization RPC'
+);
 select pg_temp.expect_error(
   $$select public.reserve_ai_usage(
     '11111111-1111-1111-1111-111111111111', 'story',
@@ -384,9 +504,10 @@ select pg_temp.expect_error(
 );
 select pg_temp.expect_error(
   $$select public.finalize_image_generation(
-    '00000000-0000-0000-0000-000000000000'::uuid,
+    (select id from public.ai_generation_reservations
+      where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba1'::uuid),
     '55555555-5555-5555-5555-555555555555'::uuid,
-    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/old-ref.webp',
+    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/completed.webp',
     'storage://story-illustrations/22222222-2222-2222-2222-222222222222/completed.webp'
   )$$,
   'authenticated cannot execute a service-role-only image finalization RPC'

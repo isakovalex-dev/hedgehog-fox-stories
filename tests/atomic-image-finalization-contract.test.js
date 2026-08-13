@@ -20,5 +20,9 @@ test("image finalizer is server-only and uses an owner-bound CAS", () => {
   assert.match(sql, /join\s+public\.stories[\s\S]*user_id\s*=\s*v_reservation\.user_id/is);
   assert.match(sql, /image_url\s+is\s+not\s+distinct\s+from\s+p_expected_image_url/is);
   assert.match(sql, /'idempotency_replayed',\s*true/is);
-  assert.match(sql, /'page_changed'|storage:\/\/story-illustrations\//is);
+  assert.match(sql, /p_new_image_url\s+is\s+null\s+or\s+p_new_image_url\s*!~\s*format\(/is);
+  assert.match(sql, /storage:\/\/story-illustrations\//is);
+  assert.match(sql, /'page_changed'/is);
+  assert.match(sql, /'page_not_owned'/is);
+  assert.match(sql, /'reservation_terminal'/is);
 });
