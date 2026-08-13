@@ -271,18 +271,29 @@ values
    '22222222-2222-2222-2222-222222222222')
 on conflict do nothing;
 
+-- Store each state-changing RPC result in a prior statement. Combining a
+-- volatile function call with reads of the changed rows in one boolean
+-- expression gives PostgreSQL freedom to evaluate the reads first.
+create temporary table image_finalizer_results (
+  test_case text primary key,
+  result jsonb not null
+) on commit drop;
+
 select public.reserve_ai_usage(
   '22222222-2222-2222-2222-222222222222', 'image',
   'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba1'::uuid
 );
+insert into pg_temp.image_finalizer_results (test_case, result)
+select 'completed', public.finalize_image_generation(
+  (select id from public.ai_generation_reservations
+    where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba1'::uuid),
+  '55555555-5555-5555-5555-555555555555',
+  'storage://story-illustrations/22222222-2222-2222-2222-222222222222/old-ref.webp',
+  'storage://story-illustrations/22222222-2222-2222-2222-222222222222/completed.webp'
+);
 select pg_temp.assert_true(
-  (public.finalize_image_generation(
-    (select id from public.ai_generation_reservations
-      where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba1'::uuid),
-    '55555555-5555-5555-5555-555555555555',
-    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/old-ref.webp',
-    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/completed.webp'
-  )->>'completed') = 'true'
+  (select result->>'completed' = 'true'
+     from pg_temp.image_finalizer_results where test_case = 'completed')
   and (select image_url from public.story_pages
         where id = '55555555-5555-5555-5555-555555555555') =
       'storage://story-illustrations/22222222-2222-2222-2222-222222222222/completed.webp'
@@ -292,14 +303,17 @@ select pg_temp.assert_true(
        order by period_start desc limit 1),
   'successful image finalization changes the URL and consumes exactly one credit'
 );
+insert into pg_temp.image_finalizer_results (test_case, result)
+select 'completed_replay', public.finalize_image_generation(
+  (select id from public.ai_generation_reservations
+    where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba1'::uuid),
+  '55555555-5555-5555-5555-555555555555',
+  'storage://story-illustrations/22222222-2222-2222-2222-222222222222/old-ref.webp',
+  'storage://story-illustrations/22222222-2222-2222-2222-222222222222/completed.webp'
+);
 select pg_temp.assert_true(
-  (public.finalize_image_generation(
-    (select id from public.ai_generation_reservations
-      where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba1'::uuid),
-    '55555555-5555-5555-5555-555555555555',
-    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/old-ref.webp',
-    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/completed.webp'
-  )->>'idempotency_replayed') = 'true'
+  (select result->>'idempotency_replayed' = 'true'
+     from pg_temp.image_finalizer_results where test_case = 'completed_replay')
   and (select used_count = 2 from public.ai_usage_counters
        where user_id = '22222222-2222-2222-2222-222222222222'
          and resource_kind = 'image'
@@ -344,14 +358,17 @@ select public.reserve_ai_usage(
   '22222222-2222-2222-2222-222222222222', 'image',
   'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba2'::uuid
 );
+insert into pg_temp.image_finalizer_results (test_case, result)
+select 'page_changed', public.finalize_image_generation(
+  (select id from public.ai_generation_reservations
+    where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba2'::uuid),
+  '55555555-5555-5555-5555-555555555555',
+  'storage://story-illustrations/22222222-2222-2222-2222-222222222222/completed.webp',
+  'storage://story-illustrations/22222222-2222-2222-2222-222222222222/old-ref.webp'
+);
 select pg_temp.assert_true(
-  (public.finalize_image_generation(
-    (select id from public.ai_generation_reservations
-      where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba2'::uuid),
-    '55555555-5555-5555-5555-555555555555',
-    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/completed.webp',
-    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/old-ref.webp'
-  )->>'code') = 'page_changed'
+  (select result->>'code' = 'page_changed'
+     from pg_temp.image_finalizer_results where test_case = 'page_changed')
   and (select image_url from public.story_pages
         where id = '55555555-5555-5555-5555-555555555555') =
       'storage://story-illustrations/22222222-2222-2222-2222-222222222222/newer.webp'
@@ -363,14 +380,17 @@ select pg_temp.assert_true(
        order by period_start desc limit 1),
   'CAS conflict preserves the newer URL and releases the reservation once'
 );
+insert into pg_temp.image_finalizer_results (test_case, result)
+select 'page_changed_replay', public.finalize_image_generation(
+  (select id from public.ai_generation_reservations
+    where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba2'::uuid),
+  '55555555-5555-5555-5555-555555555555',
+  'storage://story-illustrations/22222222-2222-2222-2222-222222222222/completed.webp',
+  'storage://story-illustrations/22222222-2222-2222-2222-222222222222/old-ref.webp'
+);
 select pg_temp.assert_true(
-  (public.finalize_image_generation(
-    (select id from public.ai_generation_reservations
-      where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba2'::uuid),
-    '55555555-5555-5555-5555-555555555555',
-    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/completed.webp',
-    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/old-ref.webp'
-  )->>'code') = 'reservation_terminal'
+  (select result->>'code' = 'reservation_terminal'
+     from pg_temp.image_finalizer_results where test_case = 'page_changed_replay')
   and (select used_count = 2 and reserved_count = 0 from public.ai_usage_counters
        where user_id = '22222222-2222-2222-2222-222222222222'
          and resource_kind = 'image'
@@ -386,14 +406,17 @@ update public.ai_generation_reservations
    set created_at = now() - interval '20 minutes',
        expires_at = now() - interval '1 second'
  where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba3'::uuid;
+insert into pg_temp.image_finalizer_results (test_case, result)
+select 'reservation_expired', public.finalize_image_generation(
+  (select id from public.ai_generation_reservations
+    where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba3'::uuid),
+  '66666666-6666-6666-6666-666666666666',
+  'storage://story-illustrations/22222222-2222-2222-2222-222222222222/expired-old.webp',
+  'storage://story-illustrations/22222222-2222-2222-2222-222222222222/expired-new.webp'
+);
 select pg_temp.assert_true(
-  (public.finalize_image_generation(
-    (select id from public.ai_generation_reservations
-      where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba3'::uuid),
-    '66666666-6666-6666-6666-666666666666',
-    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/expired-old.webp',
-    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/expired-new.webp'
-  )->>'code') = 'reservation_expired'
+  (select result->>'code' = 'reservation_expired'
+     from pg_temp.image_finalizer_results where test_case = 'reservation_expired')
   and (select image_url from public.story_pages
         where id = '66666666-6666-6666-6666-666666666666') =
       'storage://story-illustrations/22222222-2222-2222-2222-222222222222/expired-old.webp'
@@ -405,14 +428,17 @@ select pg_temp.assert_true(
        order by period_start desc limit 1),
   'expired image reservation preserves the URL and does not leak reserved capacity'
 );
+insert into pg_temp.image_finalizer_results (test_case, result)
+select 'reservation_expired_replay', public.finalize_image_generation(
+  (select id from public.ai_generation_reservations
+    where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba3'::uuid),
+  '66666666-6666-6666-6666-666666666666',
+  'storage://story-illustrations/22222222-2222-2222-2222-222222222222/expired-old.webp',
+  'storage://story-illustrations/22222222-2222-2222-2222-222222222222/expired-new.webp'
+);
 select pg_temp.assert_true(
-  (public.finalize_image_generation(
-    (select id from public.ai_generation_reservations
-      where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba3'::uuid),
-    '66666666-6666-6666-6666-666666666666',
-    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/expired-old.webp',
-    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/expired-new.webp'
-  )->>'code') = 'reservation_terminal'
+  (select result->>'code' = 'reservation_terminal'
+     from pg_temp.image_finalizer_results where test_case = 'reservation_expired_replay')
   and (select used_count = 2 and reserved_count = 0 from public.ai_usage_counters
        where user_id = '22222222-2222-2222-2222-222222222222'
          and resource_kind = 'image'
@@ -434,14 +460,17 @@ select public.reserve_ai_usage(
   '22222222-2222-2222-2222-222222222222', 'image',
   'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba4'::uuid
 );
+insert into pg_temp.image_finalizer_results (test_case, result)
+select 'page_not_owned', public.finalize_image_generation(
+  (select id from public.ai_generation_reservations
+    where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba4'::uuid),
+  '99999999-9999-9999-9999-999999999999',
+  'storage://story-illustrations/11111111-1111-1111-1111-111111111111/foreign-old.webp',
+  'storage://story-illustrations/22222222-2222-2222-2222-222222222222/old-ref.webp'
+);
 select pg_temp.assert_true(
-  (public.finalize_image_generation(
-    (select id from public.ai_generation_reservations
-      where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba4'::uuid),
-    '99999999-9999-9999-9999-999999999999',
-    'storage://story-illustrations/11111111-1111-1111-1111-111111111111/foreign-old.webp',
-    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/old-ref.webp'
-  )->>'code') = 'page_not_owned'
+  (select result->>'code' = 'page_not_owned'
+     from pg_temp.image_finalizer_results where test_case = 'page_not_owned')
   and (select image_url from public.story_pages
        where id = '99999999-9999-9999-9999-999999999999') =
       'storage://story-illustrations/11111111-1111-1111-1111-111111111111/foreign-old.webp'
@@ -453,14 +482,17 @@ select pg_temp.assert_true(
        order by period_start desc limit 1),
   'foreign page is unchanged and its reservation is released once'
 );
+insert into pg_temp.image_finalizer_results (test_case, result)
+select 'page_not_owned_replay', public.finalize_image_generation(
+  (select id from public.ai_generation_reservations
+    where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba4'::uuid),
+  '99999999-9999-9999-9999-999999999999',
+  'storage://story-illustrations/11111111-1111-1111-1111-111111111111/foreign-old.webp',
+  'storage://story-illustrations/22222222-2222-2222-2222-222222222222/old-ref.webp'
+);
 select pg_temp.assert_true(
-  (public.finalize_image_generation(
-    (select id from public.ai_generation_reservations
-      where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba4'::uuid),
-    '99999999-9999-9999-9999-999999999999',
-    'storage://story-illustrations/11111111-1111-1111-1111-111111111111/foreign-old.webp',
-    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/old-ref.webp'
-  )->>'code') = 'reservation_terminal'
+  (select result->>'code' = 'reservation_terminal'
+     from pg_temp.image_finalizer_results where test_case = 'page_not_owned_replay')
   and (select used_count = 2 and reserved_count = 0 from public.ai_usage_counters
        where user_id = '22222222-2222-2222-2222-222222222222'
          and resource_kind = 'image'
@@ -472,14 +504,17 @@ select public.reserve_ai_usage(
   '22222222-2222-2222-2222-222222222222', 'image',
   'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba7'::uuid
 );
+insert into pg_temp.image_finalizer_results (test_case, result)
+select 'nullable_completed', public.finalize_image_generation(
+  (select id from public.ai_generation_reservations
+    where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba7'::uuid),
+  '77777777-7777-7777-7777-777777777777',
+  null::text,
+  'storage://story-illustrations/22222222-2222-2222-2222-222222222222/nullable-completed.webp'
+);
 select pg_temp.assert_true(
-  (public.finalize_image_generation(
-    (select id from public.ai_generation_reservations
-      where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba7'::uuid),
-    '77777777-7777-7777-7777-777777777777',
-    null::text,
-    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/nullable-completed.webp'
-  )->>'completed') = 'true'
+  (select result->>'completed' = 'true'
+     from pg_temp.image_finalizer_results where test_case = 'nullable_completed')
   and (select image_url from public.story_pages
         where id = '77777777-7777-7777-7777-777777777777') =
       'storage://story-illustrations/22222222-2222-2222-2222-222222222222/nullable-completed.webp'

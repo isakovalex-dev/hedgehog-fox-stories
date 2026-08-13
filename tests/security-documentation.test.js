@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { readFile } = require("node:fs/promises");
+const { readFile, readdir } = require("node:fs/promises");
 const { resolve } = require("node:path");
 
 const root = resolve(__dirname, "..");
@@ -93,6 +93,33 @@ test("local Supabase Auth fixtures avoid the removed email_confirmed_at column",
     const content = await readProjectFile(fixture);
     assert.doesNotMatch(content, /\bemail_confirmed_at\b/i);
   }
+});
+
+test("concurrency runner falls back to the local Docker psql client", async () => {
+  const runner = await readProjectFile("tests/supabase-concurrent-reservation.sh");
+
+  assert.match(runner, /run_psql\(\)/);
+  assert.match(runner, /command -v psql/);
+  assert.match(runner, /docker exec -i supabase_db_security-remediation psql/);
+  assert.match(runner, /run_psql "\$database_url"/);
+  assert.doesNotMatch(runner, /exec\s+(?:psql|docker)/);
+});
+
+test("usage display RPC is revoked from the service role by a versioned migration", async () => {
+  const migrationsDirectory = resolve(root, "supabase/migrations");
+  const migrationFiles = await readdir(migrationsDirectory);
+  const migrations = await Promise.all(
+    migrationFiles
+      .filter((file) => file.endsWith(".sql"))
+      .map((file) => readFile(resolve(migrationsDirectory, file), "utf8"))
+  );
+
+  assert.ok(
+    migrations.some((migration) =>
+      /revoke\s+execute\s+on\s+function\s+public\.get_current_usage\(\)\s+from\s+service_role/i.test(migration)
+    ),
+    "a migration must revoke service_role execution from get_current_usage"
+  );
 });
 
 test("security audit records remediation findings as pending verification", async () => {

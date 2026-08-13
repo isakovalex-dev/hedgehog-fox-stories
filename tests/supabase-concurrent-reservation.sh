@@ -10,7 +10,32 @@ key_two='44444444-4444-4444-4444-444444444442'
 work_dir="$(mktemp -d)"
 trap 'rm -rf "$work_dir"' EXIT
 
-psql "$database_url" --set ON_ERROR_STOP=1 <<SQL
+run_psql() {
+  local database_url="$1"
+  shift
+
+  if command -v psql >/dev/null 2>&1; then
+    psql "$database_url" "$@"
+    return
+  fi
+
+  # macOS development machines commonly have Docker Desktop but not libpq.
+  # Use the PostgreSQL client inside the existing local Supabase DB container;
+  # this fallback is local-only and intentionally ignores the URL after the
+  # runner's documented default has selected the local database.
+  case "$database_url" in
+    postgresql://postgres:postgres@127.0.0.1:54322/postgres)
+      docker exec -i supabase_db_security-remediation psql -X -U postgres -d postgres "$@"
+      return
+      ;;
+    *)
+      printf '%s\n' 'psql is required for a non-default SUPABASE_LOCAL_DB_URL' >&2
+      return 127
+      ;;
+  esac
+}
+
+run_psql "$database_url" --set ON_ERROR_STOP=1 <<SQL
 insert into auth.users (
   id, instance_id, aud, role, email, encrypted_password,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at
@@ -27,7 +52,7 @@ SQL
 run_reservation() {
   local key="$1"
   local output="$2"
-  psql "$database_url" --set ON_ERROR_STOP=1 --tuples-only --no-align <<SQL >"$output"
+  run_psql "$database_url" --set ON_ERROR_STOP=1 --tuples-only --no-align <<SQL >"$output"
 begin;
 set local role service_role;
 select public.reserve_ai_usage('$test_user_id', 'story', '$key'::uuid);
@@ -44,8 +69,8 @@ second_pid=$!
 wait "$first_pid"
 wait "$second_pid"
 
-psql "$database_url" --set ON_ERROR_STOP=1 <<SQL
-do \\$\$
+run_psql "$database_url" --set ON_ERROR_STOP=1 <<SQL
+do \$\$
 declare
   v_reserved integer;
 begin
