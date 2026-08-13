@@ -1,20 +1,20 @@
-# Atomic Image Finalization Design
+# Атомарное завершение генерации иллюстрации
 
-**Date:** 2026-08-13
-**Status:** Approved for implementation
-**Scope:** Correct two image-generation races found in the final security review. This extends, but does not replace, `2026-08-08-security-remediation-design.md`.
+**Дата:** 2026-08-13
+**Статус:** Одобрено для реализации
+**Область работ:** Исправить две гонки при генерации иллюстраций, выявленные финальным аудитом безопасности. Документ дополняет, но не заменяет [основную спецификацию исправления безопасности](2026-08-08-security-remediation-design.md).
 
-## Goal
+## Цель
 
-Make the final image-generation state durable and race-safe. A successful image credit must always correspond to the page reference that selected the uploaded object, and error recovery must never delete a completed image or overwrite a newer page image.
+Сделать финальное состояние генерации иллюстрации долговечным и устойчивым к гонкам. Списанный кредит всегда должен соответствовать ссылке страницы на загруженный объект, а обработка ошибок не должна удалять завершённую оплаченную иллюстрацию или перезаписывать более новую иллюстрацию страницы.
 
-## Context
+## Контекст
 
-The current handler uploads an object, updates `story_pages.image_url`, then calls `complete_ai_usage`. Those are separate operations. If the database commits completion but its response is lost, the handler cannot distinguish success from failure and may delete the paid object. A compensating update that restores the old `image_url` can also overwrite a newer successful forced or iteration generation.
+Сейчас обработчик загружает объект, обновляет `story_pages.image_url`, затем вызывает `complete_ai_usage`. Это независимые операции. Если база данных подтвердила списание, но ответ был потерян, обработчик не может отличить успех от ошибки и способен удалить оплаченный объект. Компенсационное восстановление прежнего `image_url` также может перезаписать более новую успешную принудительную или итеративную генерацию.
 
-## Decision
+## Решение
 
-Add one server-only PostgreSQL function:
+Добавить одну PostgreSQL-функцию, доступную только серверу:
 
 ```sql
 public.finalize_image_generation(
@@ -25,53 +25,53 @@ public.finalize_image_generation(
 ) returns jsonb
 ```
 
-The Vercel image handler uploads the WebP object first, then calls this function instead of PATCHing `story_pages` and separately calling `complete_ai_usage`.
+Серверный обработчик Vercel сначала загружает WebP-объект, затем вызывает эту функцию вместо отдельного PATCH к `story_pages` и вызова `complete_ai_usage`.
 
-The function is the sole operation that changes a page to the uploaded image and consumes the matching image reservation. It is `SECURITY DEFINER`, has `search_path = public, pg_temp`, is revoked from `PUBLIC`, `anon`, and `authenticated`, and is granted only to `service_role`.
+Функция — единственная операция, которая изменяет ссылку страницы на загруженную иллюстрацию и расходует соответствующий резерв. Она работает как `SECURITY DEFINER`, устанавливает `search_path = public, pg_temp`; вызов отозван у `PUBLIC`, `anon` и `authenticated` и выдан только `service_role`.
 
-## Transaction behaviour
+## Поведение транзакции
 
-The function performs all of the following in one PostgreSQL transaction:
+За одну транзакцию PostgreSQL функция выполняет следующее:
 
-1. Validates that the reservation exists, has resource kind `image`, and resolves its immutable usage-counter key.
-2. Locks the usage counter, then the reservation, matching the existing global lock order.
-3. Handles terminal states without changing the page:
-   - a completed reservation returns `completed: true` with `idempotency_replayed: true`;
-   - a released reservation returns a safe rejection;
-   - an expired reservation is released and its reserved count is decremented exactly once.
-4. Locks the requested page and verifies through `stories.user_id` that it belongs to the reservation user.
-5. Validates that the new reference is a `storage://story-illustrations/<reservation-user-id>/...webp` path.
-6. Uses `image_url IS NOT DISTINCT FROM p_expected_image_url` when updating the page. The update therefore succeeds only if the page still has the value read before the provider call.
-7. Only after that compare-and-swap succeeds, sets the reservation to `completed`, decrements `reserved_count`, and increments `used_count`.
+1. Проверяет, что резерв существует, имеет тип ресурса `image`, и находит его неизменяемый ключ счётчика использования.
+2. Блокирует сначала счётчик использования, затем резерв — в соответствии с существующим глобальным порядком блокировок.
+3. Обрабатывает конечные состояния, не меняя страницу:
+   - завершённый резерв возвращает `completed: true` и `idempotency_replayed: true`;
+   - освобождённый резерв возвращает безопасный отказ;
+   - просроченный резерв освобождается, а его `reserved_count` уменьшается ровно один раз.
+4. Блокирует указанную страницу и через `stories.user_id` проверяет, что она принадлежит пользователю из резерва.
+5. Проверяет, что новая ссылка имеет вид `storage://story-illustrations/<идентификатор-пользователя-резерва>/...webp`.
+6. При обновлении страницы использует `image_url IS NOT DISTINCT FROM p_expected_image_url`. Поэтому обновление проходит, только если у страницы всё ещё значение, прочитанное до вызова провайдера.
+7. Лишь после успешного сравнения-и-замены переводит резерв в `completed`, уменьшает `reserved_count` и увеличивает `used_count`.
 
-If the page no longer has the expected reference, the function releases the reservation and returns `completed: false, code: 'page_changed'`; it never touches the newer page value.
+Если ожидаемая ссылка страницы уже изменилась, функция освобождает резерв и возвращает `completed: false, code: 'page_changed'`. Более новую ссылку она не изменяет.
 
-## Handler behaviour
+## Поведение обработчика
 
-The handler tracks three states: finalization not started, finalization rejected by a database response, and finalization outcome unknown because the RPC did not return a valid response.
+Обработчик различает три состояния: финализация не начата, финализация отклонена ответом базы данных и результат финализации неизвестен, потому что RPC не вернула корректный ответ.
 
-- Before finalization, provider or upload failures release the reservation. An uploaded but unlinked object is deleted when its path is known.
-- A database rejection (`reservation_expired`, `page_changed`, ownership failure, or released reservation) has already released the reservation in the transaction. The handler deletes only the new unlinked object; it does not update `story_pages` and does not call `release_ai_usage` again.
-- On successful finalization, the handler returns the generated image and quota usage. A replayed successful finalization is also success and does not increment usage again.
-- When the RPC response is lost or malformed, the outcome is unknown. The handler returns the existing static 500 response and deliberately performs neither object deletion nor reservation release. This can leave a recoverable orphan or a short-lived reservation, but it cannot delete a completed paid image or free a consumed credit.
+- До финализации ошибка провайдера или загрузки освобождает резерв. Уже загруженный, но ещё не привязанный объект удаляется, когда его путь известен.
+- При отказе базы данных (`reservation_expired`, `page_changed`, ошибка владения или освобождённый резерв) резерв уже освобождён внутри транзакции. Обработчик удаляет только новый непривязанный объект; он не обновляет `story_pages` и не вызывает `release_ai_usage` повторно.
+- При успешной финализации обработчик возвращает результат генерации и сведения об использовании. Повтор успешной финализации также считается успехом и не увеличивает расход повторно.
+- Если ответ RPC потерян или некорректен, результат неизвестен. Обработчик возвращает существующую статическую ошибку 500 и намеренно не удаляет объект и не освобождает резерв. Это может оставить восстанавливаемый объект-сироту или краткоживущий резерв, но исключает удаление завершённой оплаченной иллюстрации или освобождение уже списанного кредита.
 
-The handler removes the old `saveImageReference` and restoration compensation path. It never PATCHes `story_pages` directly.
+Обработчик удаляет старые пути `saveImageReference` и компенсационного восстановления. Прямой PATCH к `story_pages` больше не выполняется.
 
-## Error handling and observability
+## Ошибки и наблюдаемость
 
-Client-visible errors remain the existing static `internal_error` response; database codes and upstream responses remain server-only. The handler logs the existing redacted event shape and adds an outcome marker only, never a key, bearer token, prompt, page text, or provider body.
+Пользователь продолжает получать статический ответ `internal_error`; коды базы данных и ответы внешних сервисов остаются только на сервере. Обработчик сохраняет существующую форму обезличенного лога и добавляет только признак результата — никогда ключ идемпотентности, bearer-токен, промпт, текст страницы или тело ответа провайдера.
 
-The existing ten-minute reservation expiry remains the recovery path for an unknown operation that did not commit. Cleanup of a confirmed database rejection is best effort and logs only a redacted error classification.
+Действующий десятиминутный срок резерва остаётся путём восстановления для неизвестной операции, которая не была зафиксирована. Удаление объекта после подтверждённого отказа базы выполняется по возможности и логирует только обезличенную классификацию ошибки.
 
-## Test strategy
+## Стратегия тестирования
 
-1. Add a failing Node unit test for the new service-role RPC helper and its exact parameter body.
-2. Add failing handler tests proving that a successful finalization performs no REST page PATCH, a database rejection deletes only the newly uploaded object without a second release, and an unknown finalizer result performs neither delete nor release.
-3. Extend the SQL contract to assert the function signature, function grants, `SECURITY DEFINER` search path, counter-to-reservation lock order, ownership predicate, idempotent completed result, and `IS NOT DISTINCT FROM` compare-and-swap.
-4. Keep the existing local SQL contract, real two-session concurrency script, RLS/ACL audit, advisors, staging, and production rollout gates. The local Docker lifecycle fault currently prevents treating those runtime gates as passed.
+1. Добавить падающий Node-тест для нового помощника service-role RPC и точного тела его параметров.
+2. Добавить падающие тесты обработчика, доказывающие: успешная финализация не выполняет REST PATCH страницы; отказ базы удаляет только новый объект без второго освобождения резерва; неизвестный результат финализатора не выполняет ни удаление, ни освобождение.
+3. Расширить SQL-контракт проверками сигнатуры функции, прав вызова, `SECURITY DEFINER` с `search_path`, порядка блокировок «счётчик → резерв», проверки владельца, идемпотентного результата для завершённого резерва и compare-and-swap через `IS NOT DISTINCT FROM`.
+4. Сохранить существующие контрольные этапы: локальный SQL-контракт, настоящий двухсессионный конкурентный тест, аудит RLS/ACL, advisors, staging и production rollout. Текущий дефект жизненного цикла локального Docker не позволяет считать эти runtime-проверки пройденными.
 
-## Non-goals
+## Не входит в работу
 
-- No new queue, Redis, storage bucket, background worker, or managed service.
-- No remote Supabase query, migration application, credential access, paid provider request, or staging/production deployment during implementation.
-- No change to browser-facing authentication, plan limits, or the story-generation finalizer.
+- Новая очередь, Redis, Storage-bucket, фоновый worker или управляемый сервис.
+- Удалённый запрос к Supabase, применение миграции, доступ к учётным данным, платный запрос к провайдеру или развёртывание в staging/production во время реализации.
+- Изменение браузерной аутентификации, лимитов тарифов или финализатора генерации историй.
