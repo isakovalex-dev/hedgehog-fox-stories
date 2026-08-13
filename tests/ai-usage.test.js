@@ -61,6 +61,33 @@ test("reserve uses the server-only key and does not call a provider", async () =
   assert.equal(requests.some((request) => !request.url.includes("example.supabase.co")), false);
 });
 
+test("image finalization calls the atomic service RPC with its complete contract", async () => {
+  const requests = [];
+  global.fetch = async (url, options) => {
+    requests.push({ url, options });
+    return jsonResponse({ completed: true, usage: { resource_kind: "image", used_count: 1 } });
+  };
+  const aiUsage = loadAiUsage();
+  const result = await aiUsage.finalizeImageUsage({
+    reservationId: IDEMPOTENCY_KEY,
+    pageId: USER_ID,
+    expectedImageUrl: null,
+    newImageUrl: "storage://story-illustrations/test.webp"
+  });
+
+  assert.deepEqual(result, { completed: true, usage: { resource_kind: "image", used_count: 1 } });
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, "https://example.supabase.co/rest/v1/rpc/finalize_image_generation");
+  assert.equal(requests[0].options.headers.apikey, SERVICE_KEY);
+  assert.equal(requests[0].options.headers.Authorization, `Bearer ${SERVICE_KEY}`);
+  assert.deepEqual(JSON.parse(requests[0].options.body), {
+    p_reservation_id: IDEMPOTENCY_KEY,
+    p_page_id: USER_ID,
+    p_expected_image_url: "null",
+    p_new_image_url: "storage://story-illustrations/test.webp"
+  });
+});
+
 test("a quota result becomes a static 403 public error", async () => {
   global.fetch = async (url) => {
     if (url.endsWith("/rest/v1/rpc/reserve_ai_usage")) {
@@ -111,6 +138,7 @@ test("service RPCs fail closed without a service key and do not fetch", async ()
     () => aiUsage.reserveAiUsage({ userId: USER_ID, resourceKind: "story", idempotencyKey: IDEMPOTENCY_KEY }),
     () => aiUsage.completeAiUsage(IDEMPOTENCY_KEY),
     () => aiUsage.releaseAiUsage(IDEMPOTENCY_KEY),
+    () => aiUsage.finalizeImageUsage({ reservationId: IDEMPOTENCY_KEY, pageId: USER_ID, expectedImageUrl: "", newImageUrl: "" }),
     () => aiUsage.finalizeStoryReservation({ reservationId: IDEMPOTENCY_KEY })
   ];
 

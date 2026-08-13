@@ -8,7 +8,7 @@ const {
   authenticateRequest,
   readIdempotencyKey,
   reserveAiUsage,
-  completeAiUsage,
+  finalizeImageUsage,
   releaseAiUsage,
   toPublicError
 } = require("./_ai-usage.js");
@@ -43,21 +43,6 @@ function createInvalidRequestError(message, statusCode = 400) {
   const error = createHttpError(statusCode, message);
   error.code = "invalid_request";
   return error;
-}
-
-function getSafeLogError(error) {
-  return {
-    statusCode: Number(error?.statusCode) || 500,
-    name: String(error?.name || "Error").slice(0, 80),
-    message: String(error?.message || "Unknown error").slice(0, 180)
-  };
-}
-
-function getSafeCleanupError(error) {
-  return {
-    statusCode: Number(error?.statusCode) || 500,
-    name: String(error?.name || "Error").slice(0, 80)
-  };
 }
 
 function logIllustrationEvent(event, fields = {}) {
@@ -562,32 +547,12 @@ async function deleteImage(objectPath) {
   await parseJsonResponse(response, "Illustration cleanup failed");
 }
 
-async function saveImageReference(pageId, storageReference) {
-  const response = await fetch(
-    SUPABASE_URL.replace(/\/$/, "") + "/rest/v1/story_pages?id=eq." + encodeURIComponent(pageId),
-    {
-      method: "PATCH",
-      headers: {
-        apikey: SUPABASE_SECRET_KEY,
-        Authorization: "Bearer " + SUPABASE_SECRET_KEY,
-        "Content-Type": "application/json",
-        Prefer: "return=minimal"
-      },
-      body: JSON.stringify({ image_url: storageReference })
-    }
-  );
-
-  await parseJsonResponse(response, "Could not save illustration reference");
-}
-
 async function handler(req, res) {
   const startedAt = Date.now();
   let reservationId = null;
   let reservationCompleted = false;
   let uploadedObjectPath = null;
-  let pageLinkAttempted = false;
-  let pageIdToRestore = null;
-  let previousImageReference = null;
+  let finalizationState = "not_started";
   setCorsHeaders(req, res);
 
   if (req.method === "OPTIONS") {
@@ -612,8 +577,6 @@ async function handler(req, res) {
     const accessToken = getBearerToken(req);
     const user = await authenticateRequest(req);
     const { story, page } = await fetchStoryAndPage(storyId, pageNumber, accessToken);
-    pageIdToRestore = page.id;
-    previousImageReference = page.image_url;
     const styleProfile = await loadStyleProfile();
     const generationOptions = getGenerationOptions(body, styleProfile);
 
@@ -673,9 +636,33 @@ async function handler(req, res) {
 
     await uploadImage(objectPath, imageResult.imageBytes);
     uploadedObjectPath = objectPath;
-    pageLinkAttempted = true;
-    await saveImageReference(page.id, storageReference);
-    const completion = await completeAiUsage(reservationId);
+    finalizationState = "started";
+    let completion;
+    try {
+      completion = await finalizeImageUsage({
+        reservationId,
+        pageId: page.id,
+        expectedImageUrl: page.image_url,
+        newImageUrl: storageReference
+      });
+    } catch {
+      try {
+        completion = await finalizeImageUsage({
+          reservationId,
+          pageId: page.id,
+          expectedImageUrl: page.image_url,
+          newImageUrl: storageReference
+        });
+      } catch {
+        finalizationState = "unknown";
+        throw createHttpError(500, "Image finalization failed");
+      }
+    }
+    if (completion.completed !== true) {
+      finalizationState = "rejected";
+      throw createHttpError(500, "Image finalization rejected");
+    }
+    finalizationState = "completed";
     reservationCompleted = true;
 
     logIllustrationEvent("illustration_succeeded", {
@@ -708,41 +695,27 @@ async function handler(req, res) {
       usage: completion?.usage || null
     });
   } catch (error) {
-    if (!reservationCompleted && uploadedObjectPath) {
-      if (pageLinkAttempted && pageIdToRestore) {
-        try {
-          await saveImageReference(pageIdToRestore, previousImageReference);
-        } catch (restoreError) {
-          logIllustrationEvent("illustration_artifact_cleanup_failed", {
-            cleanupStep: "restore_page_reference",
-            error: getSafeCleanupError(restoreError)
-          });
-        }
-      }
-
+    if (!reservationCompleted && uploadedObjectPath && (finalizationState === "not_started" || finalizationState === "rejected")) {
       try {
         await deleteImage(uploadedObjectPath);
       } catch (deleteError) {
         logIllustrationEvent("illustration_artifact_cleanup_failed", {
-          cleanupStep: "delete_uploaded_object",
-          error: getSafeCleanupError(deleteError)
+          finalizationState
         });
       }
     }
-    if (reservationId && !reservationCompleted) {
+    if (reservationId && !reservationCompleted && finalizationState === "not_started") {
       try {
         await releaseAiUsage(reservationId);
       } catch (releaseError) {
         logIllustrationEvent("illustration_reservation_release_failed", {
-          error: getSafeLogError(releaseError),
-          reservationId
+          finalizationState
         });
       }
     }
     const publicError = toPublicError(error);
     logIllustrationEvent("illustration_failed", {
-      error: { code: publicError.code, statusCode: publicError.statusCode },
-      durationMs: Date.now() - startedAt
+      finalizationState
     });
     const payload = { error: publicError.code, message: publicError.publicMessage };
     if (publicError.retryAfterSeconds) payload.retryAfterSeconds = publicError.retryAfterSeconds;

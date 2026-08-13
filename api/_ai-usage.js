@@ -165,6 +165,17 @@ async function completeAiUsage(reservationId) {
   return result;
 }
 
+async function finalizeImageUsage(input) {
+  const result = await callServiceRpc("finalize_image_generation", {
+    p_reservation_id: assertUuid(input?.reservationId),
+    p_page_id: assertUuid(input?.pageId),
+    p_expected_image_url: String(input?.expectedImageUrl),
+    p_new_image_url: String(input?.newImageUrl)
+  });
+  if (!result || typeof result !== "object") throw createError("internal_error");
+  return result;
+}
+
 async function releaseAiUsage(reservationId) {
   return callServiceRpc("release_ai_usage", { p_reservation_id: assertUuid(reservationId) });
 }
@@ -230,6 +241,7 @@ module.exports = {
   readIdempotencyKey,
   reserveAiUsage,
   completeAiUsage,
+  finalizeImageUsage,
   releaseAiUsage,
   finalizeStoryReservation,
   getCurrentUsage,

@@ -17,6 +17,7 @@ const test = require("node:test");
 const handler = require("../api/generate-story-illustration.js");
 
 const USER_ID = "a0a1a2a3-a4a5-4a6a-8a8a-a9aaabacadae";
+const PAGE_ID = "d0d1d2d3-d4d5-4d6c-8d8d-d9dadbdcddde";
 const RESERVATION_ID = "b0b1b2b3-b4b5-4b6b-8b8b-b9babbbcbdbE".toLowerCase();
 const IDEMPOTENCY_KEY = "c0c1c2c3-c4c5-4c6c-8c8c-c9cacbcccdce";
 const PROVIDER_URL = "https://api.openai.com/v1/images/generations";
@@ -30,7 +31,7 @@ function json(value, status = 200, headers = {}) {
 
 function getPage(imageUrl = "") {
   return {
-    id: "page-1",
+    id: PAGE_ID,
     page_number: 1,
     text: "Ежонок нашёл красный воздушный шар у реки.",
     image_prompt: "Hedgehog finds a red balloon by a river.",
@@ -82,8 +83,8 @@ function reserve(url) {
   return String(url) === "https://supabase.example.test/rest/v1/rpc/reserve_ai_usage";
 }
 
-function complete(url) {
-  return String(url) === "https://supabase.example.test/rest/v1/rpc/complete_ai_usage";
+function finalize(url) {
+  return String(url) === "https://supabase.example.test/rest/v1/rpc/finalize_image_generation";
 }
 
 function release(url) {
@@ -103,7 +104,6 @@ function standardResponses(url, options, pageImageUrl = "") {
   if (story(url)) return json([{ id: "story-1", title: "Test", mood: "calm" }]);
   if (page(url)) return json([getPage(pageImageUrl)]);
   if (String(url).includes("/storage/v1/object/")) return json({ Key: "ok" });
-  if (String(url).includes("/rest/v1/story_pages?id=")) return new Response("", { status: 204 });
   throw new Error(`Unexpected URL: ${url}`);
 }
 
@@ -118,7 +118,7 @@ test("style_only sends no image reference and keeps the style passport before pa
       return providerResponse();
     }
     if (reserve(url)) return json({ allowed: true, code: "reserved", reservation: { id: RESERVATION_ID } });
-    if (complete(url)) return json({ completed: true, usage: { resource_kind: "image", used_count: 1 } });
+    if (finalize(url)) return json({ completed: true, usage: { resource_kind: "image", used_count: 1 } });
     return standardResponses(url, options);
   });
 
@@ -136,7 +136,7 @@ test("with_references sends only explicitly selected unique files", async () => 
       return providerResponse();
     }
     if (reserve(url)) return json({ allowed: true, code: "reserved", reservation: { id: RESERVATION_ID } });
-    if (complete(url)) return json({ completed: true, usage: { resource_kind: "image", used_count: 1 } });
+    if (finalize(url)) return json({ completed: true, usage: { resource_kind: "image", used_count: 1 } });
     return standardResponses(url, options);
   }, { generationMode: "with_references", referenceIds: ["sea-bench", "sea-bench"] });
 
@@ -245,7 +245,7 @@ test("a stored current image returns without a reservation or credit", async () 
   assert.equal(result.headers.vary, "Origin");
 });
 
-test("force true reserves and completes one image credit", async () => {
+test("a successful atomic finalizer completes one image credit without a page PATCH", async () => {
   const rpcCalls = [];
   const writeSteps = [];
   let providerCalls = 0;
@@ -264,10 +264,14 @@ test("force true reserves and completes one image credit", async () => {
         });
         return json({ allowed: true, code: "reserved", reservation: { id: RESERVATION_ID } });
       }
-      if (String(url) === "https://supabase.example.test/rest/v1/rpc/complete_ai_usage") {
-        rpcCalls.push("complete_ai_usage");
-        writeSteps.push("complete");
-        assert.deepEqual(JSON.parse(options.body), { p_reservation_id: RESERVATION_ID });
+      if (finalize(url)) {
+        rpcCalls.push("finalize_image_generation");
+        writeSteps.push("finalize");
+        const finalizerBody = JSON.parse(options.body);
+        assert.equal(finalizerBody.p_reservation_id, RESERVATION_ID);
+        assert.equal(finalizerBody.p_page_id, PAGE_ID);
+        assert.equal(finalizerBody.p_expected_image_url, "storage://story-illustrations/" + USER_ID + "/story-1/page-1.webp");
+        assert.match(finalizerBody.p_new_image_url, new RegExp("^storage://story-illustrations/" + USER_ID + "/story-1/page-1-\\d+\\.webp$"));
         return json({ completed: true, usage: { resource_kind: "image", used_count: 1 } });
       }
       if (String(url).includes("/storage/v1/object/")) {
@@ -275,8 +279,7 @@ test("force true reserves and completes one image credit", async () => {
         return json({ Key: "ok" });
       }
       if (String(url).includes("/rest/v1/story_pages?id=")) {
-        writeSteps.push("link");
-        return new Response(null, { status: 204 });
+        throw new Error("story_pages PATCH must not be called");
       }
       return standardResponses(url, options, "storage://story-illustrations/" + USER_ID + "/story-1/page-1.webp");
     },
@@ -286,8 +289,8 @@ test("force true reserves and completes one image credit", async () => {
 
   assert.equal(result.statusCode, 200);
   assert.equal(providerCalls, 1);
-  assert.deepEqual(rpcCalls, ["reserve_ai_usage", "complete_ai_usage"]);
-  assert.deepEqual(writeSteps, ["upload", "link", "complete"]);
+  assert.deepEqual(rpcCalls, ["reserve_ai_usage", "finalize_image_generation"]);
+  assert.deepEqual(writeSteps, ["upload", "finalize"]);
   assert.deepEqual(result.body, {
     illustrated: true,
     alreadyExists: false,
@@ -333,53 +336,66 @@ test("provider or Storage failure releases a pending image reservation", async (
   }
 });
 
-test("a failed page link releases the pending image reservation exactly once", async () => {
+test("a rejected atomic finalizer deletes only the fresh object without releasing the reservation", async () => {
+  const uploadedObjectPaths = [];
+  const deletedObjectPaths = [];
   let releaseCalls = 0;
-  let releasedReservationId = null;
   const result = await runRequest(async (url, options = {}) => {
-    if (String(url) === PROVIDER_URL) return providerResponse();
+    const requestUrl = String(url);
+    if (requestUrl === PROVIDER_URL) return providerResponse();
     if (reserve(url)) return json({ allowed: true, code: "reserved", reservation: { id: RESERVATION_ID } });
+    if (finalize(url)) return json({ completed: false, code: "page_changed" });
     if (release(url)) {
       releaseCalls += 1;
-      releasedReservationId = JSON.parse(options.body).p_reservation_id;
       return json({ released: true });
     }
-    if (String(url).includes("/rest/v1/story_pages?id=")) {
-      return json({ message: "page link secret" }, 500);
+    if (requestUrl.includes("/storage/v1/object/")) {
+      if (options.method === "POST") {
+        uploadedObjectPaths.push(decodeURIComponent(requestUrl.split("/storage/v1/object/story-illustrations/")[1]));
+      }
+      if (options.method === "DELETE") {
+        deletedObjectPaths.push(...JSON.parse(options.body).prefixes);
+      }
+      return json({ Key: "ok" });
     }
     return standardResponses(url, options);
   });
 
-  assert.equal(releaseCalls, 1);
-  assert.equal(releasedReservationId, RESERVATION_ID);
   assert.equal(result.statusCode, 500);
   assert.deepEqual(result.body, { error: "internal_error", message: "Внутренняя ошибка сервера." });
-  assert.doesNotMatch(JSON.stringify(result.body), /secret|link/i);
+  assert.equal(releaseCalls, 0);
+  assert.deepEqual(deletedObjectPaths, uploadedObjectPaths);
+  assert.equal(deletedObjectPaths.length, 1);
 });
 
-test("a failed image completion releases the pending reservation exactly once", async () => {
+test("an unknown finalizer error is retried once without deleting or releasing", async () => {
   let releaseCalls = 0;
-  let releasedReservationId = null;
+  let deleteCalls = 0;
+  let finalizerCalls = 0;
   const result = await runRequest(async (url, options = {}) => {
     if (String(url) === PROVIDER_URL) return providerResponse();
     if (reserve(url)) return json({ allowed: true, code: "reserved", reservation: { id: RESERVATION_ID } });
-    if (complete(url)) return json({ message: "completion secret" }, 500);
+    if (finalize(url)) {
+      finalizerCalls += 1;
+      return json({ message: "finalizer-secret" }, 500);
+    }
     if (release(url)) {
       releaseCalls += 1;
-      releasedReservationId = JSON.parse(options.body).p_reservation_id;
       return json({ released: true });
     }
+    if (String(url).includes("/storage/v1/object/") && options.method === "DELETE") deleteCalls += 1;
     return standardResponses(url, options);
   });
 
-  assert.equal(releaseCalls, 1);
-  assert.equal(releasedReservationId, RESERVATION_ID);
+  assert.equal(finalizerCalls, 2);
+  assert.equal(releaseCalls, 0);
+  assert.equal(deleteCalls, 0);
   assert.equal(result.statusCode, 500);
   assert.deepEqual(result.body, { error: "internal_error", message: "Внутренняя ошибка сервера." });
-  assert.doesNotMatch(JSON.stringify(result.body), /secret|completion/i);
+  assert.doesNotMatch(JSON.stringify(result.body), /finalizer-secret/);
 });
 
-test("an expired completion restores the prior page image and deletes only the newly uploaded object", async () => {
+test("a rejected finalizer deletes only the newly uploaded object", async () => {
   const priorImageUrl = "storage://story-illustrations/" + USER_ID + "/story-1/page-1.webp";
   const pageReferences = [];
   const uploadedObjectPaths = [];
@@ -390,7 +406,7 @@ test("an expired completion restores the prior page image and deletes only the n
       const requestUrl = String(url);
       if (requestUrl === PROVIDER_URL) return providerResponse();
       if (reserve(url)) return json({ allowed: true, code: "reserved", reservation: { id: RESERVATION_ID } });
-      if (complete(url)) return json({ completed: false, code: "reservation_expired" });
+      if (finalize(url)) return json({ completed: false, code: "page_changed" });
       if (release(url)) {
         releaseCalls += 1;
         return json({ released: false });
@@ -406,10 +422,6 @@ test("an expired completion restores the prior page image and deletes only the n
         }
         return json({ Key: "ok" });
       }
-      if (requestUrl.includes("/rest/v1/story_pages?id=")) {
-        pageReferences.push(JSON.parse(options.body).image_url);
-        return new Response(null, { status: 204 });
-      }
       return standardResponses(url, options, priorImageUrl);
     },
     { force: true },
@@ -421,14 +433,12 @@ test("an expired completion restores the prior page image and deletes only the n
     error: "internal_error",
     message: "Внутренняя ошибка сервера."
   });
-  assert.doesNotMatch(JSON.stringify(result.body), /reservation_expired/);
+  assert.doesNotMatch(JSON.stringify(result.body), /page_changed/);
   assert.equal(uploadedObjectPaths.length, 1);
   assert.deepEqual(deletedObjectPaths, uploadedObjectPaths);
   assert.equal(deletedObjectPaths.some((objectPath) => objectPath.endsWith("/page-1.webp")), false);
-  assert.equal(pageReferences.length, 2);
-  assert.match(pageReferences[0], /\/page-1-\d+\.webp$/);
-  assert.equal(pageReferences[1], priorImageUrl);
-  assert.equal(releaseCalls, 1);
+  assert.equal(pageReferences.length, 0);
+  assert.equal(releaseCalls, 0);
 });
 
 test("artifact cleanup failure remains fail-closed and logs no upstream detail", async () => {
@@ -447,8 +457,8 @@ test("artifact cleanup failure remains fail-closed and logs no upstream detail",
         const requestUrl = String(url);
         if (requestUrl === PROVIDER_URL) return providerResponse();
         if (reserve(url)) return json({ allowed: true, code: "reserved", reservation: { id: RESERVATION_ID } });
-        if (complete(url)) return json({ completed: false, code: "reservation_expired" });
-        if (release(url)) return json({ released: false });
+        if (finalize(url)) return json({ completed: false, code: "page_changed" });
+        if (release(url)) throw new Error("rejected finalizer must not release usage");
         if (requestUrl.includes("/storage/v1/object/") && options.method === "DELETE") {
           deleteCalls += 1;
           assert.deepEqual(Object.keys(JSON.parse(options.body)), ["prefixes"]);
@@ -456,10 +466,6 @@ test("artifact cleanup failure remains fail-closed and logs no upstream detail",
           return json({ message: cleanupSecret }, 500);
         }
         if (requestUrl.includes("/storage/v1/object/")) return json({ Key: "ok" });
-        if (requestUrl.includes("/rest/v1/story_pages?id=")) {
-          pageReferences.push(JSON.parse(options.body).image_url);
-          return new Response(null, { status: 204 });
-        }
         return standardResponses(url, options, priorImageUrl);
       },
       { force: true },
@@ -475,7 +481,7 @@ test("artifact cleanup failure remains fail-closed and logs no upstream detail",
     message: "Внутренняя ошибка сервера."
   });
   assert.equal(deleteCalls, 1);
-  assert.equal(pageReferences.at(-1), priorImageUrl);
+  assert.equal(pageReferences.length, 0);
   assert.match(logLines.join("\n"), /illustration_artifact_cleanup_failed/);
   assert.doesNotMatch(logLines.join("\n"), new RegExp(cleanupSecret));
 });
