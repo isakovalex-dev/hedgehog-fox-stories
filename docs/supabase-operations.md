@@ -1,9 +1,11 @@
 # Supabase security remediation runbook
 
-This runbook covers the versioned migration
-`supabase/migrations/20260810003928_security_remediation.sql`. The three
-retired SQL files in `docs/` must never be applied. A successful local check is
-not evidence that a remote project was migrated.
+This runbook covers every timestamped migration in `supabase/migrations/`, in
+timestamp order, including
+`*_atomic_image_finalization.sql` (currently
+`20260813025626_atomic_image_finalization.sql`). The three retired SQL files in
+`docs/` must never be applied. A successful local check is not evidence that a
+remote project was migrated.
 
 Follow these six gates in order. Gates 1–3 are preparation and
 non-production work. Gate 4 is a manual production operation requiring explicit
@@ -47,10 +49,18 @@ npm run build
 npm run test:e2e
 ```
 
-The two-session reservation runner must pass and its output must be archived as
-release evidence. `SUPABASE_LOCAL_DB_URL` must point only to the local or other
-disposable non-production database initialized for this gate. Never set it to a
-linked production database or a production connection string.
+The SQL contract and two-session reservation runner must pass and their output
+must be archived as release evidence. Also archive the output of a successful
+atomic image finalization, its `idempotency_replayed` retry, and the rejected
+`reservation_expired` and `page_changed` cases from
+`tests/supabase-security.sql`. `SUPABASE_LOCAL_DB_URL` must point only to the
+local or other disposable non-production database initialized for this gate.
+Never set it to a linked production database or a production connection string.
+
+If the local Docker lifecycle is unstable, this gate remains pending: do not
+promote the release gate and do not use a remote, staging, or production project
+as a substitute for the local checks. Record the exact lifecycle failure and
+repeat the local gate only after the disposable stack is stable.
 
 Then apply and verify the versioned migration in a non-production project,
 review the read-only audit output, and verify the headers on its URL:

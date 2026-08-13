@@ -12,7 +12,8 @@ complete the release gate. No remote Supabase, Vercel, or production command
 was run for this release.
 
 - Migration name: `supabase/migrations/20260810003928_security_remediation.sql`
-- Test results: local-only advisors returned no issues. The SQL contract, true two-session concurrency test, and stable non-production RLS/ACL audit have not passed and remain mandatory; do not record a release pass until all three complete against a stable disposable database.
+- Atomic finalization migration: `supabase/migrations/20260813025626_atomic_image_finalization.sql`
+- Test results: local-only advisors returned no issues. The SQL contract, true two-session concurrency test, atomic image finalization cases, and stable non-production RLS/ACL audit have not passed and remain mandatory; do not record a release pass until all complete against a stable disposable database.
 - Staging URL: blocked — not recorded until the non-production deployment is verified.
 - Deploy timestamp: blocked — no deployment timestamp recorded.
 - Reviewer: blocked — awaiting security review after non-production verification.
@@ -44,3 +45,18 @@ Status: implemented, pending non-production verification.
 ### SEC-006 — Server-only story finalisation and current-entitlement checks
 
 Status: implemented, pending non-production verification.
+
+### SEC-007 — Page reference and image usage charge in one transaction
+
+Status: implemented, pending non-production verification. The atomic image
+finalizer must prove successful finalization, `idempotency_replayed`,
+`reservation_expired`, and `page_changed` against a stable disposable database
+before this finding can be verified. SQL runtime, concurrency, staging, and
+production verification remain release-blockers.
+
+### SEC-008 — CAS does not overwrite a newer illustration
+
+Status: implemented, pending non-production verification. A `page_changed`
+result must retain the newer illustration and release the rejected reservation
+exactly once in the non-production SQL contract. SQL runtime, concurrency,
+staging, and production verification remain release-blockers.

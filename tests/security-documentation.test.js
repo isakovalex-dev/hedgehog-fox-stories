@@ -93,3 +93,16 @@ test("security audit records remediation findings as pending verification", asyn
   assert.match(audit, /Deploy timestamp:/);
   assert.match(audit, /Reviewer:/);
 });
+
+test("atomic image finalization rollout remains gated on non-production verification", async () => {
+  const [operations, audit] = await Promise.all([
+    readProjectFile("docs/supabase-operations.md"),
+    readProjectFile("SECURITY-AUDIT.md"),
+  ]);
+
+  assert.match(operations, /supabase\/migrations\//i);
+  assert.match(operations, /atomic image finalization|атомарн.*финализ/i);
+  assert.match(operations, /tests\/supabase-security\.sql/i);
+  assert.match(operations, /tests\/supabase-concurrent-reservation\.sh/i);
+  assert.match(audit, /pending non-production verification|ожидает.*непрод/i);
+});
