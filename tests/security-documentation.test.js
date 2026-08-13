@@ -99,10 +99,28 @@ test("atomic image finalization rollout remains gated on non-production verifica
     readProjectFile("docs/supabase-operations.md"),
     readProjectFile("SECURITY-AUDIT.md"),
   ]);
+  const gateThree = operations.match(/## 3\. Non-production([\s\S]*?)## 4\. Manual production approval/i)?.[1];
+  const sec007 = audit.match(/### SEC-007([\s\S]*?)### SEC-008/i)?.[1];
+  const sec008 = audit.match(/### SEC-008([\s\S]*)/i)?.[1];
 
   assert.match(operations, /supabase\/migrations\//i);
-  assert.match(operations, /atomic image finalization|атомарн.*финализ/i);
+  assert.match(operations, /every timestamped migration[\s\S]*timestamp order/i);
+  assert.match(operations, /_atomic_image_finalization\.sql/i);
+  assert.match(operations, /public\.finalize_image_generation/i);
   assert.match(operations, /tests\/supabase-security\.sql/i);
   assert.match(operations, /tests\/supabase-concurrent-reservation\.sh/i);
-  assert.match(audit, /pending non-production verification|ожидает.*непрод/i);
+  assert.ok(gateThree, "Gate 3 must be present");
+  for (const scenario of ["completed", "idempotency_replayed", "reservation_expired", "page_changed"]) {
+    assert.match(gateThree, new RegExp(scenario, "i"));
+  }
+
+  assert.ok(sec007, "SEC-007 must be present before SEC-008");
+  assert.match(sec007, /Page reference and image usage charge in one transaction/i);
+  assert.match(sec007, /implemented, pending non-production verification/i);
+  assert.match(sec007, /SQL runtime, concurrency,\s*staging, and\s*production verification remain release-blockers/i);
+
+  assert.ok(sec008, "SEC-008 must be present");
+  assert.match(sec008, /CAS does not overwrite a newer illustration/i);
+  assert.match(sec008, /implemented, pending non-production verification/i);
+  assert.match(sec008, /SQL runtime, concurrency,\s*staging, and\s*production verification remain release-blockers/i);
 });

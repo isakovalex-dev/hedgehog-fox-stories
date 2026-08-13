@@ -50,12 +50,13 @@ npm run test:e2e
 ```
 
 The SQL contract and two-session reservation runner must pass and their output
-must be archived as release evidence. Also archive the output of a successful
-atomic image finalization, its `idempotency_replayed` retry, and the rejected
-`reservation_expired` and `page_changed` cases from
-`tests/supabase-security.sql`. `SUPABASE_LOCAL_DB_URL` must point only to the
-local or other disposable non-production database initialized for this gate.
-Never set it to a linked production database or a production connection string.
+must be archived as release evidence. Also archive the output of the
+`public.finalize_image_generation` atomic image finalizer: successful
+`completed`, its `idempotency_replayed` retry, and the rejected
+`reservation_expired` and `page_changed` cases from `tests/supabase-security.sql`.
+`SUPABASE_LOCAL_DB_URL` must point only to the local or other disposable
+non-production database initialized for this gate. Never set it to a linked
+production database or a production connection string.
 
 If the local Docker lifecycle is unstable, this gate remains pending: do not
 promote the release gate and do not use a remote, staging, or production project
