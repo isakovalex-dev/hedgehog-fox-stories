@@ -11,6 +11,7 @@ const IMAGE_BUCKET = "story-illustrations";
 const STORAGE_REFERENCE_PREFIX = `storage://${IMAGE_BUCKET}/`;
 const SIGNED_URL_TTL_SECONDS = 60 * 60;
 const LOCAL_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/;
+const ILLUSTRATION_FILENAME_PATTERN = /^page-[1-5](?:-\d+|-[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-4[0-9A-Fa-f]{3}-[89AaBb][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12})?\.webp$/;
 
 function getAllowedOrigin(origin) {
   if (!origin) return DEFAULT_ORIGIN;
@@ -134,7 +135,7 @@ function getOwnedObjectPath(imageReference, userId, storyId) {
     parts.length !== 3 ||
     parts[0] !== userId ||
     parts[1] !== normalizedStoryId ||
-    !/^page-[1-5](?:-\d+)?\.webp$/.test(filename)
+    !ILLUSTRATION_FILENAME_PATTERN.test(filename)
   ) {
     throw createHttpError(403, "Illustration is not available for this account");
   }
