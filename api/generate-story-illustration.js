@@ -645,6 +645,7 @@ async function handler(req, res) {
         expectedImageUrl: page.image_url,
         newImageUrl: storageReference
       });
+      if (completion.completed !== true && completion.completed !== false) throw createHttpError(500, "Image finalization response is invalid");
     } catch {
       try {
         completion = await finalizeImageUsage({
@@ -653,12 +654,13 @@ async function handler(req, res) {
           expectedImageUrl: page.image_url,
           newImageUrl: storageReference
         });
+        if (completion.completed !== true && completion.completed !== false) throw createHttpError(500, "Image finalization response is invalid");
       } catch {
         finalizationState = "unknown";
         throw createHttpError(500, "Image finalization failed");
       }
     }
-    if (completion.completed !== true) {
+    if (completion.completed === false) {
       finalizationState = "rejected";
       throw createHttpError(500, "Image finalization rejected");
     }

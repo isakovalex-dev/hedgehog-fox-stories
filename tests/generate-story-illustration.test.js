@@ -368,7 +368,7 @@ test("a rejected atomic finalizer deletes only the fresh object without releasin
   assert.equal(deletedObjectPaths.length, 1);
 });
 
-test("an unknown finalizer error is retried once without deleting or releasing", async () => {
+test("a malformed finalizer success response is retried then preserves the unknown outcome", async () => {
   let releaseCalls = 0;
   let deleteCalls = 0;
   let finalizerCalls = 0;
@@ -377,7 +377,7 @@ test("an unknown finalizer error is retried once without deleting or releasing",
     if (reserve(url)) return json({ allowed: true, code: "reserved", reservation: { id: RESERVATION_ID } });
     if (finalize(url)) {
       finalizerCalls += 1;
-      return json({ message: "finalizer-secret" }, 500);
+      return json({});
     }
     if (release(url)) {
       releaseCalls += 1;
@@ -392,7 +392,71 @@ test("an unknown finalizer error is retried once without deleting or releasing",
   assert.equal(deleteCalls, 0);
   assert.equal(result.statusCode, 500);
   assert.deepEqual(result.body, { error: "internal_error", message: "Внутренняя ошибка сервера." });
+});
+
+test("an unknown finalizer error retries an identical request without logging or cleaning up secrets", async () => {
+  let releaseCalls = 0;
+  let deleteCalls = 0;
+  const finalizerRequests = [];
+  const originalConsoleLog = console.log;
+  const logLines = [];
+  const expectedImageUrl = "";
+  let result;
+  console.log = (...values) => logLines.push(values.join(" "));
+
+  try {
+    result = await runRequest(async (url, options = {}) => {
+      if (String(url) === PROVIDER_URL) return providerResponse();
+      if (reserve(url)) return json({ allowed: true, code: "reserved", reservation: { id: RESERVATION_ID } });
+      if (finalize(url)) {
+        finalizerRequests.push({
+          url: String(url),
+          method: options.method,
+          headers: options.headers,
+          body: JSON.parse(options.body)
+        });
+        return json({ message: "finalizer-secret" }, 500);
+      }
+      if (release(url)) {
+        releaseCalls += 1;
+        return json({ released: true });
+      }
+      if (String(url).includes("/storage/v1/object/") && options.method === "DELETE") deleteCalls += 1;
+      return standardResponses(url, options);
+    });
+  } finally {
+    console.log = originalConsoleLog;
+  }
+
+  assert.equal(finalizerRequests.length, 2);
+  assert.deepEqual(finalizerRequests[1], finalizerRequests[0]);
+  assert.deepEqual(finalizerRequests[0], {
+    url: "https://supabase.example.test/rest/v1/rpc/finalize_image_generation",
+    method: "POST",
+    headers: {
+      apikey: "test-service-key",
+      Authorization: "Bearer test-service-key",
+      "Content-Type": "application/json",
+      Prefer: "return=representation"
+    },
+    body: {
+      p_reservation_id: RESERVATION_ID,
+      p_page_id: PAGE_ID,
+      p_expected_image_url: expectedImageUrl,
+      p_new_image_url: "storage://story-illustrations/" + USER_ID + "/story-1/page-1.webp"
+    }
+  });
+  assert.equal(releaseCalls, 0);
+  assert.equal(deleteCalls, 0);
+  assert.equal(result.statusCode, 500);
+  assert.deepEqual(result.body, { error: "internal_error", message: "Внутренняя ошибка сервера." });
   assert.doesNotMatch(JSON.stringify(result.body), /finalizer-secret/);
+  assert.match(logLines.join("\n"), /"finalizationState":"unknown"/);
+  assert.doesNotMatch(logLines.join("\n"), /finalizer-secret/);
+  assert.doesNotMatch(logLines.join("\n"), new RegExp(RESERVATION_ID));
+  assert.doesNotMatch(logLines.join("\n"), new RegExp(PAGE_ID));
+  assert.doesNotMatch(logLines.join("\n"), /storage:\/\/story-illustrations/);
+  assert.doesNotMatch(logLines.join("\n"), /p_reservation_id|p_page_id|p_expected_image_url|p_new_image_url/);
 });
 
 test("a rejected finalizer deletes only the newly uploaded object", async () => {
