@@ -34,7 +34,7 @@
 | `docs/supabase-operations.md`, `SECURITY-AUDIT.md` | Release-gate и статус. |
 | `tests/security-documentation.test.js` | Контракт документации. |
 
-### Задача 1: Защищённая атомарная RPC финализации иллюстрации
+### Task 1: Защищённая атомарная RPC финализации иллюстрации
 
 **Файлы:** создать CLI-миграцию и `tests/atomic-image-finalization-contract.test.js`; изменить `tests/supabase-security.sql`.
 
@@ -132,7 +132,7 @@ git commit -m "feat: atomically finalize image usage"
 
 Ожидание: первые две команды завершаются с кодом 0. Не применять миграцию к удалённой БД.
 
-### Задача 2: Перевести Vercel-обработчик на атомарный финализатор
+### Task 2: Перевести Vercel-обработчик на атомарный финализатор
 
 **Файлы:** изменить `api/_ai-usage.js`, `api/generate-story-illustration.js`, `tests/ai-usage.test.js`, `tests/generate-story-illustration.test.js`.
 
@@ -199,7 +199,7 @@ git add api/_ai-usage.js api/generate-story-illustration.js tests/ai-usage.test.
 git commit -m "fix: atomically finalize story illustrations"
 ```
 
-### Задача 3: Зафиксировать release-gate и итоговый статус
+### Task 3: Зафиксировать release-gate и итоговый статус
 
 **Файлы:** изменить `docs/supabase-operations.md`, `SECURITY-AUDIT.md`, `tests/security-documentation.test.js`.
 
