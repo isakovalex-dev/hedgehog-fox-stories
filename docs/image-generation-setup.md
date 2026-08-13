@@ -121,15 +121,17 @@ The script makes no paid API calls and does not send source images anywhere.
 5. In Supabase Storage, confirm the object path uses this shape:
 
 \`\`\`text
-<user-id>/<story-id>/page-1.webp
+<user-id>/<story-id>/page-1-<uuid-v4>.webp
 \`\`\`
 
 6. Sign out and confirm that a page illustration is not reachable through an
    old signed link after its one-hour expiry.
 
-Vercel logs include the generation mode, style profile id/version, hashes of
-non-default references, a prompt SHA-256, provider request ID and returned usage
-when available. Full story text and API keys are not stored in logs.
+The successful Vercel event uses a strict scalar allowlist: event type, resource
+kind, the first eight characters of the reservation ID, HTTP status, duration,
+and provider request ID. Object paths, story/page values, prompts, reference
+metadata, provider usage bodies, full story text, and API keys are not stored in
+success logs.
 
 If Vercel logs \`illustration_succeeded\` but the page still shows no image,
 redeploy this endpoint update. It returns the short-lived link through

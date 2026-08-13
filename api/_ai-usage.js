@@ -128,6 +128,11 @@ function assertUuid(value) {
   return String(value);
 }
 
+function assertNullableString(value) {
+  if (value !== null && typeof value !== "string") throw createError("invalid_request");
+  return value;
+}
+
 function assertReservationAllowed(result) {
   if (!result || typeof result !== "object") throw createError("internal_error");
   if (result.allowed === true && String(result.code) === "reserved" && result.reservation?.id) return result;
@@ -169,7 +174,7 @@ async function finalizeImageUsage(input) {
   const result = await callServiceRpc("finalize_image_generation", {
     p_reservation_id: assertUuid(input?.reservationId),
     p_page_id: assertUuid(input?.pageId),
-    p_expected_image_url: String(input?.expectedImageUrl),
+    p_expected_image_url: assertNullableString(input?.expectedImageUrl),
     p_new_image_url: String(input?.newImageUrl)
   });
   if (!result || typeof result !== "object") throw createError("internal_error");

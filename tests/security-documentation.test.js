@@ -57,6 +57,23 @@ test("RLS audit exposes raw function ACLs", async () => {
   assert.match(audit, /function_acl/);
 });
 
+test("RLS audit covers the exact image finalizer catalog and privilege contract", async () => {
+  const audit = await readProjectFile("docs/supabase-rls-audit.sql");
+
+  assert.match(audit, /public\.finalize_image_generation\(uuid, uuid, text, text\)/i);
+  assert.match(audit, /p\.prosecdef\s+as\s+security_definer/i);
+  assert.match(audit, /p\.proconfig\s+as\s+function_config/i);
+  for (const outcome of [
+    "public_execute",
+    "anon_execute",
+    "authenticated_execute",
+    "service_role_execute"
+  ]) {
+    assert.match(audit, new RegExp(outcome, "i"));
+  }
+  assert.match(audit, /search_path=public, pg_temp/i);
+});
+
 test("Storage migration preserves the owner-read policy without altering Supabase-managed RLS", async () => {
   const migration = await readProjectFile(
     "supabase/migrations/20260810003928_security_remediation.sql"

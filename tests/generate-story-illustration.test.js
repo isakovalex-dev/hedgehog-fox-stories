@@ -20,6 +20,8 @@ const USER_ID = "a0a1a2a3-a4a5-4a6a-8a8a-a9aaabacadae";
 const PAGE_ID = "d0d1d2d3-d4d5-4d6c-8d8d-d9dadbdcddde";
 const RESERVATION_ID = "b0b1b2b3-b4b5-4b6b-8b8b-b9babbbcbdbE".toLowerCase();
 const IDEMPOTENCY_KEY = "c0c1c2c3-c4c5-4c6c-8c8c-c9cacbcccdce";
+const RETRY_RESERVATION_ID = "e0e1e2e3-e4e5-4e6e-8e8e-e9eaebecedee";
+const RETRY_IDEMPOTENCY_KEY = "f0f1f2f3-f4f5-4f6f-8f8f-f9fafbfcfdfe";
 const PROVIDER_URL = "https://api.openai.com/v1/images/generations";
 
 function json(value, status = 200, headers = {}) {
@@ -39,7 +41,7 @@ function getPage(imageUrl = "") {
   };
 }
 
-async function runRequest(fetchHandler, body = {}, pageImageUrl = "") {
+async function runRequest(fetchHandler, body = {}, pageImageUrl = "", idempotencyKey = IDEMPOTENCY_KEY) {
   const originalFetch = global.fetch;
   const headers = {};
   let output = "";
@@ -49,7 +51,7 @@ async function runRequest(fetchHandler, body = {}, pageImageUrl = "") {
     headers: {
       origin: "http://localhost:8031",
       authorization: "Bearer caller-token",
-      "x-idempotency-key": IDEMPOTENCY_KEY
+      "x-idempotency-key": idempotencyKey
     },
     body: typeof body === "string" ? body : { storyId: "story-1", pageNumber: 1, ...body }
   };
@@ -271,7 +273,14 @@ test("a successful atomic finalizer completes one image credit without a page PA
         assert.equal(finalizerBody.p_reservation_id, RESERVATION_ID);
         assert.equal(finalizerBody.p_page_id, PAGE_ID);
         assert.equal(finalizerBody.p_expected_image_url, "storage://story-illustrations/" + USER_ID + "/story-1/page-1.webp");
-        assert.match(finalizerBody.p_new_image_url, new RegExp("^storage://story-illustrations/" + USER_ID + "/story-1/page-1-\\d+\\.webp$"));
+        assert.match(
+          finalizerBody.p_new_image_url,
+          new RegExp(
+            "^storage://story-illustrations/" + USER_ID +
+            "/story-1/page-1-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\.webp$",
+            "i"
+          )
+        );
         return json({ completed: true, usage: { resource_kind: "image", used_count: 1 } });
       }
       if (String(url).includes("/storage/v1/object/")) {
@@ -299,6 +308,48 @@ test("a successful atomic finalizer completes one image credit without a page PA
     usage: { resource_kind: "image", used_count: 1 }
   });
   assert.equal(result.headers.vary, "Origin");
+});
+
+test("a nullable page URL finalizes one image credit without a direct page PATCH", async () => {
+  let providerCalls = 0;
+  let pagePatchCalls = 0;
+  const finalizerRequests = [];
+  const result = await runRequest(
+    async (url, options = {}) => {
+      const requestUrl = String(url);
+      if (requestUrl === PROVIDER_URL) {
+        providerCalls += 1;
+        return providerResponse();
+      }
+      if (reserve(url)) {
+        return json({ allowed: true, code: "reserved", reservation: { id: RESERVATION_ID } });
+      }
+      if (finalize(url)) {
+        finalizerRequests.push(JSON.parse(options.body));
+        return json({ completed: true, usage: { resource_kind: "image", used_count: 1 } });
+      }
+      if (requestUrl.includes("/rest/v1/story_pages?id=")) {
+        pagePatchCalls += 1;
+        throw new Error("story_pages PATCH must not be called");
+      }
+      return standardResponses(url, options, null);
+    },
+    {},
+    null
+  );
+
+  assert.equal(result.statusCode, 200);
+  assert.equal(providerCalls, 1);
+  assert.equal(pagePatchCalls, 0);
+  assert.equal(finalizerRequests.length, 1);
+  assert.equal(finalizerRequests[0].p_expected_image_url, null);
+  assert.deepEqual(Object.keys(finalizerRequests[0]).sort(), [
+    "p_expected_image_url",
+    "p_new_image_url",
+    "p_page_id",
+    "p_reservation_id"
+  ]);
+  assert.deepEqual(result.body.usage, { resource_kind: "image", used_count: 1 });
 });
 
 test("provider or Storage failure releases a pending image reservation", async () => {
@@ -334,6 +385,126 @@ test("provider or Storage failure releases a pending image reservation", async (
     assert.doesNotMatch(JSON.stringify(result.body), /secret/);
     assert.equal(result.headers.vary, "Origin");
   }
+});
+
+test("a normal retry survives a committed upload whose Storage response was lost", async () => {
+  const storedObjectPaths = new Set();
+  const uploadedObjectPaths = [];
+  let providerCalls = 0;
+  let releaseCalls = 0;
+  let finalizerCalls = 0;
+  let storagePostCalls = 0;
+  const fetchHandler = async (url, options = {}) => {
+    const requestUrl = String(url);
+    if (requestUrl === PROVIDER_URL) {
+      providerCalls += 1;
+      return providerResponse();
+    }
+    if (reserve(url)) {
+      const key = JSON.parse(options.body).p_idempotency_key;
+      return json({
+        allowed: true,
+        code: "reserved",
+        reservation: { id: key === IDEMPOTENCY_KEY ? RESERVATION_ID : RETRY_RESERVATION_ID }
+      });
+    }
+    if (release(url)) {
+      releaseCalls += 1;
+      return json({ released: true });
+    }
+    if (finalize(url)) {
+      finalizerCalls += 1;
+      return json({ completed: true, usage: { resource_kind: "image", used_count: 1 } });
+    }
+    if (requestUrl.includes("/storage/v1/object/") && options.method === "POST") {
+      storagePostCalls += 1;
+      assert.equal(options.headers["x-upsert"], "false");
+      const objectPath = decodeURIComponent(
+        requestUrl.split("/storage/v1/object/story-illustrations/")[1]
+      );
+      uploadedObjectPaths.push(objectPath);
+      if (storedObjectPaths.has(objectPath)) return json({ message: "duplicate object" }, 409);
+      storedObjectPaths.add(objectPath);
+      if (storagePostCalls === 1) throw new TypeError("Storage response lost after commit");
+      return json({ Key: objectPath });
+    }
+    return standardResponses(url, options, null);
+  };
+
+  const first = await runRequest(fetchHandler, {}, null, IDEMPOTENCY_KEY);
+  const retry = await runRequest(fetchHandler, {}, null, RETRY_IDEMPOTENCY_KEY);
+
+  assert.equal(first.statusCode, 500);
+  assert.equal(retry.statusCode, 200);
+  assert.equal(providerCalls, 2);
+  assert.equal(releaseCalls, 1);
+  assert.equal(finalizerCalls, 1);
+  assert.equal(uploadedObjectPaths.length, 2);
+  assert.notEqual(uploadedObjectPaths[1], uploadedObjectPaths[0]);
+  assert.equal(storedObjectPaths.has(uploadedObjectPaths[0]), true);
+  assert.equal(storedObjectPaths.has(uploadedObjectPaths[1]), true);
+});
+
+test("a normal retry survives a retained orphan after unknown finalization without a DB commit", async () => {
+  const storedObjectPaths = new Set();
+  const uploadedObjectPaths = [];
+  let providerCalls = 0;
+  let releaseCalls = 0;
+  let deleteCalls = 0;
+  let finalizerCalls = 0;
+  const fetchHandler = async (url, options = {}) => {
+    const requestUrl = String(url);
+    if (requestUrl === PROVIDER_URL) {
+      providerCalls += 1;
+      return providerResponse();
+    }
+    if (reserve(url)) {
+      const key = JSON.parse(options.body).p_idempotency_key;
+      return json({
+        allowed: true,
+        code: "reserved",
+        reservation: { id: key === IDEMPOTENCY_KEY ? RESERVATION_ID : RETRY_RESERVATION_ID }
+      });
+    }
+    if (release(url)) {
+      releaseCalls += 1;
+      return json({ released: true });
+    }
+    if (finalize(url)) {
+      finalizerCalls += 1;
+      if (finalizerCalls <= 2) return json({ message: "unknown finalizer outcome" }, 500);
+      return json({ completed: true, usage: { resource_kind: "image", used_count: 1 } });
+    }
+    if (requestUrl.includes("/storage/v1/object/") && options.method === "DELETE") {
+      deleteCalls += 1;
+      return json({});
+    }
+    if (requestUrl.includes("/storage/v1/object/") && options.method === "POST") {
+      assert.equal(options.headers["x-upsert"], "false");
+      const objectPath = decodeURIComponent(
+        requestUrl.split("/storage/v1/object/story-illustrations/")[1]
+      );
+      uploadedObjectPaths.push(objectPath);
+      if (storedObjectPaths.has(objectPath)) return json({ message: "duplicate object" }, 409);
+      storedObjectPaths.add(objectPath);
+      return json({ Key: objectPath });
+    }
+    return standardResponses(url, options, null);
+  };
+
+  const first = await runRequest(fetchHandler, {}, null, IDEMPOTENCY_KEY);
+  const retry = await runRequest(fetchHandler, {}, null, RETRY_IDEMPOTENCY_KEY);
+
+  assert.equal(first.statusCode, 500);
+  assert.equal(retry.statusCode, 200);
+  assert.equal(providerCalls, 2);
+  assert.equal(finalizerCalls, 3);
+  assert.equal(releaseCalls, 0);
+  assert.equal(deleteCalls, 0);
+  assert.equal(uploadedObjectPaths.length, 2);
+  assert.notEqual(uploadedObjectPaths[1], uploadedObjectPaths[0]);
+  assert.equal(storedObjectPaths.has(uploadedObjectPaths[0]), true);
+  assert.equal(storedObjectPaths.has(uploadedObjectPaths[1]), true);
 });
 
 test("a rejected atomic finalizer deletes only the fresh object without releasing the reservation", async () => {
@@ -430,6 +601,15 @@ test("an unknown finalizer error retries an identical request without logging or
 
   assert.equal(finalizerRequests.length, 2);
   assert.deepEqual(finalizerRequests[1], finalizerRequests[0]);
+  const newImageUrl = finalizerRequests[0].body.p_new_image_url;
+  assert.match(
+    newImageUrl,
+    new RegExp(
+      "^storage://story-illustrations/" + USER_ID +
+      "/story-1/page-1-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\.webp$",
+      "i"
+    )
+  );
   assert.deepEqual(finalizerRequests[0], {
     url: "https://supabase.example.test/rest/v1/rpc/finalize_image_generation",
     method: "POST",
@@ -443,7 +623,7 @@ test("an unknown finalizer error retries an identical request without logging or
       p_reservation_id: RESERVATION_ID,
       p_page_id: PAGE_ID,
       p_expected_image_url: expectedImageUrl,
-      p_new_image_url: "storage://story-illustrations/" + USER_ID + "/story-1/page-1.webp"
+      p_new_image_url: newImageUrl
     }
   });
   assert.equal(releaseCalls, 0);
@@ -548,6 +728,63 @@ test("artifact cleanup failure remains fail-closed and logs no upstream detail",
   assert.equal(pageReferences.length, 0);
   assert.match(logLines.join("\n"), /illustration_artifact_cleanup_failed/);
   assert.doesNotMatch(logLines.join("\n"), new RegExp(cleanupSecret));
+});
+
+test("a success log uses only scalar allowlisted fields and excludes provider usage secrets", async () => {
+  const providerSecret = "provider-controlled-usage-secret";
+  const originalConsoleLog = console.log;
+  const logLines = [];
+  let result;
+  console.log = (...values) => logLines.push(values.join(" "));
+
+  try {
+    result = await runRequest(async (url, options = {}) => {
+      if (String(url) === PROVIDER_URL) {
+        return json(
+          {
+            data: [{ b64_json: Buffer.from("image-bytes").toString("base64") }],
+            usage: { output_tokens: 34, provider_debug: { secret: providerSecret } }
+          },
+          200,
+          { "x-request-id": "req-safe-scalar" }
+        );
+      }
+      if (reserve(url)) {
+        return json({ allowed: true, code: "reserved", reservation: { id: RESERVATION_ID } });
+      }
+      if (finalize(url)) {
+        return json({ completed: true, usage: { resource_kind: "image", used_count: 1 } });
+      }
+      return standardResponses(url, options, null);
+    }, {}, null);
+  } finally {
+    console.log = originalConsoleLog;
+  }
+
+  const successLine = logLines.find((line) => line.startsWith("[generate-story-illustration] "));
+  assert.ok(successLine, "the success event must be logged");
+  const successEvent = JSON.parse(successLine.slice("[generate-story-illustration] ".length));
+  assert.deepEqual(Object.keys(successEvent).sort(), [
+    "durationMs",
+    "event",
+    "httpStatus",
+    "providerRequestId",
+    "reservationIdPrefix",
+    "resourceKind"
+  ]);
+  assert.deepEqual(successEvent, {
+    event: "illustration_succeeded",
+    resourceKind: "image",
+    reservationIdPrefix: RESERVATION_ID.slice(0, 8),
+    httpStatus: 200,
+    durationMs: successEvent.durationMs,
+    providerRequestId: "req-safe-scalar"
+  });
+  assert.equal(Number.isInteger(successEvent.durationMs), true);
+  assert.equal(Object.values(successEvent).every((value) => value === null || typeof value !== "object"), true);
+  assert.doesNotMatch(logLines.join("\n"), new RegExp(providerSecret));
+  assert.doesNotMatch(logLines.join("\n"), /objectPath|usage|pageNumber|promptSha256|pageText/i);
+  assert.equal(result.statusCode, 200);
 });
 
 test("an idempotency replay does not make a second image-provider request", async () => {

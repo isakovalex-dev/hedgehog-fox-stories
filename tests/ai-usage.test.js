@@ -83,9 +83,31 @@ test("image finalization calls the atomic service RPC with its complete contract
   assert.deepEqual(JSON.parse(requests[0].options.body), {
     p_reservation_id: IDEMPOTENCY_KEY,
     p_page_id: USER_ID,
-    p_expected_image_url: "null",
+    p_expected_image_url: null,
     p_new_image_url: "storage://story-illustrations/test.webp"
   });
+});
+
+test("image finalization rejects a non-null non-string expected image URL before fetch", async () => {
+  let fetchCalls = 0;
+  global.fetch = async () => {
+    fetchCalls += 1;
+    return jsonResponse({ completed: true });
+  };
+  const aiUsage = loadAiUsage();
+
+  for (const expectedImageUrl of [undefined, 0, false, {}, []]) {
+    await assert.rejects(
+      aiUsage.finalizeImageUsage({
+        reservationId: IDEMPOTENCY_KEY,
+        pageId: USER_ID,
+        expectedImageUrl,
+        newImageUrl: "storage://story-illustrations/test.webp"
+      }),
+      { code: "invalid_request", statusCode: 400 }
+    );
+  }
+  assert.equal(fetchCalls, 0);
 });
 
 test("a quota result becomes a static 403 public error", async () => {

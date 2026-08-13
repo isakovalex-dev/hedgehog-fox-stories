@@ -106,6 +106,7 @@ before writing a forward corrective migration.
 
 Alert on `rate_limited`, `quota_exhausted`, `job_in_progress`, provider
 failures, release failures, repeated idempotency replays, webhook verification
-failures, and daily completions above 20 per active user. Structured logs must
-contain only event type, resource kind, truncated reservation ID, HTTP status,
-duration, and provider request ID.
+failures, and daily completions above 20 per active user. Successful illustration
+logs must contain only event type, resource kind, truncated reservation ID, HTTP
+status, duration, and provider request ID. Illustration lifecycle failure logs
+contain only the event type and the scalar `finalizationState` classification.

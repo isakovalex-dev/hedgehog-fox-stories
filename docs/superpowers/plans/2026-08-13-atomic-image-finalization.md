@@ -173,13 +173,15 @@ node --test tests/ai-usage.test.js tests/generate-story-illustration.test.js
 
 - [ ] **Шаг 3: Реализовать helper и цепочку финализации**
 
-В `api/_ai-usage.js` добавить `finalizeImageUsage`: UUID проверить `assertUuid`, обе ссылки привести `String`, вызвать `callServiceRpc("finalize_image_generation", body)`, не-object payload превратить в `internal_error`. Export добавить рядом с `completeAiUsage`; старый helper сохранить.
+В `api/_ai-usage.js` добавить `finalizeImageUsage`: UUID проверить `assertUuid`; `expectedImageUrl` принимать только как `null|string`, сохраняя `null` как JSON `null`; новую ссылку привести к `String`; вызвать `callServiceRpc("finalize_image_generation", body)`, не-object payload превратить в `internal_error`. Export добавить рядом с `completeAiUsage`; старый helper сохранить.
 
 В `api/generate-story-illustration.js` заменить импорт `completeAiUsage` на `finalizeImageUsage`. Удалить `saveImageReference`, `pageLinkAttempted`, `pageIdToRestore`, `previousImageReference` и REST-восстановление ссылки. Ввести `finalizationState` со значениями `not_started`, `started`, `rejected`, `unknown`, `completed`.
 
 После Storage POST вызвать finalizer с `reservationId`, `page.id`, `page.image_url`, `storageReference`. При исключении повторить идентичный RPC один раз. Второе исключение: `unknown` и статическая ошибка. `completed: false`: `rejected` и статическая ошибка. `completed: true`: `completed` и `reservationCompleted = true`.
 
-В `catch` удалить объект только для `not_started` и `rejected`; `releaseAiUsage` вызвать только для `not_started`. Для `unknown` не удалять и не освобождать. Логировать только `finalizationState`, без URL, ключа, SQL-кода или тела RPC.
+Для каждой генерации, включая первоначальную без `force`, создавать новый object path с UUIDv4-суффиксом и расширением `.webp`. Это сохраняет `x-upsert: false`, но не даёт сохранённому orphan-объекту блокировать обычный retry коллизией.
+
+В `catch` удалить объект только для `not_started` и `rejected`; `releaseAiUsage` вызвать только для `not_started`. Для `unknown` не удалять и не освобождать. Failure-логи содержат только `finalizationState`, без URL, ключа, SQL-кода или тела RPC. Success-лог содержит только скалярный allowlist: тип события, тип ресурса, усечённый ID резерва, HTTP-статус, длительность и provider request ID; object path и provider `usage` не логируются.
 
 - [ ] **Шаг 4: GREEN и полный Node-регресс**
 

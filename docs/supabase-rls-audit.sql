@@ -151,6 +151,70 @@ select
 from function_privileges
 order by function_name, arguments;
 
+-- Exact privileged image-finalizer audit. Keep this signature-qualified so an
+-- overload cannot hide a missing or misconfigured server-only entry point.
+with expected_finalizer(
+  function_signature,
+  expected_security_definer,
+  expected_search_path,
+  expected_public_execute,
+  expected_anon_execute,
+  expected_authenticated_execute,
+  expected_service_role_execute
+) as (
+  values (
+    'public.finalize_image_generation(uuid, uuid, text, text)',
+    true,
+    'search_path=public, pg_temp',
+    false,
+    false,
+    false,
+    true
+  )
+), finalizer_catalog as (
+  select
+    expected_finalizer.*,
+    p.oid,
+    p.prosecdef as security_definer,
+    p.proconfig as function_config,
+    p.proacl as function_acl,
+    exists (
+      select 1
+      from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) acl
+      where acl.grantee = 0 and acl.privilege_type = 'EXECUTE'
+    ) as public_execute,
+    has_function_privilege('anon', p.oid, 'execute') as anon_execute,
+    has_function_privilege('authenticated', p.oid, 'execute') as authenticated_execute,
+    has_function_privilege('service_role', p.oid, 'execute') as service_role_execute
+  from expected_finalizer
+  left join pg_proc p
+    on p.oid = to_regprocedure(expected_finalizer.function_signature)
+)
+select
+  function_signature,
+  security_definer,
+  function_config,
+  function_acl,
+  public_execute,
+  anon_execute,
+  authenticated_execute,
+  service_role_execute,
+  case
+    when oid is null then 'missing_function'
+    when security_definer is distinct from expected_security_definer
+      then 'security_definer_mismatch'
+    when not coalesce(function_config, array[]::text[]) @> array[expected_search_path]
+      then 'search_path_mismatch'
+    when public_execute is distinct from expected_public_execute
+      or anon_execute is distinct from expected_anon_execute
+      or authenticated_execute is distinct from expected_authenticated_execute
+      then 'browser_execute_grant'
+    when service_role_execute is distinct from expected_service_role_execute
+      then 'service_role_grant_mismatch'
+    else 'ok'
+  end as audit_status
+from finalizer_catalog;
+
 select
   schemaname,
   tablename,

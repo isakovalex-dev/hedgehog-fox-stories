@@ -253,7 +253,7 @@ values
    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/expired-old.webp'),
   ('77777777-7777-7777-7777-777777777777',
    '44444444-4444-4444-4444-444444444444', 3, 'Null URL page', 'forest_day',
-   'storage://story-illustrations/22222222-2222-2222-2222-222222222222/null-old.webp')
+   null)
 on conflict (id) do update set image_url = excluded.image_url;
 insert into storage.objects (bucket_id, name, owner_id)
 values
@@ -267,7 +267,7 @@ values
    '22222222-2222-2222-2222-222222222222'),
   ('story-illustrations', '22222222-2222-2222-2222-222222222222/expired-new.webp',
    '22222222-2222-2222-2222-222222222222'),
-  ('story-illustrations', '22222222-2222-2222-2222-222222222222/null-old.webp',
+  ('story-illustrations', '22222222-2222-2222-2222-222222222222/nullable-completed.webp',
    '22222222-2222-2222-2222-222222222222')
 on conflict do nothing;
 
@@ -316,15 +316,14 @@ select pg_temp.expect_error(
     (select id from public.ai_generation_reservations
       where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba6'::uuid),
     '77777777-7777-7777-7777-777777777777'::uuid,
-    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/null-old.webp',
+    null::text,
     null::text
   )$$,
   'a null image URL is rejected before page or reservation changes'
 );
 select pg_temp.assert_true(
-  (select image_url from public.story_pages
-    where id = '77777777-7777-7777-7777-777777777777') =
-      'storage://story-illustrations/22222222-2222-2222-2222-222222222222/null-old.webp'
+  (select image_url is null from public.story_pages
+    where id = '77777777-7777-7777-7777-777777777777')
   and (select status = 'reserved' from public.ai_generation_reservations
        where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba6'::uuid)
   and (select used_count = 2 and reserved_count = 1 from public.ai_usage_counters
@@ -469,6 +468,30 @@ select pg_temp.assert_true(
   'foreign-page retry is terminal and does not release capacity twice'
 );
 
+select public.reserve_ai_usage(
+  '22222222-2222-2222-2222-222222222222', 'image',
+  'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba7'::uuid
+);
+select pg_temp.assert_true(
+  (public.finalize_image_generation(
+    (select id from public.ai_generation_reservations
+      where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba7'::uuid),
+    '77777777-7777-7777-7777-777777777777',
+    null::text,
+    'storage://story-illustrations/22222222-2222-2222-2222-222222222222/nullable-completed.webp'
+  )->>'completed') = 'true'
+  and (select image_url from public.story_pages
+        where id = '77777777-7777-7777-7777-777777777777') =
+      'storage://story-illustrations/22222222-2222-2222-2222-222222222222/nullable-completed.webp'
+  and (select status = 'completed' from public.ai_generation_reservations
+       where idempotency_key = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbba7'::uuid)
+  and (select used_count = 3 and reserved_count = 0 from public.ai_usage_counters
+       where user_id = '22222222-2222-2222-2222-222222222222'
+         and resource_kind = 'image'
+       order by period_start desc limit 1),
+  'nullable page URL finalization succeeds and consumes exactly one credit'
+);
+
 insert into public.stories (id, user_id, title, age_group, mood, lesson, visibility)
 values ('33333333-3333-3333-3333-333333333333',
         '22222222-2222-2222-2222-222222222222',
@@ -485,6 +508,58 @@ insert into storage.objects (bucket_id, name, owner_id)
 values ('story-illustrations', '22222222-2222-2222-2222-222222222222/private.webp',
         '22222222-2222-2222-2222-222222222222')
 on conflict do nothing;
+
+select pg_temp.assert_true(
+  to_regprocedure('public.finalize_image_generation(uuid, uuid, text, text)') is not null,
+  'the exact four-argument image finalizer exists'
+);
+select pg_temp.assert_true(
+  (select p.prosecdef
+     from pg_proc p
+    where p.oid = to_regprocedure('public.finalize_image_generation(uuid, uuid, text, text)')),
+  'the image finalizer is SECURITY DEFINER'
+);
+select pg_temp.assert_true(
+  (select coalesce(p.proconfig, array[]::text[]) @> array['search_path=public, pg_temp']
+     from pg_proc p
+    where p.oid = to_regprocedure('public.finalize_image_generation(uuid, uuid, text, text)')),
+  'the image finalizer pins search_path to public, pg_temp'
+);
+select pg_temp.assert_true(
+  not exists (
+    select 1
+      from pg_proc p
+      cross join lateral aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) acl
+     where p.oid = to_regprocedure('public.finalize_image_generation(uuid, uuid, text, text)')
+       and acl.grantee = 0
+       and acl.privilege_type = 'EXECUTE'
+  ),
+  'PUBLIC has no execute privilege on the image finalizer'
+);
+select pg_temp.assert_true(
+  not has_function_privilege(
+    'anon',
+    'public.finalize_image_generation(uuid, uuid, text, text)',
+    'EXECUTE'
+  ),
+  'anon has no execute privilege on the image finalizer'
+);
+select pg_temp.assert_true(
+  not has_function_privilege(
+    'authenticated',
+    'public.finalize_image_generation(uuid, uuid, text, text)',
+    'EXECUTE'
+  ),
+  'authenticated has no execute privilege on the image finalizer'
+);
+select pg_temp.assert_true(
+  has_function_privilege(
+    'service_role',
+    'public.finalize_image_generation(uuid, uuid, text, text)',
+    'EXECUTE'
+  ),
+  'service_role can execute the image finalizer'
+);
 
 set local role authenticated;
 set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';

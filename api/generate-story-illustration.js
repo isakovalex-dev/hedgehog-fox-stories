@@ -363,7 +363,7 @@ function getOwnedObjectPath(imageReference, userId, storyId) {
     parts.length !== 3 ||
     parts[0] !== userId ||
     parts[1] !== storyId ||
-    !/^page-[1-5](?:-\d+)?\.webp$/.test(parts[2] || "")
+    !/^page-[1-5](?:-\d+|-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})?\.webp$/i.test(parts[2] || "")
   ) {
     throw createHttpError(409, "There is no saved illustration available for iteration");
   }
@@ -489,9 +489,8 @@ async function createImage(prompt, generationOptions, page, userId, storyId) {
   };
 }
 
-function getObjectPath(userId, storyId, pageNumber, force) {
-  const versionSuffix = force ? "-" + Date.now() : "";
-  return userId + "/" + storyId + "/page-" + pageNumber + versionSuffix + ".webp";
+function getObjectPath(userId, storyId, pageNumber) {
+  return userId + "/" + storyId + "/page-" + pageNumber + "-" + crypto.randomUUID() + ".webp";
 }
 
 function getStorageReference(objectPath) {
@@ -629,8 +628,7 @@ async function handler(req, res) {
     const objectPath = getObjectPath(
       user.id,
       story.id,
-      pageNumber,
-      force || generationOptions.mode === "iteration"
+      pageNumber
     );
     const storageReference = getStorageReference(objectPath);
 
@@ -668,26 +666,11 @@ async function handler(req, res) {
     reservationCompleted = true;
 
     logIllustrationEvent("illustration_succeeded", {
-      model: IMAGE_MODEL,
-      generationMode: generationOptions.mode,
-      styleProfileId: styleProfile.id,
-      styleProfileVersion: styleProfile.version,
-      styleProfileSourceCount: Object.keys(styleProfile.source_hashes || {}).length,
-      referenceCount: imageResult.referenceIds.length,
-      referenceIds: imageResult.referenceIds,
-      referenceHashes: imageResult.referenceHashes,
-      size: IMAGE_SIZE,
-      quality: IMAGE_QUALITY,
-      pageNumber,
-      force,
-      objectPath,
-      promptSha256: crypto.createHash("sha256").update(prompt).digest("hex"),
-      pageTextLength: cleanPromptText(page.text, 1400).length,
-      visualBriefLength: cleanPromptText(page.image_prompt, 360).length,
+      resourceKind: "image",
+      reservationIdPrefix: String(reservationId).slice(0, 8),
+      httpStatus: 200,
+      durationMs: Date.now() - startedAt,
       providerRequestId: imageResult.requestId,
-      usage: imageResult.usage,
-      estimatedCostUsd: null,
-      durationMs: Date.now() - startedAt
     });
     sendJson(req, res, 200, {
       illustrated: true,
