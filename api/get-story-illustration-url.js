@@ -1,10 +1,8 @@
 "use strict";
 
 const DEFAULT_ORIGIN = "https://ezhik-i-lisenok.ru";
-const SUPABASE_URL = process.env.SUPABASE_URL || "https://ynidvdesfolavhngubqv.supabase.co";
-const SUPABASE_ANON_KEY =
-  process.env.SUPABASE_ANON_KEY ||
-  "sb_publishable_nQg--YaINF8OoBd4wceHkA_yo76Z5hy";
+const SUPABASE_URL = process.env.SUPABASE_URL || "";
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || "";
 const SUPABASE_SECRET_KEY =
   process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const IMAGE_BUCKET = "story-illustrations";
@@ -100,6 +98,10 @@ async function getRequestBody(req) {
 }
 
 async function getAuthenticatedUser(accessToken) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    throw createHttpError(500, "Supabase backend config is missing");
+  }
+
   if (!accessToken) throw createHttpError(401, "Authorization token is required");
 
   const response = await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/auth/v1/user`, {

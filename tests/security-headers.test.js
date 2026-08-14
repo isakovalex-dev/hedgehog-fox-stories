@@ -40,9 +40,12 @@ test("initial deployment sends exact report-only CSP and browser security header
   const csp = headers["Content-Security-Policy-Report-Only"];
   assert.equal(
     csp,
-    "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://ynidvdesfolavhngubqv.supabase.co; connect-src 'self' https://ynidvdesfolavhngubqv.supabase.co https://hedgehog-fox-stories.vercel.app https://va.vercel-scripts.com; upgrade-insecure-requests"
+    "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://ynidvdesfolavhngubqv.supabase.co https://opcnhhujyckmccvvpihc.supabase.co; connect-src 'self' https://ynidvdesfolavhngubqv.supabase.co https://opcnhhujyckmccvvpihc.supabase.co https://va.vercel-scripts.com; upgrade-insecure-requests"
   );
   assert.doesNotMatch(csp, /unsafe-eval/);
+  assert.doesNotMatch(csp, /\*\.supabase\.co|https:\/\/\*\.supabase\.co/);
+  assert.match(csp, /https:\/\/ynidvdesfolavhngubqv\.supabase\.co/);
+  assert.match(csp, /https:\/\/opcnhhujyckmccvvpihc\.supabase\.co/);
   assert.doesNotMatch(csp, /script-src[^;]*unsafe-inline/);
 });
 
