@@ -68,6 +68,14 @@ test("operations runbook defines the 48-hour report-only observation gate", asyn
   assert.match(operations, /Content-Security-Policy-Report-Only/);
   assert.match(operations, /Content-Security-Policy/);
   assert.match(operations, /non-production/i);
+  assert.match(operations, /codex\/security-remediation/);
+  assert.match(operations, /SUPABASE_URL/);
+  assert.match(operations, /SUPABASE_ANON_KEY/);
+  assert.match(operations, /SUPABASE_SECRET_KEY/);
+  assert.match(operations, /PAYMENTS_ENABLED=false/);
+  assert.match(operations, /AI_GENERATION_ENABLED=false/);
+  assert.match(operations, /IMAGE_GENERATION_ENABLED=false/);
+  assert.match(operations, /do not add.*YooKassa.*AI/i);
 });
 
 test("404 redirect and analytics scripts stay reachable from a nested missing URL", async () => {

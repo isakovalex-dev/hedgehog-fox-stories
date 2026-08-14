@@ -110,3 +110,19 @@ failures, and daily completions above 20 per active user. Successful illustratio
 logs must contain only event type, resource kind, truncated reservation ID, HTTP
 status, duration, and provider request ID. Illustration lifecycle failure logs
 contain only the event type and the scalar `finalizationState` classification.
+
+## Isolated Vercel Preview (staging only)
+
+1. In Vercel open the project, then **Settings → Environment Variables**.
+2. Create or edit variables for the **Preview** environment and branch
+   `codex/security-remediation` only. Do not edit Production variables.
+3. Set `SUPABASE_URL` to `https://opcnhhujyckmccvvpihc.supabase.co`.
+4. Copy `SUPABASE_ANON_KEY` and `SUPABASE_SECRET_KEY` only from **Supabase
+   staging → Project Settings → API Keys**. Mark the secret key as Sensitive.
+   Never paste either key into Git, chat or source files.
+5. Set exactly: `PAYMENTS_ENABLED=false`, `AI_GENERATION_ENABLED=false`,
+   `IMAGE_GENERATION_ENABLED=false`.
+6. Do not add `YOOKASSA_*`, `PAYMENT_WEBHOOK_SECRET`, `AI_API_KEY`,
+   `OPENAI_IMAGE_API_KEY` or other provider credentials to Preview.
+7. Deploy only without `--prod`, check the resulting Preview URL, then inspect
+   Vercel error logs. Do not promote this deployment.
