@@ -75,10 +75,14 @@ test("browser does not make local generation usage an authorization decision", (
 });
 
 test("sixth checkout request is denied by the durable rate-limit RPC across handler instances", async () => {
+  const testSupabaseUrl = "https://supabase.example.test";
+  const testSupabaseAnonKey = "anon-test-key";
   const originalEnvironment = {
     PAYMENTS_ENABLED: process.env.PAYMENTS_ENABLED,
     PAYMENT_PROVIDER: process.env.PAYMENT_PROVIDER,
     PAYMENT_CHECKOUT_URL: process.env.PAYMENT_CHECKOUT_URL,
+    SUPABASE_URL: process.env.SUPABASE_URL,
+    SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
     SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY
   };
   const originalFetch = global.fetch;
@@ -87,9 +91,15 @@ test("sixth checkout request is denied by the durable rate-limit RPC across hand
   process.env.PAYMENTS_ENABLED = "true";
   process.env.PAYMENT_PROVIDER = "manual";
   process.env.PAYMENT_CHECKOUT_URL = "https://payments.example.test/checkout";
+  process.env.SUPABASE_URL = testSupabaseUrl;
+  process.env.SUPABASE_ANON_KEY = testSupabaseAnonKey;
   process.env.SUPABASE_SECRET_KEY = "service-role-test-key";
   global.fetch = async (url, options = {}) => {
-    if (url.endsWith("/auth/v1/user")) return createResponse(200, { id: "11111111-1111-4111-8111-111111111111" });
+    if (url.endsWith("/auth/v1/user")) {
+      assert.equal(url, `${testSupabaseUrl}/auth/v1/user`);
+      assert.equal(options.headers.apikey, testSupabaseAnonKey);
+      return createResponse(200, { id: "11111111-1111-4111-8111-111111111111" });
+    }
     if (url.includes("/rest/v1/subscriptions?")) return createResponse(200, []);
     if (url.endsWith("/rest/v1/rpc/enforce_api_rate_limit")) {
       durableRequestCount += 1;
