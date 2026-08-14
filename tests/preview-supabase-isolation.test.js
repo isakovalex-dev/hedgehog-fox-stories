@@ -34,15 +34,20 @@ test("illustration signing fails safely before Auth when public config is absent
   const originalUrl = process.env.SUPABASE_URL;
   const originalAnonKey = process.env.SUPABASE_ANON_KEY;
   const originalFetch = global.fetch;
+  let fetchCalls = 0;
   delete process.env.SUPABASE_URL;
   delete process.env.SUPABASE_ANON_KEY;
   delete require.cache[require.resolve(signingPath)];
-  global.fetch = async () => { throw new Error("fetch must not be called"); };
+  global.fetch = async () => {
+    fetchCalls += 1;
+    throw new Error("fetch must not be called");
+  };
 
   try {
     const handler = require(signingPath);
     const response = createResponseRecorder();
     await handler({ method: "POST", headers: { authorization: "Bearer test" }, body: {} }, response);
+    assert.equal(fetchCalls, 0);
     assert.equal(response.statusCode, 500);
     assert.deepEqual(JSON.parse(response.body), {
       error: "illustration_unavailable",
