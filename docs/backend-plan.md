@@ -37,8 +37,11 @@ Current scaffold:
 - file: `api/generate-story.js`;
 - runtime target: Vercel-style Node serverless function;
 - current mode: mock by default, optional OpenAI-compatible adapter behind `AI_GENERATION_ENABLED=true`;
-- current persistence: validates the Supabase JWT, checks generation limits, then tries `create_generated_story_with_usage` RPC to save `stories`, `story_pages`, and usage in one transaction;
-- current persistence fallback: if the RPC is not installed yet, backend uses the older REST save plus usage increment path;
+- current persistence: validates the Supabase JWT, reserves usage with the
+  service-role-only `reserve_ai_usage` RPC, then saves `stories` and
+  `story_pages` through `create_story_from_reservation`;
+- failure handling: a provider or persistence failure releases the reservation;
+  the old direct RPC and REST usage-write fallback are retired;
 - current fallback: if AI is enabled but the provider fails or returns invalid JSON, backend saves a mock story and returns `meta.aiFallbackReason`;
 - purpose: keep the endpoint contract stable before enabling a paid AI provider and payment flow.
 

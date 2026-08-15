@@ -218,7 +218,9 @@
 
   function canGenerateStory() {
     const usage = getGenerationUsage();
-    const canGenerate = usage.generationsUsed < usage.generationLimit;
+    const canGenerate = storageMode === "supabase"
+      ? usage.storyRemaining > 0
+      : usage.generationsUsed < usage.generationLimit;
 
     trackEvent("generation_limit_checked", {
       canGenerate,
@@ -234,6 +236,11 @@
     }
 
     return canGenerate;
+  }
+
+  function canGenerateImage() {
+    const usage = getGenerationUsage();
+    return storageMode === "supabase" && usage.imageRemaining > 0;
   }
 
   async function incrementLocalGenerationUsage() {
@@ -257,6 +264,7 @@
     getSubscriptionState,
     getGenerationUsage,
     canGenerateStory,
+    canGenerateImage,
     incrementLocalGenerationUsage,
     initializeSubscription,
     getStorageState
