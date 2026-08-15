@@ -1,0 +1,21 @@
+/* Reference-compatible geometry for about.html only. */
+.about-page .note-sketch,
+.about-page .sketch-thumb img,
+.about-page .draft-image,
+.about-page .future-sketch img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: auto !important;
+  object-fit: contain;
+}
+
+/* Preserve the reference page's 44px pointer targets without changing other routes. */
+.about-page .nav-brand,
+.about-page .nav-link,
+.about-page .nav-action,
+.about-page .nav-menu-button,
+.about-page .site-footer a {
+  min-width: 44px;
+  min-height: 44px;
+}
