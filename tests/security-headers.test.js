@@ -62,6 +62,19 @@ test("landing page loads the analytics bootstrap externally", async () => {
   );
 });
 
+test("flight page keeps Three.js and game code local for the global CSP", async () => {
+  const html = await readProjectFile("flight.html");
+  const three = await readProjectFile("js/vendor/three.min.js");
+  const game = await readProjectFile("js/flight.js");
+
+  assert.match(html, /<script defer src="js\/vendor\/three\.min\.js"><\/script>/);
+  assert.match(html, /<script defer src="js\/flight\.js"><\/script>/);
+  assert.match(html, /<script defer src="\/js\/vercel-analytics\.js\?v=1"><\/script>/);
+  assert.doesNotMatch(html, /cdn\.jsdelivr\.net|window\.va\s*=/);
+  assert.match(three, /three\.js/i);
+  assert.match(game, /"use strict";/);
+});
+
 test("operations runbook defines the 48-hour report-only observation gate", async () => {
   const operations = await readProjectFile("docs/supabase-operations.md");
   assert.match(operations, /48 hours/i);

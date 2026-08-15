@@ -33,7 +33,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=26" />
+    <link rel="stylesheet" href="styles.css?v=28" />
   </head>
   <body>
     <a class="skip-link" href="#mainContent">Перейти к содержанию</a>
@@ -44,7 +44,7 @@
     <header class="home-header">
       <nav class="site-nav" aria-label="Навигация сайта">
         <a class="nav-brand" id="navTopButton" href="/" aria-label="На главную">
-          <img src="assets/logo-mark.png" alt="" width="82" height="52" />
+          <img src="assets/logo-mark-transparent-400.png" alt="" width="82" height="52" />
           <span>Ёжик и Лисёнок</span>
         </a>
         <button
@@ -104,10 +104,12 @@
         <div class="hero-friends">
           <img
             class="hero-illustration"
-            src="assets/hero-seaside-bench.png"
+            src="assets/optimized/hero-seaside-bench-1200.jpg"
+            srcset="assets/optimized/hero-seaside-bench-768.jpg 768w, assets/optimized/hero-seaside-bench-1200.jpg 1200w"
+            sizes="(max-width: 720px) 122vw, (max-width: 1100px) 80vw, 65vw"
             alt="Ёжик и Лисёнок сидят на скамейке у моря и смотрят на маяк"
-            width="1627"
-            height="967"
+            width="1200"
+            height="713"
             fetchpriority="high"
             decoding="async"
           />
@@ -163,7 +165,16 @@
 
       <section class="memory-promo games-clearing" id="memoryPromo" aria-labelledby="memoryPromoTitle">
         <div class="memory-promo__art">
-          <img src="assets/journey/reference/games-clearing-fox-plane.png" alt="Ежонок раскладывает карточки мемори, а Лисёнок запускает бумажный самолётик" width="1672" height="941" loading="lazy" decoding="async" />
+          <img
+            src="assets/optimized/games-clearing-fox-plane-1200.jpg"
+            srcset="assets/optimized/games-clearing-fox-plane-768.jpg 768w, assets/optimized/games-clearing-fox-plane-1200.jpg 1200w"
+            sizes="(max-width: 720px) 100vw, 1200px"
+            alt="Ежонок раскладывает карточки мемори, а Лисёнок запускает бумажный самолётик"
+            width="1200"
+            height="675"
+            loading="lazy"
+            decoding="async"
+          />
         </div>
         <div class="memory-promo__copy">
           <p class="journey-meta">Игровая полянка</p>
@@ -247,6 +258,8 @@
           height="810"
           alt=""
           aria-hidden="true"
+          loading="lazy"
+          decoding="async"
         />
 
         <div class="create-hero" id="createHero">
@@ -287,19 +300,19 @@
                   <input type="radio" name="ageGroup" value="5-6" checked />
                   <span class="create-choice__check" aria-hidden="true">✓</span>
                   <span class="create-choice__copy"><strong>5–6 лет</strong><span>Простые слова, короткие предложения и увлекательные приключения</span></span>
-                  <img src="assets/create/create-hedgehog.png" width="160" height="180" alt="" />
+                  <img src="assets/create/create-hedgehog.png" width="160" height="180" alt="" loading="lazy" decoding="async" />
                 </label>
                 <label class="create-choice create-age-choice">
                   <input type="radio" name="ageGroup" value="7-8" />
                   <span class="create-choice__check" aria-hidden="true">✓</span>
                   <span class="create-choice__copy"><strong>7–8 лет</strong><span>Больше загадок, дружбы и смелых открытий в каждом путешествии</span></span>
-                  <img src="assets/create/create-fox-lantern.png" width="160" height="180" alt="" />
+                  <img src="assets/create/create-fox-lantern.png" width="160" height="180" alt="" loading="lazy" decoding="async" />
                 </label>
                 <label class="create-choice create-age-choice">
                   <input type="radio" name="ageGroup" value="9-10" />
                   <span class="create-choice__check" aria-hidden="true">✓</span>
                   <span class="create-choice__copy"><strong>9–10 лет</strong><span>Неожиданные повороты, важные решения и герои, которым хочется верить</span></span>
-                  <img src="assets/create/create-hero.png" width="160" height="180" alt="" />
+                  <img src="assets/create/create-hero.png" width="160" height="180" alt="" loading="lazy" decoding="async" />
                 </label>
               </div>
             </fieldset>
@@ -598,6 +611,8 @@
               alt="Авторский акварельный скетч Ежонка и Лисёнка"
               width="1448"
               height="1086"
+              loading="lazy"
+              decoding="async"
             />
             <p>А давай они будут друзьями?</p>
             <span class="paperclip" aria-hidden="true"></span>
@@ -877,6 +892,8 @@
           height="800"
           alt=""
           aria-hidden="true"
+          loading="lazy"
+          decoding="async"
         />
         <button class="button quiet generation-overlay__close" id="generationClose" type="button">Закрыть</button>
         <header class="generation-overlay__header">
@@ -891,6 +908,7 @@
             width="960"
             height="640"
             alt="Ежонок и Лисёнок вместе рисуют новую историю"
+            loading="lazy"
             decoding="async"
           />
         </header>
@@ -944,20 +962,20 @@
       <small>© Ежонок и Лисёнок, 2026</small>
     </footer>
 
-    <script src="js/config.js?v=16"></script>
-    <script src="js/storageService.js?v=12"></script>
-    <script src="js/supabaseService.js?v=17"></script>
-    <script src="js/storyService.js?v=13"></script>
-    <script src="js/generationTasks.js?v=2"></script>
-    <script src="js/createStoryFlow.js?v=2"></script>
-    <script src="js/likeService.js?v=12"></script>
-    <script src="js/subscriptionService.js?v=12"></script>
-    <script src="js/analyticsService.js?v=14"></script>
-    <script src="js/miniGamesData.js?v=1"></script>
-    <script src="js/miniGames.js?v=1"></script>
-    <script src="js/memoryGame.js?v=2"></script>
-    <script src="js/introSplash.js?v=1"></script>
-    <script src="js/app.js?v=28"></script>
+    <script defer src="js/config.js?v=16"></script>
+    <script defer src="js/storageService.js?v=12"></script>
+    <script defer src="js/supabaseService.js?v=17"></script>
+    <script defer src="js/storyService.js?v=13"></script>
+    <script defer src="js/generationTasks.js?v=2"></script>
+    <script defer src="js/createStoryFlow.js?v=2"></script>
+    <script defer src="js/likeService.js?v=12"></script>
+    <script defer src="js/subscriptionService.js?v=12"></script>
+    <script defer src="js/analyticsService.js?v=14"></script>
+    <script defer src="js/miniGamesData.js?v=1"></script>
+    <script defer src="js/miniGames.js?v=1"></script>
+    <script defer src="js/memoryGame.js?v=2"></script>
+    <script defer src="js/introSplash.js?v=1"></script>
+    <script defer src="js/app.js?v=29"></script>
     <script defer src="js/vercel-analytics.js?v=1"></script>
     <script defer src="/_vercel/insights/script.js"></script>
   </body>

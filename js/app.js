@@ -1074,7 +1074,9 @@
 
   function renderStories() {
     if (activeRoute === "home") {
-      storyList.innerHTML = homeFeaturedStories.map((story) => renderHomeStoryCard(story)).join("");
+      storyList.innerHTML = homeFeaturedStories
+        .map((story) => renderHomeStoryCard(resolveHomeFeaturedStory(story)))
+        .join("");
       return;
     }
 
@@ -1085,16 +1087,34 @@
     storyList.innerHTML = visibleStories.map((story) => renderStoryCard(story)).join("");
   }
 
+  function resolveHomeFeaturedStory(featuredStory) {
+    const catalogStory = storyService.getStoryById(featuredStory.id);
+
+    if (!catalogStory) return featuredStory;
+
+    return {
+      ...featuredStory,
+      title: catalogStory.title
+    };
+  }
+
   function renderHomeStoryCard(story) {
     const route = `/stories/${encodeURIComponent(story.id)}`;
+    const builtInAsset = String(story.imageUrl).match(/^assets\/stories\/([a-z0-9-]+)\.png$/i);
     const sourceBadge = story.source === "user"
       ? `<span class="story-source-badge story-source-badge--user home-story-source"><span class="story-source-badge__icon" aria-hidden="true">✎</span><span>Моя история</span></span>`
       : `<span class="story-source-badge story-source-badge--author home-story-source"><span class="story-source-badge__icon" aria-hidden="true">✦</span><span>История от автора</span></span>`;
+    const artwork = builtInAsset
+      ? `<picture>
+          <source type="image/avif" srcset="assets/optimized/${builtInAsset[1]}-480.avif 480w, assets/optimized/${builtInAsset[1]}-768.avif 768w, assets/optimized/${builtInAsset[1]}-1200.avif 1200w" sizes="(max-width: 720px) 86vw, (max-width: 1100px) 44vw, 430px" />
+          <img src="${escapeAttribute(story.imageUrl)}" alt="" width="1536" height="1024" loading="lazy" decoding="async" />
+        </picture>`
+      : `<img src="${escapeAttribute(story.imageUrl)}" alt="" width="1536" height="1024" loading="lazy" decoding="async" />`;
 
     return `
       <article class="story-card home-story-card" data-story-card="${escapeAttribute(story.id)}">
         <a class="home-story-art" href="${route}" data-read="${escapeAttribute(story.id)}" aria-label="Открыть историю: ${escapeAttribute(story.title.replace(/<br>/g, " "))}">
-          <img src="${escapeAttribute(story.imageUrl)}" alt="" width="1536" height="1024" loading="lazy" decoding="async" />
+          ${artwork}
         </a>
         <div class="home-story-content">
           <p class="home-story-kicker"><span>${story.number}</span><i aria-hidden="true">·</i><span>${story.duration}</span></p>
@@ -1275,7 +1295,9 @@
     hero.classList.add("hidden");
     storiesSection.classList.add("hidden");
     travelMap?.classList.add("hidden");
+    memoryPromo?.classList.add("hidden");
     readingValuesSection?.classList.add("hidden");
+    document.querySelector("#pricing")?.classList.add("hidden");
     generatorSection.classList.add("hidden");
     librarySection.classList.add("hidden");
     aboutSection.classList.add("hidden");

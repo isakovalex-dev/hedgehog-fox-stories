@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#d8e8df" />
+  <title>Полёт Ежонка и Лисёнка</title>
+  <style>
+    :root {
+      --paper: #fff8e8;
+      --paper-deep: #f2dfb9;
+      --ink: #4a4332;
+      --olive: #718650;
+      --olive-dark: #52653b;
+      --ochre: #d99b34;
+      --sky: #c9e1e5;
+      --rust: #c9632f;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+    body {
+      color: var(--ink);
+      background: #d8e8df;
+      font-family: "Nunito", "Avenir Next", system-ui, sans-serif;
+      touch-action: none;
+      user-select: none;
+    }
+
+    #scene, #scene canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+    #scene canvas { cursor: crosshair; }
+
+    .paper-noise {
+      position: fixed;
+      inset: 0;
+      z-index: 3;
+      pointer-events: none;
+      opacity: .13;
+      mix-blend-mode: multiply;
+      background-image:
+        radial-gradient(circle at 18% 26%, rgba(98,70,42,.28) 0 .55px, transparent .7px),
+        radial-gradient(circle at 74% 64%, rgba(255,255,255,.7) 0 .6px, transparent .8px),
+        radial-gradient(circle at 44% 82%, rgba(98,70,42,.18) 0 .45px, transparent .65px);
+      background-size: 9px 11px, 13px 15px, 7px 8px;
+    }
+
+    .vignette {
+      position: fixed;
+      inset: 0;
+      z-index: 4;
+      pointer-events: none;
+      background: radial-gradient(ellipse at 50% 43%, transparent 48%, rgba(88,77,48,.12) 100%);
+    }
+
+    .ui { transition: opacity .35s ease, transform .35s ease; }
+    body.ui-hidden .ui { opacity: 0; pointer-events: none; transform: translateY(-8px); }
+
+    .brand {
+      position: fixed;
+      z-index: 8;
+      top: max(18px, env(safe-area-inset-top));
+      left: max(18px, env(safe-area-inset-left));
+      margin: 0;
+      padding: 9px 15px 10px;
+      border: 1px solid rgba(111,134,80,.22);
+      border-radius: 18px 20px 17px 21px;
+      color: var(--olive-dark);
+      background: rgba(255,248,232,.76);
+      box-shadow: 0 9px 26px rgba(89,72,43,.13);
+      backdrop-filter: blur(9px);
+      font: 700 clamp(17px, 2vw, 23px)/1.05 Georgia, serif;
+      letter-spacing: .01em;
+    }
+    .brand span { color: var(--ochre); }
+
+    .controls {
+      position: fixed;
+      z-index: 8;
+      top: max(18px, env(safe-area-inset-top));
+      right: max(18px, env(safe-area-inset-right));
+      display: flex;
+      gap: 9px;
+    }
+
+    .icon-button {
+      width: 48px;
+      height: 48px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(126,100,52,.25);
+      border-radius: 49% 46% 52% 45%;
+      color: var(--olive-dark);
+      background: rgba(255,248,232,.85);
+      box-shadow: 0 8px 22px rgba(89,72,43,.15), inset 0 0 0 2px rgba(255,255,255,.25);
+      backdrop-filter: blur(10px);
+      font: 700 20px/1 Georgia, serif;
+      cursor: pointer;
+      transition: transform .18s ease, background .18s ease;
+    }
+    .icon-button:hover { transform: translateY(-2px) rotate(-1deg); background: rgba(255,252,241,.96); }
+    .icon-button:active { transform: translateY(1px) scale(.96); }
+    .icon-button:focus-visible, .start-button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+
+    .speed-card {
+      position: fixed;
+      z-index: 8;
+      left: max(18px, env(safe-area-inset-left));
+      bottom: max(18px, env(safe-area-inset-bottom));
+      width: min(250px, calc(100vw - 36px));
+      padding: 12px 16px 14px;
+      border: 1px solid rgba(126,100,52,.22);
+      border-radius: 20px 17px 22px 18px;
+      background: rgba(255,248,232,.8);
+      box-shadow: 0 10px 30px rgba(89,72,43,.14);
+      backdrop-filter: blur(10px);
+    }
+    .speed-row { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 8px; }
+    .speed-row span:first-child { font: 700 14px/1.1 Georgia, serif; color: var(--olive-dark); }
+    #speedText { font-size: 13px; font-weight: 800; color: #856728; }
+    input[type="range"] {
+      width: 100%; height: 8px; margin: 0; appearance: none;
+      border-radius: 999px; background: linear-gradient(90deg, #8ea46b 0 var(--speed), #ead9b8 var(--speed));
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none; width: 23px; height: 23px; border: 3px solid var(--paper); border-radius: 50%;
+      background: var(--ochre); box-shadow: 0 2px 8px rgba(88,64,30,.3); cursor: pointer;
+    }
+
+    .hint {
+      position: fixed;
+      z-index: 8;
+      left: 50%;
+      bottom: max(24px, env(safe-area-inset-bottom));
+      max-width: min(650px, calc(100vw - 38px));
+      padding: 12px 18px;
+      border: 1px solid rgba(126,100,52,.18);
+      border-radius: 18px 22px 17px 21px;
+      color: #5c503c;
+      background: rgba(255,248,232,.87);
+      box-shadow: 0 10px 30px rgba(89,72,43,.14);
+      backdrop-filter: blur(10px);
+      font-size: 14px;
+      text-align: center;
+      transform: translateX(-50%);
+      transition: opacity .8s ease, transform .8s ease;
+    }
+    .hint.hide { opacity: 0; transform: translate(-50%, 14px); pointer-events: none; }
+
+    .start-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background:
+        radial-gradient(circle at 50% 40%, rgba(255,250,234,.7) 0 20%, transparent 58%),
+        linear-gradient(155deg, rgba(199,222,218,.91), rgba(243,216,161,.91));
+      transition: opacity 1s ease, visibility 1s ease;
+    }
+    .start-screen::before, .start-screen::after {
+      content: "";
+      position: absolute;
+      width: min(42vw, 460px);
+      aspect-ratio: 2 / 1;
+      border-radius: 50%;
+      filter: blur(25px);
+      background: rgba(255,255,255,.45);
+    }
+    .start-screen::before { left: -8vw; top: 8vh; transform: rotate(-8deg); }
+    .start-screen::after { right: -7vw; bottom: 8vh; transform: rotate(12deg); }
+    .start-screen.started { opacity: 0; visibility: hidden; pointer-events: none; }
+    .start-card {
+      position: relative;
+      width: min(680px, 100%);
+      padding: clamp(34px, 7vw, 66px) clamp(24px, 7vw, 72px);
+      border: 1px solid rgba(119,95,53,.22);
+      border-radius: 47% 43% 45% 42% / 12% 15% 13% 14%;
+      background: rgba(255,248,232,.89);
+      box-shadow: 0 28px 70px rgba(92,75,44,.2), inset 0 0 50px rgba(217,155,52,.08);
+      text-align: center;
+    }
+    .start-kicker { margin: 0 0 12px; color: var(--olive); font-size: 15px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+    h1 { margin: 0; color: #5f5138; font: 700 clamp(36px, 7vw, 70px)/.98 Georgia, serif; letter-spacing: -.035em; }
+    .start-subtitle { max-width: 500px; margin: 22px auto 28px; font-size: clamp(16px, 2.2vw, 20px); line-height: 1.55; }
+    .start-button {
+      min-height: 58px;
+      padding: 0 28px;
+      border: 0;
+      border-radius: 25px 29px 24px 28px;
+      color: #fffdf4;
+      background: linear-gradient(145deg, #8ca15f, #687e47);
+      box-shadow: 0 9px 0 #53653c, 0 17px 30px rgba(76,91,53,.24), inset 0 1px rgba(255,255,255,.4);
+      font: 800 18px/1 "Nunito", system-ui, sans-serif;
+      cursor: pointer;
+      transition: transform .2s ease, box-shadow .2s ease;
+    }
+    .start-button:hover { transform: translateY(-2px); box-shadow: 0 11px 0 #53653c, 0 19px 32px rgba(76,91,53,.25); }
+    .start-button:active { transform: translateY(6px); box-shadow: 0 3px 0 #53653c, 0 8px 18px rgba(76,91,53,.2); }
+    .start-note { margin: 24px 0 0; color: #7f7058; font-size: 13px; }
+
+    .paused-note {
+      position: fixed; z-index: 9; left: 50%; top: 50%; padding: 14px 24px;
+      border-radius: 22px; color: var(--olive-dark); background: rgba(255,248,232,.92);
+      box-shadow: 0 15px 38px rgba(74,62,40,.18); font: 700 22px Georgia, serif;
+      opacity: 0; transform: translate(-50%, -44%); transition: .35s; pointer-events: none;
+    }
+    body.paused .paused-note { opacity: 1; transform: translate(-50%, -50%); }
+
+    .fallback {
+      position: fixed; inset: 0; z-index: 50; display: none; place-items: center; padding: 28px;
+      color: var(--ink); background: var(--paper); text-align: center;
+    }
+    .fallback div { max-width: 600px; }
+    .fallback h2 { font: 700 36px Georgia, serif; }
+
+    @media (max-width: 700px) {
+      .brand { font-size: 16px; max-width: calc(100vw - 205px); }
+      .controls { gap: 6px; }
+      .icon-button { width: 43px; height: 43px; font-size: 18px; }
+      .speed-card { width: 205px; padding: 10px 13px 12px; }
+      .speed-row { gap: .35rem; }
+      .speed-row span:first-child { font-size: 12px; }
+      #speedText { font-size: 12px; }
+      .hint { bottom: 112px; max-width: 205px; font-size: 12px; }
+      .start-card { border-radius: 42px 35px 46px 37px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <div id="scene" aria-hidden="true"></div>
+  <div class="paper-noise"></div>
+  <div class="vignette"></div>
+
+  <p class="brand ui">Ежонок <span>✦</span> Лисёнок</p>
+
+  <div class="controls ui" aria-label="Управление полётом">
+    <button class="icon-button" id="soundButton" type="button" aria-label="Включить звук" title="Звук">♩</button>
+    <button class="icon-button" id="pauseButton" type="button" aria-label="Пауза" title="Пауза (P)">Ⅱ</button>
+    <button class="icon-button" id="shotButton" type="button" aria-label="Сохранить снимок" title="Снимок (C)">◉</button>
+    <button class="icon-button" id="fullButton" type="button" aria-label="Полноэкранный режим" title="На весь экран (F)">⛶</button>
+  </div>
+
+  <label class="speed-card ui" for="speedRange">
+    <span class="speed-row"><span>Скорость ветра</span><span id="speedText">спокойная</span></span>
+    <input id="speedRange" type="range" min="0" max="100" value="46" aria-label="Скорость полёта" />
+  </label>
+
+  <div class="hint ui" id="hint">Веди самолёт мышью или пальцем · колесо меняет скорость · H скрывает интерфейс</div>
+  <div class="paused-note ui">Полёт замер на облачке…</div>
+
+  <div class="start-screen" id="startScreen">
+    <div class="start-card">
+      <p class="start-kicker">Одна маленькая дорога по небу</p>
+      <h1>Полёт Ежонка<br />и Лисёнка</h1>
+      <p class="start-subtitle">Веди самолёт мышью или пальцем. Колесо меняет скорость.</p>
+      <button class="start-button" id="startButton" type="button">Отправиться в полёт</button>
+      <p class="start-note">Никакой спешки — только ветер, облака и сказочный мир внизу</p>
+    </div>
+  </div>
+
+  <div class="fallback" id="fallback">
+    <div>
+      <h2>Небо сегодня отдыхает</h2>
+      <p>Для полёта нужен браузер с поддержкой WebGL. Открой страницу в актуальной версии Chrome или Safari.</p>
+    </div>
+  </div>
+
+  <script defer src="js/vendor/three.min.js"></script>
+  <script defer src="js/flight.js"></script>
+  <script defer src="/js/vercel-analytics.js?v=1"></script>
+  <script defer src="/_vercel/insights/script.js"></script>
+</body>
+</html>

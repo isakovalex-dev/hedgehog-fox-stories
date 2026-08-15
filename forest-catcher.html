@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f8f0df" />
+    <meta name="description" content="Добрая лесная игра для детей: помогите Лисёнку собрать лесные дары в корзинку." />
+    <title>Лисёнок собирает лесные дары — Ёжик и Лисёнок</title>
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="forest-catcher.css" />
+  </head>
+  <body class="forest-catcher-page">
+    <a class="fc-skip-link" href="#forestCatcherCanvas">Перейти к игре</a>
+
+    <main class="fc-page-shell" id="forestCatcherRoot">
+      <header class="fc-site-header">
+        <a class="fc-site-brand" href="index.html#top">Ёжик и Лисёнок</a>
+        <a class="fc-back-link" href="index.html#stories">Вернуться к историям</a>
+      </header>
+
+      <section class="fc-game-frame" aria-labelledby="forestGameTitle">
+        <canvas
+          id="forestCatcherCanvas"
+          tabindex="0"
+          aria-label="Игровое поле. Двигайте Лисёнка мышью, пальцем или клавишами влево и вправо."
+        ></canvas>
+
+        <div class="fc-loading-screen" id="fcLoadingScreen" aria-live="polite">
+          <img src="assets/forest-catcher/fox-catcher.webp" alt="" width="168" height="208" />
+          <p>Собираем лесные дары<span aria-hidden="true">…</span></p>
+          <span class="fc-loading-leaves" aria-hidden="true"><i></i><i></i><i></i></span>
+        </div>
+
+        <section class="fc-overlay fc-menu-screen" id="fcMenuScreen" aria-labelledby="forestGameTitle">
+          <div class="fc-menu-paper">
+            <p class="fc-kicker">Игровая полянка</p>
+            <h1 id="forestGameTitle">Лисёнок собирает<br />лесные дары</h1>
+            <p class="fc-menu-lead">Помоги Лисёнку поймать в корзинку орехи, шишки и ягоды.</p>
+
+            <div class="fc-menu-fox" aria-hidden="true">
+              <img src="assets/forest-catcher/fox-catcher.webp" alt="" width="180" height="222" />
+              <span class="fc-basket fc-basket--menu"></span>
+            </div>
+
+            <div class="fc-difficulty-group" role="group" aria-label="Выбор сложности">
+              <button class="fc-difficulty is-selected" type="button" data-fc-difficulty="easy" aria-pressed="true">
+                <strong>Лёгкий</strong><span>Не спешим, первый промах прощается</span>
+              </button>
+              <button class="fc-difficulty" type="button" data-fc-difficulty="normal" aria-pressed="false">
+                <strong>Обычный</strong><span>Лес становится чуточку быстрее</span>
+              </button>
+            </div>
+
+            <div class="fc-menu-actions">
+              <button class="fc-button fc-button--primary" id="fcStartButton" type="button">Начать игру</button>
+              <button class="fc-button fc-button--secondary" id="fcHelpButton" type="button">Как играть</button>
+            </div>
+
+            <p class="fc-best-line">Лучший результат: <strong id="fcMenuBest">0</strong> очков</p>
+          </div>
+        </section>
+
+        <aside class="fc-hud is-hidden" id="fcHud" aria-label="Состояние игры">
+          <div class="fc-score-card"><span>Очки</span><strong id="fcScore">0</strong></div>
+          <div class="fc-combo-card is-hidden" id="fcComboCard"><span id="fcComboText">Комбо ×2</span></div>
+          <div class="fc-heart-card"><span class="sr-only" id="fcLivesText">Жизней: 3</span><span id="fcLives" aria-hidden="true">♥ ♥ ♥</span></div>
+          <button class="fc-round-button" id="fcPauseButton" type="button" aria-label="Поставить игру на паузу"><i></i><i></i></button>
+        </aside>
+
+        <section class="fc-overlay fc-modal-screen is-hidden" id="fcHelpScreen" aria-labelledby="fcHelpTitle" role="dialog" aria-modal="true">
+          <div class="fc-dialog-paper">
+            <p class="fc-kicker">Небольшая подсказка</p>
+            <h2 id="fcHelpTitle">Лови лесные дары</h2>
+            <div class="fc-help-items" aria-hidden="true"><span class="fc-help-acorn"></span><span class="fc-help-berries"></span><span class="fc-help-cone"></span></div>
+            <p>Двигай Лисёнка мышью, пальцем или клавишами <kbd>←</kbd> <kbd>→</kbd>. Поймай в корзинку орехи, шишки и ягоды. Камни, ветки и испорченные грибы лучше пропустить.</p>
+            <button class="fc-button fc-button--primary" id="fcHelpCloseButton" type="button">Понятно</button>
+          </div>
+        </section>
+
+        <section class="fc-overlay fc-modal-screen is-hidden" id="fcPauseScreen" aria-labelledby="fcPauseTitle" role="dialog" aria-modal="true">
+          <div class="fc-dialog-paper">
+            <p class="fc-kicker">Лес ждёт</p>
+            <h2 id="fcPauseTitle">Пауза</h2>
+            <div class="fc-dialog-actions">
+              <button class="fc-button fc-button--primary" id="fcResumeButton" type="button">Продолжить</button>
+              <button class="fc-button fc-button--secondary" id="fcRestartButton" type="button">Начать заново</button>
+              <button class="fc-button fc-button--secondary" id="fcMenuButton" type="button">В меню</button>
+            </div>
+            <div class="fc-settings-row">
+              <button class="fc-small-toggle" id="fcSoundButton" type="button" aria-pressed="true">Звуки: вкл</button>
+              <button class="fc-small-toggle" id="fcMusicButton" type="button" aria-pressed="false">Музыка: выкл</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="fc-overlay fc-modal-screen is-hidden" id="fcResultScreen" aria-labelledby="fcResultTitle" role="dialog" aria-modal="true">
+          <div class="fc-dialog-paper fc-result-paper">
+            <p class="fc-kicker" id="fcResultKicker">Лесные дары собраны</p>
+            <h2 id="fcResultTitle">Корзинка полна!</h2>
+            <div class="fc-result-stats">
+              <p><span>Очки</span><strong id="fcResultScore">0</strong></p>
+              <p><span>Поймано</span><strong id="fcResultItems">0</strong></p>
+              <p><span>Лучшее комбо</span><strong id="fcResultCombo">0</strong></p>
+            </div>
+            <p class="fc-new-record is-hidden" id="fcNewRecord">Новый рекорд!</p>
+            <div class="fc-dialog-actions">
+              <button class="fc-button fc-button--primary" id="fcPlayAgainButton" type="button">Играть снова</button>
+              <button class="fc-button fc-button--secondary" id="fcResultMenuButton" type="button">В меню</button>
+            </div>
+          </div>
+        </section>
+
+        <p class="fc-live-region sr-only" id="fcLiveRegion" aria-live="polite"></p>
+      </section>
+
+      <section class="fc-under-game" aria-label="Управление игрой">
+        <p><strong>На компьютере:</strong> мышь, <kbd>A</kbd>/<kbd>D</kbd> или <kbd>←</kbd>/<kbd>→</kbd>. <strong>На телефоне:</strong> веди пальцем по поляне.</p>
+        <button class="fc-under-sound" id="fcUnderSoundButton" type="button" aria-pressed="true">Звуки: вкл</button>
+      </section>
+    </main>
+
+    <script src="js/forestCatcherGame.js"></script>
+    <script defer src="/js/vercel-analytics.js?v=1"></script>
+    <script defer src="/_vercel/insights/script.js"></script>
+  </body>
+</html>
