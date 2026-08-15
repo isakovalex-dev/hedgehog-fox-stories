@@ -6,8 +6,10 @@ const {
   reserveAiUsage,
   releaseAiUsage,
   finalizeStoryReservation,
+  createFeatureDisabledError,
   toPublicError
 } = require("./_ai-usage.js");
+const { assertPreviewSupabaseUrl, isPaidFeatureEnabled, isPreview } = require("./_preview-environment.js");
 
 const ALLOWED_SCENE_TAGS = [
   "sea_bench",
@@ -51,7 +53,7 @@ const MAX_STORY_TITLE_LENGTH = 120;
 const MAX_STORY_LESSON_LENGTH = 160;
 const MAX_PAGE_TEXT_LENGTH = 700;
 const MAX_IMAGE_PROMPT_LENGTH = 240;
-const AI_GENERATION_ENABLED = process.env.AI_GENERATION_ENABLED === "true";
+const AI_GENERATION_ENABLED = isPaidFeatureEnabled("AI_GENERATION_ENABLED");
 const AI_API_BASE_URL = process.env.AI_API_BASE_URL || "";
 const AI_API_KEY = process.env.AI_API_KEY || "";
 const AI_MODEL = process.env.AI_MODEL || "";
@@ -618,6 +620,9 @@ async function handler(req, res) {
   }
 
   try {
+    assertPreviewSupabaseUrl();
+    if (isPreview()) throw createFeatureDisabledError();
+
     const body = await getRequestBody(req);
     const requestValidation = validateGenerationRequest(body);
 

@@ -1,7 +1,8 @@
 "use strict";
 
+const { assertPreviewSupabaseUrl } = require("./_preview-environment.js");
+
 const DEFAULT_ORIGIN = "https://ezhik-i-lisenok.ru";
-const SUPABASE_URL = process.env.SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || "";
 const SUPABASE_SECRET_KEY =
   process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -98,13 +99,14 @@ async function getRequestBody(req) {
 }
 
 async function getAuthenticatedUser(accessToken) {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  const supabaseUrl = assertPreviewSupabaseUrl();
+  if (!supabaseUrl || !SUPABASE_ANON_KEY) {
     throw createHttpError(500, "Supabase backend config is missing");
   }
 
   if (!accessToken) throw createHttpError(401, "Authorization token is required");
 
-  const response = await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/auth/v1/user`, {
+  const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
     method: "GET",
     headers: {
       apikey: SUPABASE_ANON_KEY,
@@ -146,8 +148,9 @@ function getOwnedObjectPath(imageReference, userId, storyId) {
 }
 
 async function verifyStoryOwnership(storyId, accessToken) {
+  const supabaseUrl = assertPreviewSupabaseUrl();
   const response = await fetch(
-    `${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/stories?select=id&id=eq.${encodeURIComponent(storyId)}&limit=1`,
+    `${supabaseUrl}/rest/v1/stories?select=id&id=eq.${encodeURIComponent(storyId)}&limit=1`,
     {
       method: "GET",
       headers: {
@@ -164,12 +167,13 @@ async function verifyStoryOwnership(storyId, accessToken) {
 }
 
 async function createSignedUrl(objectPath) {
+  const supabaseUrl = assertPreviewSupabaseUrl();
   if (!SUPABASE_SECRET_KEY) {
     throw createHttpError(500, "Supabase secret key config is missing");
   }
 
   const response = await fetch(
-    `${SUPABASE_URL.replace(/\/$/, "")}/storage/v1/object/sign/${IMAGE_BUCKET}/${encodeStoragePath(objectPath)}`,
+    `${supabaseUrl}/storage/v1/object/sign/${IMAGE_BUCKET}/${encodeStoragePath(objectPath)}`,
     {
       method: "POST",
       headers: {
@@ -186,7 +190,7 @@ async function createSignedUrl(objectPath) {
   if (!signedPath) throw createHttpError(502, "Signed illustration URL is missing");
   if (/^https?:\/\//i.test(signedPath)) return signedPath;
 
-  return `${SUPABASE_URL.replace(/\/$/, "")}/storage/v1${
+  return `${supabaseUrl}/storage/v1${
     signedPath.startsWith("/") ? signedPath : `/${signedPath}`
   }`;
 }
@@ -206,6 +210,8 @@ async function handler(req, res) {
   }
 
   try {
+    assertPreviewSupabaseUrl();
+
     const accessToken = getBearerToken(req);
     const user = await getAuthenticatedUser(accessToken);
     const body = await getRequestBody(req);

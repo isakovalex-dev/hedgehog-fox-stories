@@ -10,15 +10,17 @@ const {
   reserveAiUsage,
   finalizeImageUsage,
   releaseAiUsage,
+  createFeatureDisabledError,
   toPublicError
 } = require("./_ai-usage.js");
+const { assertPreviewSupabaseUrl, isPaidFeatureEnabled, isPreview } = require("./_preview-environment.js");
 
 const DEFAULT_ORIGIN = "https://ezhik-i-lisenok.ru";
 const SUPABASE_URL = process.env.SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || "";
 const SUPABASE_SECRET_KEY =
   process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-const IMAGE_GENERATION_ENABLED = process.env.IMAGE_GENERATION_ENABLED === "true";
+const IMAGE_GENERATION_ENABLED = isPaidFeatureEnabled("IMAGE_GENERATION_ENABLED");
 const OPENAI_IMAGE_API_KEY = process.env.OPENAI_IMAGE_API_KEY || "";
 const IMAGE_MODEL = process.env.IMAGE_MODEL || "";
 const IMAGE_SIZE = process.env.IMAGE_SIZE || "";
@@ -122,7 +124,7 @@ async function parseJsonResponse(response, fallbackMessage) {
 }
 
 async function supabaseRequest(path, options = {}, accessToken) {
-  const response = await fetch(SUPABASE_URL.replace(/\/$/, "") + path, {
+  const response = await fetch(assertPreviewSupabaseUrl().replace(/\/$/, "") + path, {
     ...options,
     headers: {
       apikey: SUPABASE_ANON_KEY,
@@ -376,7 +378,7 @@ async function readIterationImage(page, userId, storyId) {
     .map((part) => encodeURIComponent(part))
     .join("/");
   const response = await fetch(
-    SUPABASE_URL.replace(/\/$/, "") + "/storage/v1/object/authenticated/" + IMAGE_BUCKET + "/" + encodedPath,
+    assertPreviewSupabaseUrl().replace(/\/$/, "") + "/storage/v1/object/authenticated/" + IMAGE_BUCKET + "/" + encodedPath,
     {
       method: "GET",
       headers: {
@@ -511,7 +513,7 @@ async function uploadImage(objectPath, imageBytes) {
     .map((part) => encodeURIComponent(part))
     .join("/");
   const response = await fetch(
-    SUPABASE_URL.replace(/\/$/, "") + "/storage/v1/object/" + IMAGE_BUCKET + "/" + encodedPath,
+    assertPreviewSupabaseUrl().replace(/\/$/, "") + "/storage/v1/object/" + IMAGE_BUCKET + "/" + encodedPath,
     {
       method: "POST",
       headers: {
@@ -529,7 +531,7 @@ async function uploadImage(objectPath, imageBytes) {
 
 async function deleteImage(objectPath) {
   const response = await fetch(
-    SUPABASE_URL.replace(/\/$/, "") + "/storage/v1/object/" + IMAGE_BUCKET,
+    assertPreviewSupabaseUrl().replace(/\/$/, "") + "/storage/v1/object/" + IMAGE_BUCKET,
     {
       method: "DELETE",
       headers: {
@@ -567,6 +569,9 @@ async function handler(req, res) {
   }
 
   try {
+    assertPreviewSupabaseUrl();
+    if (isPreview()) throw createFeatureDisabledError();
+
     const body = await getRequestBody(req);
     const storyId = validateStoryId(body.storyId);
     const pageNumber = validatePageNumber(body.pageNumber);

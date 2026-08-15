@@ -1,12 +1,12 @@
 "use strict";
 
 const { randomUUID } = require("crypto");
+const { assertPreviewSupabaseUrl, isPaidFeatureEnabled, isPreview } = require("./_preview-environment.js");
 
 const DEFAULT_ORIGIN = "https://ezhik-i-lisenok.ru";
-const SUPABASE_URL = process.env.SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || "";
 const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-const PAYMENTS_ENABLED = process.env.PAYMENTS_ENABLED === "true";
+const PAYMENTS_ENABLED = isPaidFeatureEnabled("PAYMENTS_ENABLED");
 const PAYMENT_PROVIDER = process.env.PAYMENT_PROVIDER || "";
 const PAYMENT_CHECKOUT_URL = process.env.PAYMENT_CHECKOUT_URL || "";
 const YOOKASSA_SHOP_ID = process.env.YOOKASSA_SHOP_ID || "";
@@ -86,7 +86,8 @@ async function parseResponse(response) {
 }
 
 async function getAuthenticatedUser(accessToken) {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  const supabaseUrl = assertPreviewSupabaseUrl();
+  if (!supabaseUrl || !SUPABASE_ANON_KEY) {
     throw createHttpError(500, "Supabase backend config is missing");
   }
 
@@ -94,7 +95,7 @@ async function getAuthenticatedUser(accessToken) {
     throw createHttpError(401, "Authorization token is required");
   }
 
-  const response = await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/auth/v1/user`, {
+  const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
     method: "GET",
     headers: {
       apikey: SUPABASE_ANON_KEY,
@@ -112,9 +113,10 @@ async function getAuthenticatedUser(accessToken) {
 }
 
 async function hasActiveFamilySubscription(user, accessToken) {
+  const supabaseUrl = assertPreviewSupabaseUrl();
   const currentTime = encodeURIComponent(new Date().toISOString());
   const response = await fetch(
-    `${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/subscriptions?select=id&user_id=eq.${encodeURIComponent(
+    `${supabaseUrl}/rest/v1/subscriptions?select=id&user_id=eq.${encodeURIComponent(
       user.id
     )}&status=eq.active&current_period_end=gt.${currentTime}&limit=1`,
     {
@@ -139,9 +141,10 @@ function getYooKassaAuthHeader() {
 }
 
 async function enforceCheckoutRateLimit(userId) {
+  const supabaseUrl = assertPreviewSupabaseUrl();
   if (!SUPABASE_SECRET_KEY) throw createHttpError(500, "Supabase service key is missing");
 
-  const response = await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/rpc/enforce_api_rate_limit`, {
+  const response = await fetch(`${supabaseUrl}/rest/v1/rpc/enforce_api_rate_limit`, {
     method: "POST",
     headers: {
       apikey: SUPABASE_SECRET_KEY,
@@ -169,6 +172,9 @@ function getPublicCheckoutError(error) {
   }
   if (error?.statusCode === 409) {
     return { statusCode: 409, error: "checkout_unavailable", message: "Оплата сейчас недоступна." };
+  }
+  if (error?.statusCode === 501) {
+    return { statusCode: 501, error: "checkout_unavailable", message: "Оплата сейчас недоступна." };
   }
   return { statusCode: error?.statusCode >= 400 && error?.statusCode < 500 ? 400 : 500, error: "checkout_unavailable", message: "Оплата сейчас недоступна." };
 }
@@ -270,6 +276,9 @@ async function handler(req, res) {
   }
 
   try {
+    assertPreviewSupabaseUrl();
+    if (isPreview()) throw createHttpError(501, "Payments are disabled");
+
     const accessToken = getBearerToken(req);
     const user = await getAuthenticatedUser(accessToken);
 

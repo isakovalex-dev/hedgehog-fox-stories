@@ -48,7 +48,7 @@ test("Preview browser artifact has staging-only public configuration", async () 
   assert.doesNotMatch(artifact, /ynidvdesfolavhngubqv/);
   assert.doesNotMatch(artifact, /must-not-be-rendered|SUPABASE_SECRET_KEY|SERVICE_ROLE/);
 
-  const enabledConfig = buildBrowserRuntimeConfig({
+  const driftedConfig = buildBrowserRuntimeConfig({
     VERCEL_ENV: "preview",
     SUPABASE_URL: "https://opcnhhujyckmccvvpihc.supabase.co",
     SUPABASE_ANON_KEY: "staging-publishable-test-key",
@@ -57,8 +57,27 @@ test("Preview browser artifact has staging-only public configuration", async () 
     IMAGE_GENERATION_ENABLED: "true"
   });
 
-  assert.equal(enabledConfig.GENERATION_API_URL, "/api/generate-story");
-  assert.equal(enabledConfig.ILLUSTRATION_API_URL, "/api/generate-story-illustration");
-  assert.equal(enabledConfig.ILLUSTRATION_SIGNING_API_URL, "/api/get-story-illustration-url");
-  assert.equal(enabledConfig.PAYMENT_API_URL, "/api/create-checkout");
+  assert.equal(driftedConfig.GENERATION_API_ENABLED, false);
+  assert.equal(driftedConfig.GENERATION_API_URL, "");
+  assert.equal(driftedConfig.ILLUSTRATION_API_ENABLED, false);
+  assert.equal(driftedConfig.ILLUSTRATION_API_URL, "");
+  assert.equal(driftedConfig.ILLUSTRATION_SIGNING_API_URL, "/api/get-story-illustration-url");
+  assert.equal(driftedConfig.PAYMENT_API_URL, "");
+});
+
+test("Preview browser build rejects the production Supabase project", async () => {
+  const { buildBrowserRuntimeConfig } = await loadConfigModule();
+
+  assert.throws(
+    () => buildBrowserRuntimeConfig({
+      VERCEL_ENV: "preview",
+      SUPABASE_URL: "https://ynidvdesfolavhngubqv.supabase.co",
+      SUPABASE_ANON_KEY: "fake-preview-anon-key",
+      SUPABASE_SECRET_KEY: "fake-preview-service-key",
+      PAYMENTS_ENABLED: "true",
+      AI_GENERATION_ENABLED: "true",
+      IMAGE_GENERATION_ENABLED: "true"
+    }),
+    /opcnhhujyckmccvvpihc\.supabase\.co/
+  );
 });

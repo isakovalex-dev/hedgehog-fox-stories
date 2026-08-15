@@ -1,5 +1,7 @@
 "use strict";
 
+const { assertPreviewSupabaseUrl } = require("./_preview-environment.js");
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const PUBLIC_ERRORS = {
@@ -11,6 +13,7 @@ const PUBLIC_ERRORS = {
   idempotency_replayed: { statusCode: 409, publicMessage: "Этот запрос уже обработан." },
   rate_limited: { statusCode: 429, publicMessage: "Слишком много запросов. Попробуйте позже." },
   provider_unavailable: { statusCode: 502, publicMessage: "Сервис генерации временно недоступен." },
+  feature_disabled: { statusCode: 501, publicMessage: "Генерация временно недоступна." },
   internal_error: { statusCode: 500, publicMessage: "Внутренняя ошибка сервера." }
 };
 
@@ -22,9 +25,13 @@ function createError(code) {
 }
 
 function getSupabaseUrl() {
-  const value = String(process.env.SUPABASE_URL || "").trim().replace(/\/$/, "");
+  const value = assertPreviewSupabaseUrl();
   if (!value) throw createError("internal_error");
   return value;
+}
+
+function createFeatureDisabledError() {
+  return createError("feature_disabled");
 }
 
 function getAnonKey() {
@@ -83,9 +90,11 @@ async function authenticateRequest(req) {
   const accessToken = getBearerToken(req);
   if (!accessToken) throw createError("authentication_required");
 
+  const supabaseUrl = getSupabaseUrl();
+
   let response;
   try {
-    response = await fetch(`${getSupabaseUrl()}/auth/v1/user`, {
+    response = await fetch(`${supabaseUrl}/auth/v1/user`, {
       method: "GET",
       headers: {
         apikey: getAnonKey(),
@@ -243,6 +252,7 @@ function toPublicError(error) {
 
 module.exports = {
   authenticateRequest,
+  createFeatureDisabledError,
   readIdempotencyKey,
   reserveAiUsage,
   completeAiUsage,

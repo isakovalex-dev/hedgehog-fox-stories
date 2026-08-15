@@ -1,9 +1,10 @@
 "use strict";
 
-const PAYMENTS_ENABLED = process.env.PAYMENTS_ENABLED === "true";
+const { assertPreviewSupabaseUrl, isPaidFeatureEnabled, isPreview } = require("./_preview-environment.js");
+
+const PAYMENTS_ENABLED = isPaidFeatureEnabled("PAYMENTS_ENABLED");
 const PAYMENT_PROVIDER = process.env.PAYMENT_PROVIDER || "";
 const PAYMENT_WEBHOOK_SECRET = process.env.PAYMENT_WEBHOOK_SECRET || "";
-const SUPABASE_URL = process.env.SUPABASE_URL || "";
 const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const YOOKASSA_SHOP_ID = process.env.YOOKASSA_SHOP_ID || "";
 const YOOKASSA_SECRET_KEY = process.env.YOOKASSA_SECRET_KEY || "";
@@ -38,6 +39,7 @@ function truncateProviderPaymentId(paymentId) {
 
 function getPublicWebhookError(error) {
   if (error?.statusCode === 401) return { statusCode: 401, error: "unauthorized", message: "Недопустимый запрос оплаты." };
+  if (error?.statusCode === 501) return { statusCode: 501, error: "payment_webhook_unavailable", message: "Обработка оплаты сейчас недоступна." };
   if (error?.statusCode >= 400 && error?.statusCode < 500) return { statusCode: error.statusCode, error: "invalid_payment", message: "Недопустимый запрос оплаты." };
   return { statusCode: 500, error: "payment_webhook_failed", message: "Не удалось обработать уведомление об оплате." };
 }
@@ -176,11 +178,12 @@ async function getVerifiedYooKassaPayment(paymentId) {
 }
 
 async function applyVerifiedYooKassaPayment(payment) {
-  if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) {
+  const supabaseUrl = assertPreviewSupabaseUrl();
+  if (!supabaseUrl || !SUPABASE_SECRET_KEY) {
     throw createHttpError(500, "Supabase secret key config is missing");
   }
 
-  const response = await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/rpc/apply_yookassa_payment`, {
+  const response = await fetch(`${supabaseUrl}/rest/v1/rpc/apply_yookassa_payment`, {
     method: "POST",
     headers: {
       apikey: SUPABASE_SECRET_KEY,
@@ -267,6 +270,9 @@ async function handler(req, res) {
   }
 
   try {
+    assertPreviewSupabaseUrl();
+    if (isPreview()) throw createHttpError(501, "Payments are disabled");
+
     if (!PAYMENTS_ENABLED) {
       throw createHttpError(501, "Payments are disabled");
     }

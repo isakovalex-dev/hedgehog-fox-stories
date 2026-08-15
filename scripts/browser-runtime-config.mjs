@@ -1,26 +1,27 @@
+import previewEnvironment from "../api/_preview-environment.js";
+
 const REQUIRED_PREVIEW_MESSAGE = "Vercel Preview requires SUPABASE_URL and SUPABASE_ANON_KEY.";
+const { assertPreviewSupabaseUrl, isPaidFeatureEnabled, isPreview, normalizeSupabaseUrl } = previewEnvironment;
 
 function readText(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function withoutTrailingSlash(value) {
-  return value.replace(/\/+$/, "");
-}
-
 export function buildBrowserRuntimeConfig(environment = process.env) {
-  const preview = readText(environment.VERCEL_ENV) === "preview";
-  const supabaseUrl = withoutTrailingSlash(readText(environment.SUPABASE_URL));
+  const preview = isPreview(environment);
+  const supabaseUrl = normalizeSupabaseUrl(environment.SUPABASE_URL);
   const supabaseAnonKey = readText(environment.SUPABASE_ANON_KEY);
 
   if (preview && (!supabaseUrl || !supabaseAnonKey)) {
     throw new Error(REQUIRED_PREVIEW_MESSAGE);
   }
 
+  assertPreviewSupabaseUrl(environment);
+
   const supabaseEnabled = Boolean(supabaseUrl && supabaseAnonKey);
-  const generationEnabled = supabaseEnabled && readText(environment.AI_GENERATION_ENABLED) === "true";
-  const illustrationEnabled = supabaseEnabled && readText(environment.IMAGE_GENERATION_ENABLED) === "true";
-  const paymentsEnabled = supabaseEnabled && readText(environment.PAYMENTS_ENABLED) === "true";
+  const generationEnabled = supabaseEnabled && isPaidFeatureEnabled("AI_GENERATION_ENABLED", environment);
+  const illustrationEnabled = supabaseEnabled && isPaidFeatureEnabled("IMAGE_GENERATION_ENABLED", environment);
+  const paymentsEnabled = supabaseEnabled && isPaidFeatureEnabled("PAYMENTS_ENABLED", environment);
 
   return Object.freeze({
     SUPABASE_URL: supabaseUrl,
