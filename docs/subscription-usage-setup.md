@@ -71,7 +71,12 @@ with check (auth.uid() = user_id);
 
 ```
 
-These broad insert and update policies were suitable only for the early mock. Do not use them in production: they allow a browser user to change their own tariff or counter. Run `docs/supabase-production-hardening.sql` instead. It replaces browser writes with protected RPC functions.
+These broad insert and update policies were suitable only for the early mock.
+Do not use them in any environment: they allow a browser user to change their
+own tariff or counter. `docs/supabase-production-hardening.sql` is also
+retired and must not be run. The only supported remediation is the versioned
+`supabase/migrations/20260810003928_security_remediation.sql` migration, which
+uses server-only reservations and browser read access only where needed.
 
 ## Free limit
 
@@ -159,14 +164,15 @@ That endpoint should:
 9. increment `generations_used`;
 10. return the saved story to the frontend.
 
-Current intermediate state:
+Current security-remediation flow:
 
-- backend mock generation already validates auth and checks `generation_usage`;
-- backend mock generation saves `stories` and `story_pages`;
-- backend mock generation increments Supabase `generation_usage` only after story save succeeds;
-- backend can call `create_generated_story_with_usage` RPC to save the story and increment usage in one transaction;
-- the backend requires the protected RPC; it does not use a REST write fallback in production;
-- frontend refreshes the Supabase library after backend generation instead of saving the same story again;
-- browser mock fallback still increments local usage on the frontend.
+- backend validates auth and reserves a server-side credit before a provider call;
+- backend saves `stories` and `story_pages` with `create_story_from_reservation`;
+- completing that same reservation increments durable usage exactly once;
+- failures release the reservation, and expiry recovers a crashed request;
+- the browser uses `get_current_usage` only for presentation and never makes a
+  client-side quota decision;
+- the retired `create_generated_story_with_usage` RPC and REST write fallback
+  are not part of the supported flow.
 
 The frontend should not call real AI APIs directly.

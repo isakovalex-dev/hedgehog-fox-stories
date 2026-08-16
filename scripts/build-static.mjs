@@ -1,5 +1,7 @@
-import { cp, mkdir, readdir, rm } from "node:fs/promises";
+import { cp, mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
+
+import { buildBrowserRuntimeConfig, renderBrowserRuntimeConfig } from "./browser-runtime-config.mjs";
 
 const projectRoot = process.cwd();
 const outputDirectory = join(projectRoot, "dist");
@@ -41,5 +43,11 @@ for (const entry of rootEntries) {
 
   await cp(join(projectRoot, entry.name), join(outputDirectory, entry.name));
 }
+
+await writeFile(
+  join(outputDirectory, "js", "config.js"),
+  renderBrowserRuntimeConfig(buildBrowserRuntimeConfig(process.env)),
+  "utf8"
+);
 
 console.log(`Static site built in ${outputDirectory}`);

@@ -151,24 +151,14 @@ Notes:
 - backend must check this table before calling the AI provider;
 - usage should reset per billing period.
 
-## RPC: create_generated_story_with_usage
+## Retired RPC: create_generated_story_with_usage
 
-SQL file:
+`docs/supabase-rpc-generated-story.sql` is historical only and must not be
+applied. The security-remediation migration revokes execution of this direct
+finalizer from browser roles and service role. The supported path is:
 
-```text
-docs/supabase-rpc-generated-story.sql
-```
-
-Purpose:
-
-- saves one generated story;
-- saves all generated story pages;
-- increments the matching `generation_usage` row;
-- runs inside one PostgreSQL transaction;
-- locks the usage row with `for update` before incrementing.
-
-Backend behavior:
-
-- `api/generate-story.js` first tries this RPC;
-- if the RPC is not installed yet, backend uses the older REST fallback;
-- after the RPC is installed and verified in production, the fallback can be removed.
+1. service role calls `reserve_ai_usage` before any paid provider request;
+2. service role calls `create_story_from_reservation` to save the story and
+   consume the completed reservation atomically;
+3. `get_current_usage` is the only audited usage RPC executable by an
+   authenticated browser user.

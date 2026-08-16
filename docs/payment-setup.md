@@ -164,6 +164,15 @@ Current YooKassa behavior:
 - ignores repeated delivery of the same provider payment without extending access;
 - returns HTTP 200 to YooKassa after successful processing.
 
+### Vercel WAF rule before production
+
+In Vercel Firewall/WAF, add a rate-limit rule for the exact path
+`/api/payment-webhook`, keyed by source IP. Choose a limit that permits
+YooKassa's documented delivery retries and short bursts, then verify a real
+YooKassa test delivery is not blocked. Do not rely on this rule for payment
+authorization: the endpoint always re-fetches the payment from YooKassa, so a
+forged payload cannot activate a subscription.
+
 Before enabling YooKassa mode, run this SQL once in Supabase SQL Editor:
 
 ```text

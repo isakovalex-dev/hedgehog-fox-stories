@@ -4,7 +4,7 @@ This document tracks the remaining checks before broader public sharing.
 
 ## Current Status
 
-Completed:
+Historical evidence (pre-security-remediation migration):
 
 - public site opens on HTTPS;
 - manual browser checks were reported as passed on 2026-06-26;
@@ -16,6 +16,21 @@ Completed:
 - Supabase API Gateway logged a successful `POST /rest/v1/rpc/create_generated_story_with_usage` response with status `200` on 2026-07-13;
 - local generation diagnostics are available for the AI fallback-rate review;
 - `pictures/` and `export_chat_ezhik_lisenok.docx` are intentionally untracked.
+
+The evidence above verifies the retired direct-RPC flow only. It does **not**
+verify `supabase/migrations/20260810003928_security_remediation.sql`, the
+server-only reservation flow, or the current browser-header rollout.
+
+Security-remediation release gate: **not yet verified in a database
+environment**.
+
+- The versioned migration and its local contract test are present in the
+  repository.
+- The local Docker gate must pass before a non-production migration is applied.
+- Non-production migration, two-account RLS testing, and the 48-hour
+  Report-Only CSP observation remain required before promotion.
+- Production migration is a manual, explicitly approved operation; no result
+  is recorded here until that approved operation and its audit are complete.
 
 Deferred optional review:
 
@@ -30,18 +45,19 @@ Run this file in Supabase SQL Editor:
 docs/supabase-rls-audit.sql
 ```
 
-Expected:
+Expected after the security-remediation migration:
 
-- `stories`, `story_pages`, `story_likes`, `subscriptions`, and `generation_usage` exist;
-- RLS is enabled for all listed tables;
-- each listed table has ownership policies;
-- `create_generated_story_with_usage` exists.
+- all nine tables named by the query exist and have RLS enabled;
+- the displayed policy counts meet the stated minimums;
+- authenticated users can execute only `get_current_usage` among the audited
+  quota/finalization functions;
+- service role can execute the reservation, completion, release, rate-limit,
+  finalization, and payment functions;
+- neither `create_generated_story_with_usage` nor `get_generation_access` is
+  executable by browser roles or service role.
 
-Verified on 2026-07-11:
-
-- all listed tables returned `rls_enabled = true`;
-- all listed tables returned `audit_status = ok`;
-- policy counts were greater than zero for all listed tables.
+The 2026-07-11 RLS result predates this migration and is historical only; do
+not treat it as a pass for this gate.
 
 If any row returns:
 
@@ -49,6 +65,9 @@ If any row returns:
 missing_table
 rls_disabled
 review_required
+missing_function
+browser_execute_grant
+service_role_grant_mismatch
 ```
 
 do not broaden public traffic until the policy is reviewed.
