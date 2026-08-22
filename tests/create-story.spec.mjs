@@ -1,8 +1,10 @@
 import { expect, test } from "@playwright/test";
 
+const TEST_SUPABASE_URL = "https://supabase.e2e.test";
+
 test.beforeEach(async ({ page }) => {
   await page.route("**/create", (route) => route.fulfill({ path: "dist/index.html" }));
-  await page.route("https://ynidvdesfolavhngubqv.supabase.co/**", (route) =>
+  await page.route(`${TEST_SUPABASE_URL}/**`, (route) =>
     route.fulfill({ contentType: "application/json", body: "[]" })
   );
   await page.route("**/auth/v1/user", (route) =>
@@ -26,7 +28,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("create form sends selected values and opens the ready story", async ({ page }) => {
-  await page.route(/https:\/\/ynidvdesfolavhngubqv\.supabase\.co\/rest\/v1\/stories\?.*/, async (route) => {
+  await page.route(new RegExp(`${TEST_SUPABASE_URL}/rest/v1/stories\\?.*`), async (route) => {
     if (route.request().method() !== "GET") return route.fallback();
     await route.fulfill({
       contentType: "application/json",
@@ -41,7 +43,7 @@ test("create form sends selected values and opens the ready story", async ({ pag
       ])
     });
   });
-  await page.route(/https:\/\/ynidvdesfolavhngubqv\.supabase\.co\/rest\/v1\/story_pages\?.*/, (route) =>
+  await page.route(new RegExp(`${TEST_SUPABASE_URL}/rest/v1/story_pages\\?.*`), (route) =>
     route.fulfill({
       contentType: "application/json",
       body: JSON.stringify([

@@ -193,14 +193,23 @@ test("about page keeps landscape sketches in their original proportions", async 
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/about.html", { waitUntil: "networkidle" });
 
-  const ratios = await page.locator(".note-sketch, .draft-image").evaluateAll((images) =>
+  const sketches = page.locator(".note-sketch, .draft-image");
+  await expect(sketches).toHaveCount(5);
+
+  for (let index = 0; index < 5; index += 1) {
+    const sketch = sketches.nth(index);
+    await sketch.scrollIntoViewIfNeeded();
+    await expect(sketch).toHaveJSProperty("naturalWidth", 1448);
+    await expect(sketch).toHaveJSProperty("naturalHeight", 1086);
+  }
+
+  const ratios = await sketches.evaluateAll((images) =>
     images.map((image) => {
       const bounds = image.getBoundingClientRect();
       return bounds.height / bounds.width;
     })
   );
 
-  expect(ratios).toHaveLength(5);
   ratios.forEach((ratio) => expect(ratio).toBeCloseTo(0.75, 1));
 });
 

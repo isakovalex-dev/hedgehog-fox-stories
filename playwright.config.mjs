@@ -10,7 +10,8 @@ export default defineConfig({
     screenshot: "off"
   },
   webServer: {
-    command: "npm run build && python3 -m http.server 4318 -d dist",
+    command:
+      "SUPABASE_URL=https://supabase.e2e.test SUPABASE_ANON_KEY=e2e-anon-key AI_GENERATION_ENABLED=true npm run build && python3 -m http.server 4318 -d dist",
     port: 4318,
     reuseExistingServer: false
   }

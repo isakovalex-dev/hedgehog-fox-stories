@@ -85,6 +85,7 @@
       this.canvas.addEventListener("keydown", (event) => this.key(event, true));
       this.canvas.addEventListener("keyup", (event) => this.key(event, false));
       window.addEventListener("keydown", (event) => {
+        if (event.defaultPrevented) return;
         if ((event.key === "Escape" || event.key === " ") && !event.repeat) this.onPause(event);
       });
     }
