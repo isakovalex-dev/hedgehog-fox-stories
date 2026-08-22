@@ -312,11 +312,17 @@
   }
 
   async function signUpWithPassword(email, password) {
+    const emailRedirectTo = `${window.location.origin}${window.location.pathname}`;
+
     const payload = await request(
       "/auth/v1/signup",
       {
         method: "POST",
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({
+          email,
+          password,
+          email_redirect_to: emailRedirectTo
+        })
       },
       config.SUPABASE_ANON_KEY
     );
