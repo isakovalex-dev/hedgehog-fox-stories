@@ -104,14 +104,32 @@ function createOverlayEnvironment() {
   const window = {
     document: documentRef,
     HFGenerationTasks: {
-      createTaskSet: (ageGroup) => [{
-        id: `${ageGroup}-task`,
-        text: "Сколько будет 2 + 3?",
-        options: ["4", "5"],
-        correctAnswer: "5",
-        hint: "Сложи два числа.",
-        explanation: "2 + 3 = 5"
-      }],
+      pickNextTask: (ageGroup, recentTaskIds) => [
+        {
+          id: `${ageGroup}-01`,
+          text: "Сколько будет 2 + 3?",
+          image: `/images/generation-tasks/${ageGroup}/task-01.webp`,
+          options: ["4", "5"],
+          correctAnswer: "5",
+          hint: "Сложи два числа."
+        },
+        {
+          id: `${ageGroup}-02`,
+          text: "Сколько будет 3 + 3?",
+          image: `/images/generation-tasks/${ageGroup}/task-02.webp`,
+          options: ["5", "6"],
+          correctAnswer: "6",
+          hint: "Сложи три и три."
+        },
+        {
+          id: `${ageGroup}-03`,
+          text: "Сколько будет 4 + 3?",
+          image: `/images/generation-tasks/${ageGroup}/task-03.webp`,
+          options: ["6", "7"],
+          correctAnswer: "7",
+          hint: "Сложи четыре и три."
+        }
+      ].find((task) => !recentTaskIds.slice(-2).includes(task.id)),
       checkAnswer: (task, answer) => ({
         correct: task.correctAnswer === answer,
         hint: task.hint,
@@ -146,6 +164,7 @@ function createOverlayEnvironment() {
   const title = new FakeElement(documentRef, "generationOverlayTitle");
   const progress = new FakeElement(documentRef, "generationProgress");
   const taskPanel = new FakeElement(documentRef, "generationTasksPanel");
+  const taskImage = new FakeElement(documentRef, "generationTaskImage");
   const taskText = new FakeElement(documentRef, "generationTaskText");
   const taskOptions = new FakeElement(documentRef, "generationTaskOptions");
   const feedback = new FakeElement(documentRef, "generationTaskFeedback");
@@ -157,11 +176,12 @@ function createOverlayEnvironment() {
   const openButton = new FakeElement(documentRef, "generationOpenStoryButton");
   const phases = Array.from({ length: 5 }, () => new FakeElement(documentRef));
   overlay.append(taskPanel, closeButton, skipButton, nextButton, retryButton, openButton);
-  taskPanel.append(taskText, taskOptions, feedback, hint);
+  taskPanel.append(taskImage, taskText, taskOptions, feedback, hint);
   const elements = {
     "#generationOverlayTitle": title,
     "#generationProgress": progress,
     "#generationTasksPanel": taskPanel,
+    "#generationTaskImage": taskImage,
     "#generationTaskText": taskText,
     "#generationTaskOptions": taskOptions,
     "#generationTaskFeedback": feedback,
@@ -186,10 +206,14 @@ function createOverlayEnvironment() {
     trigger,
     overlay,
     title,
+    taskPanel,
+    taskImage,
+    taskText,
     taskOptions,
     feedback,
     hint,
     skipButton,
+    nextButton,
     retryButton,
     closeButton,
     openButton,
@@ -205,8 +229,8 @@ function loadFlow(window, documentRef) {
   require(modulePath);
 }
 
-test("overlay keeps generation pending until ready, restores focus, and opens the exact story", () => {
-  const { window, documentRef, trigger, overlay, openButton } = createOverlayEnvironment();
+test("ready story keeps the tasks available and opens the exact story", () => {
+  const { window, documentRef, trigger, overlay, openButton, taskPanel } = createOverlayEnvironment();
   loadFlow(window, documentRef);
   let openedStoryId = "";
   const flow = window.HFCreateStoryFlow.create({
@@ -222,12 +246,102 @@ test("overlay keeps generation pending until ready, restores focus, and opens th
   flow.setReady({ storyId: "story-42" });
   assert.equal(overlay.dataset.state, "ready");
   assert.equal(openButton.hidden, false);
+  assert.equal(taskPanel.hidden, false);
   openButton.click();
   assert.equal(openedStoryId, "story-42");
 
   flow.hide();
   assert.equal(flow.isOpen(), false);
   assert.equal(trigger.focused, true);
+});
+
+test("pending illustrations do not announce a finished story and completion preserves the current answer", () => {
+  const { window, documentRef, overlay, title, taskOptions, feedback, openButton } = createOverlayEnvironment();
+  loadFlow(window, documentRef);
+  const flow = window.HFCreateStoryFlow.create({ root: overlay });
+  flow.start({ ageGroup: "9-10" });
+  flow.setReady({ storyId: "story-42", illustrationsPending: true });
+  assert.match(title.textContent, /Текст готов/);
+  assert.match(openButton.textContent, /пока рисуются/);
+  taskOptions.children[0].click();
+  const selectedButton = taskOptions.children[0];
+  flow.setIllustrationProgress({ storyId: "story-42", completed: 2, total: 2, failed: 0 });
+  assert.match(title.textContent, /Текст готов/);
+  flow.setIllustrationProgress({ storyId: "story-42", completed: 2, total: 2, failed: 0, finished: true });
+  assert.equal(title.textContent, "Сказка готова!");
+  assert.equal(openButton.textContent, "Читать сказку");
+  assert.equal(taskOptions.children[0], selectedButton);
+  assert.equal(feedback.textContent, "Попробуй ещё раз");
+});
+
+test("illustration failures and late results cannot announce full completion or reopen a closed dialog", () => {
+  const { window, documentRef, overlay, title } = createOverlayEnvironment();
+  loadFlow(window, documentRef);
+  const flow = window.HFCreateStoryFlow.create({ root: overlay });
+  flow.start();
+  flow.setReady({ storyId: "story-42", illustrationsPending: true });
+  flow.hide();
+  flow.setIllustrationProgress({ storyId: "story-42", completed: 1, total: 2, failed: 1, finished: true });
+  assert.match(title.textContent, /Текст готов/);
+  assert.equal(flow.isOpen(), false);
+  flow.start();
+  flow.setIllustrationProgress({ storyId: "story-42", completed: 2, total: 2, finished: true });
+  assert.equal(overlay.dataset.state, "generating");
+});
+
+test("ready story lets a child answer a task", () => {
+  const { window, documentRef, trigger, overlay, taskOptions, feedback } = createOverlayEnvironment();
+  loadFlow(window, documentRef);
+  const flow = window.HFCreateStoryFlow.create({ root: overlay });
+
+  flow.start({ ageGroup: "7-8", trigger });
+  flow.setReady({ storyId: "story-42" });
+  taskOptions.children.find((button) => button.dataset.answer === "5").click();
+
+  assert.equal(feedback.textContent, "Верно! ⭐");
+});
+
+test("skipping a task immediately shows another task with its own illustration", () => {
+  const { window, documentRef, trigger, overlay, taskImage, skipButton, nextButton } = createOverlayEnvironment();
+  loadFlow(window, documentRef);
+  const flow = window.HFCreateStoryFlow.create({ root: overlay });
+
+  flow.start({ ageGroup: "7-8", trigger });
+  assert.equal(taskImage.src, "/images/generation-tasks/7-8/task-01.webp");
+  skipButton.click();
+
+  assert.equal(taskImage.alt, "Задание: Сколько будет 3 + 3?");
+  assert.equal(taskImage.src, "/images/generation-tasks/7-8/task-02.webp");
+  assert.equal(skipButton.hidden, false);
+  assert.equal(nextButton.hidden, false);
+});
+
+test("story readiness keeps the current task available and exposes the reader action", () => {
+  const { window, documentRef, trigger, overlay, taskImage, skipButton, nextButton, openButton } = createOverlayEnvironment();
+  loadFlow(window, documentRef);
+  const flow = window.HFCreateStoryFlow.create({ root: overlay });
+
+  flow.start({ ageGroup: "7-8", trigger });
+  flow.setReady({ storyId: "story-42" });
+  skipButton.click();
+
+  assert.equal(taskImage.alt, "Задание: Сколько будет 3 + 3?");
+  assert.equal(openButton.hidden, false);
+  assert.equal(skipButton.hidden, false);
+  assert.equal(nextButton.hidden, false);
+});
+
+test("a correct answer is visibly confirmed before the next task is loaded", () => {
+  const { window, documentRef, trigger, overlay, taskOptions, feedback } = createOverlayEnvironment();
+  loadFlow(window, documentRef);
+  const flow = window.HFCreateStoryFlow.create({ root: overlay });
+
+  flow.start({ ageGroup: "7-8", trigger });
+  const correctAnswer = taskOptions.children.find((button) => button.dataset.answer === "5");
+  correctAnswer.click();
+
+  assert.equal(feedback.textContent, "Верно! ⭐");
+  assert.equal(correctAnswer.classList.contains("is-correct"), true);
 });
 
 test("overlay reports the prior state when an explicit close hides it", () => {
@@ -299,18 +413,20 @@ test("ready state moves focus back into the overlay after pending Escape", () =>
   assert.equal(documentRef.activeElement, openButton);
 });
 
-test("ready state excludes answers inside the hidden task panel from Tab wrapping", () => {
+test("ready state includes task answers in Tab wrapping", () => {
   const { window, documentRef, trigger, overlay, closeButton, openButton } = createOverlayEnvironment();
   loadFlow(window, documentRef);
   const flow = window.HFCreateStoryFlow.create({ root: overlay });
 
   flow.start({ ageGroup: "7-8", trigger });
   flow.setReady({ storyId: "story-42" });
-  openButton.focus();
+  const taskAnswer = overlay.querySelector("#generationTaskOptions").children.at(-1);
+  taskAnswer.focus();
   const tabEvent = overlay.dispatch("keydown", { key: "Tab" });
 
   assert.equal(tabEvent.defaultPrevented, true);
   assert.equal(documentRef.activeElement, closeButton);
+  assert.notEqual(documentRef.activeElement, openButton);
 });
 
 test("overlay traps Tab, hides with Escape without retrying, and follows answer feedback rules", () => {
@@ -328,7 +444,7 @@ test("overlay traps Tab, hides with Escape without retrying, and follows answer 
   firstAnswer.click();
   assert.equal(hint.hidden, false);
   correctAnswer.click();
-  assert.equal(feedback.textContent, "Верно!");
+  assert.equal(feedback.textContent, "Верно! ⭐");
   assert.equal(window.timeoutCalls.at(-1).delay, 700);
   skipButton.click();
   assert.equal(feedback.textContent, "");

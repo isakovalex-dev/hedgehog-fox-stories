@@ -8,7 +8,7 @@
   const supabaseService = window.HFSupabaseService;
   const appConfig = window.HFConfig || {};
   const { EVENTS, trackEvent } = analyticsService;
-  const BACKEND_GENERATION_TIMEOUT_MS = 30000;
+  const BACKEND_GENERATION_TIMEOUT_MS = 180000;
   const PAYMENT_CHECKOUT_TIMEOUT_MS = 20000;
   const paymentReturnIntent = new URLSearchParams(window.location.search).get("payment") === "return";
 
@@ -31,6 +31,7 @@
   const navMemoryButton = document.querySelector("#navMemoryButton");
   const navGeneratorButton = document.querySelector("#navGeneratorButton");
   const navLibraryButton = document.querySelector("#navLibraryButton");
+  const navAdminAnalyticsButton = document.querySelector("#navAdminAnalyticsButton");
   const navAboutButton = document.querySelector("#navAboutButton");
   const chooseStoryButton = document.querySelector("#chooseStoryButton");
   const readFirstButton = document.querySelector("#readFirstButton");
@@ -177,20 +178,30 @@
     friendship: ["sunny_meadow", "sea_bench", "forest_day", "warm_kitchen", "starry_sky"],
     bravery: ["autumn_path", "rainy_forest", "small_bridge", "forest_night", "campfire_evening"]
   };
+  const ILLUSTRATION_CONCURRENCY = 3;
   const ILLUSTRATION_GENERATION_TIMEOUT_MS = 150000;
+  const STORY_ILLUSTRATION_POLL_MS = 2500;
 
   let activeFilter = "all";
   let activeStory = null;
   let activeStoryFinishedTracked = false;
+  let activeStoryPageNumbersViewed = new Set();
   let authNotice = { message: "", tone: "" };
   let passwordRecoverySession = null;
   let generationInProgress = false;
   let librarySearchQuery = "";
   let librarySortMode = "newest";
   let activeRoute = "home";
+  let lastTrackedPagePath = "";
+  let adminNavigationRequestId = 0;
   let paymentCheckoutInProgress = false;
   let paymentCheckoutMessage = "";
   let paymentCheckoutTone = "";
+  const activeIllustrationJobs = new Map();
+  const warmedReaderIllustrations = new Set();
+  let storyIllustrationPollTimerId = null;
+  let storyIllustrationPollStoryId = "";
+  let storyIllustrationPollRequestId = 0;
 
   const PUBLIC_SITE_ORIGIN = "https://ezhik-i-lisenok.ru";
   const DEFAULT_DOCUMENT_TITLE = "Добрые сказки для детей 5–10 лет — Ежонок и Лисёнок";
@@ -253,6 +264,77 @@
       return route.filter && route.filter !== "all" ? `/stories?filter=${encodeURIComponent(route.filter)}` : "/stories";
     }
     return route.filter && route.filter !== "all" ? `/?filter=${encodeURIComponent(route.filter)}` : "/";
+  }
+
+  function getStoryType(story) {
+    if (!story) return "unknown";
+    return story.source === "user" || story.storage === "supabase" ? "generated" : "catalog";
+  }
+
+  function getRouteAnalyticsSection(route) {
+    if (route.name === "memory") return "games";
+    if (route.name === "story") return "stories";
+    return route.name || "home";
+  }
+
+  function trackPageViewForRoute(route) {
+    const pagePath = getRouteUrl(route);
+    if (lastTrackedPagePath === pagePath) return;
+    lastTrackedPagePath = pagePath;
+    analyticsService.trackPageView?.(pagePath, getRouteAnalyticsSection(route));
+  }
+
+  function getNowMs() {
+    return typeof window.performance?.now === "function" ? window.performance.now() : Date.now();
+  }
+
+  function getGenerationAnalyticsMeta(formData) {
+    return {
+      pageCount: Number(getFormValue(formData, "pageCount", "5")),
+      ageGroup: getFormValue(formData, "ageGroup", "5-6"),
+      mood: getFormValue(formData, "mood", "bedtime"),
+      illustrationsEnabled: getFormValue(formData, "illustrations", "yes") === "yes"
+    };
+  }
+
+  function getGenerationErrorType(error) {
+    if (isBackendUnavailableError(error)) return "backend_unavailable";
+    if (String(error?.message || "").toLowerCase().includes("limit")) return "generation_limit";
+    if (error?.name === "AbortError") return "timeout";
+    return "generation_failed";
+  }
+
+  async function refreshAdminNavigation() {
+    if (!navAdminAnalyticsButton || !supabaseService?.isEnabled?.()) {
+      navAdminAnalyticsButton?.classList.add("hidden");
+      return;
+    }
+
+    const requestId = ++adminNavigationRequestId;
+    navAdminAnalyticsButton.classList.add("hidden");
+
+    try {
+      const authState = supabaseService.getAuthState?.();
+      const session = authState?.session?.access_token
+        ? authState.session
+        : await supabaseService.ensureFreshSession?.();
+
+      if (!session?.access_token) return;
+
+      const response = await window.fetch("/api/admin/analytics?view=access", {
+        method: "GET",
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (requestId !== adminNavigationRequestId) return;
+      navAdminAnalyticsButton.classList.toggle("hidden", !(response.ok && payload?.data?.allowed));
+    } catch (error) {
+      if (requestId === adminNavigationRequestId) navAdminAnalyticsButton.classList.add("hidden");
+    }
   }
 
   function setMetaContent(selector, content) {
@@ -376,6 +458,7 @@
     setHeroTitleLevel(route.name !== "memory");
     setReaderTitle("История", false);
     activeStory = null;
+    activeStoryPageNumbersViewed = new Set();
     readingProgress.style.width = "0%";
     setSectionVisibility(hero, route.name === "home");
     setSectionVisibility(storiesSection, route.name === "home" || route.name === "stories");
@@ -389,6 +472,7 @@
     setSectionVisibility(aboutSection, route.name === "home");
     document.body.classList.toggle("stories-route", route.name === "stories");
     document.body.classList.toggle("home-route", route.name === "home");
+    document.documentElement.removeAttribute("data-initial-route");
     renderStories();
     navStoriesButton?.classList.toggle("active", route.name === "stories");
     navMemoryButton?.classList.toggle("active", route.name === "memory");
@@ -397,6 +481,7 @@
     if (route.name === "create") navGeneratorButton?.setAttribute("aria-current", "page");
     else navGeneratorButton?.removeAttribute("aria-current");
     updateDocumentMeta(null, route);
+    trackPageViewForRoute(route);
 
     if (route.name === "memory") {
       window.HFMemoryGame?.initialize?.();
@@ -506,6 +591,10 @@
   function updateGenerationStatus(message = "") {
     if (!generationStatus) return;
     generationStatus.textContent = message || getUsageText();
+  }
+
+  function clearGenerationStatus() {
+    if (generationStatus) generationStatus.textContent = "";
   }
 
   function getStorageStatusText() {
@@ -974,9 +1063,9 @@
     const deleteButton = options.canDelete
       ? `<button class="button quiet" data-delete-story="${escapeAttribute(story.id)}" type="button">Удалить</button>`
       : "";
-    const hasIllustrations = Array.isArray(story.pages) && story.pages.some((page) => page?.imageUrl);
+    const illustrationAction = getStoryIllustrationAction(story);
     const illustrateButton = options.canDelete && story.storage === "supabase" && story.useIllustrations !== false
-      ? `<button class="button secondary" data-illustrate-story="${escapeAttribute(story.id)}" data-force-illustrations="${hasIllustrations}" type="button">${hasIllustrations ? "Перерисовать иллюстрации" : "Нарисовать иллюстрации"}</button>`
+      ? `<button class="button secondary" data-illustrate-story="${escapeAttribute(story.id)}" data-force-illustrations="${illustrationAction.force}" type="button">${illustrationAction.label}</button>`
       : "";
 
     return `
@@ -1080,7 +1169,7 @@
       return;
     }
 
-    const visibleStories = storyService.getAllStories().filter((story) => {
+    const visibleStories = storyService.getBuiltInStories().filter((story) => {
       return activeFilter === "all" || story.tags.includes(activeFilter);
     });
 
@@ -1207,7 +1296,29 @@
     }
   }
 
-  function renderPageIllustration(page, storyTitle) {
+  function getReaderIllustrationPlaceholder(page) {
+    if (page.illustrationState === "failed") {
+      return `
+        <div class="reader-illustration-placeholder reader-illustration-placeholder--failed" role="status">
+          <strong>Картинка пока не получилась</strong>
+          <span>Можно читать дальше, а мы попробуем снова позже.</span>
+        </div>
+      `;
+    }
+
+    if (page.illustrationState === "pending" || page.illustrationState === "generating") {
+      return `
+        <div class="reader-illustration-placeholder reader-illustration-placeholder--pending" role="status">
+          <strong>Ёжик и Лисёнок рисуют эту картинку…</strong>
+          <span>Текст уже готов, а рисунок скоро появится.</span>
+        </div>
+      `;
+    }
+
+    return "";
+  }
+
+  function getReaderIllustrationMarkup(page, storyTitle) {
     if (page.imageUrl) {
       const isBuiltInSlide = /^assets\/slides-web\//.test(page.imageUrl);
       const fallbackHandler = page.fallbackImageUrl
@@ -1221,7 +1332,8 @@
           alt="Иллюстрация к истории ${escapeAttribute(storyTitle)}, страница ${page.pageNumber}"
           width="${isBuiltInSlide ? "1200" : "1536"}"
           height="${isBuiltInSlide ? "900" : "1024"}"
-          loading="lazy"
+          loading="${page.pageNumber === 1 ? "eager" : "lazy"}"
+          fetchpriority="${page.pageNumber === 1 ? "high" : "auto"}"
           decoding="async"
           onerror="${fallbackHandler}"
         />
@@ -1246,7 +1358,35 @@
       `;
     }
 
-    return "";
+    return getReaderIllustrationPlaceholder(page);
+  }
+
+  function renderPageIllustration(page, storyTitle) {
+    const illustration = getReaderIllustrationMarkup(page, storyTitle);
+    if (!illustration) return "";
+
+    return `
+      <div class="reader-illustration-slot" data-page-illustration="${page.pageNumber}">
+        ${illustration}
+      </div>
+    `;
+  }
+
+  function prewarmReaderIllustrations(story) {
+    if (!story?.id || !Array.isArray(story.readerPages) || typeof window.Image !== "function") return;
+
+    story.readerPages.forEach((page, index) => {
+      if (!page?.imageUrl) return;
+
+      const cacheKey = `${story.id}:${page.pageNumber}:${page.imageUrl}`;
+      if (warmedReaderIllustrations.has(cacheKey)) return;
+      warmedReaderIllustrations.add(cacheKey);
+
+      const image = new window.Image();
+      image.decoding = "async";
+      image.fetchPriority = index === 0 ? "high" : "low";
+      image.src = page.imageUrl;
+    });
   }
 
   function canRegenerateStoryIllustrations(story) {
@@ -1261,23 +1401,32 @@
   function renderReaderIllustrationAction(story) {
     if (!readerIllustrationAction) return;
 
+    const illustrationAction = getStoryIllustrationAction(story);
+
     readerIllustrationAction.innerHTML = canRegenerateStoryIllustrations(story)
-      ? `<button class="button quiet reader-illustration-button" type="button" data-regenerate-illustrations="${escapeAttribute(story.id)}" aria-label="Перерисовать иллюстрации по тексту сказки">Перерисовать</button>`
+      ? `<button class="button quiet reader-illustration-button" type="button" data-regenerate-illustrations="${escapeAttribute(story.id)}" aria-label="${escapeAttribute(illustrationAction.label)} по тексту сказки">${illustrationAction.force ? "Перерисовать" : illustrationAction.label.replace(" иллюстрации", "")}</button>`
       : "";
   }
 
   function renderReaderIllustrationEndAction(story) {
     if (!canRegenerateStoryIllustrations(story)) return "";
 
+    const illustrationAction = getStoryIllustrationAction(story);
+
     return `
       <div class="reader-illustration-actions">
-        <button class="button secondary" type="button" data-regenerate-illustrations="${escapeAttribute(story.id)}">Перерисовать иллюстрации по тексту</button>
+        <button class="button secondary" type="button" data-regenerate-illustrations="${escapeAttribute(story.id)}">${escapeHtml(illustrationAction.label)} по тексту</button>
         <p class="reader-illustration-status" id="readerIllustrationStatus" role="status"></p>
       </div>
     `;
   }
 
   function openStory(storyId, options = {}) {
+    if (options.fromRoute && activeStory?.id === storyId && document.body.classList.contains("reading")) {
+      trackPageViewForRoute({ name: "story", storyId });
+      return;
+    }
+
     const story = storyService.getStoryById(storyId);
     if (!story) {
       if (options.fromRoute) renderReaderUnavailable();
@@ -1285,7 +1434,9 @@
     }
 
     activeStory = storyService.prepareStoryForReader(story);
+    prewarmReaderIllustrations(activeStory);
     activeStoryFinishedTracked = false;
+    activeStoryPageNumbersViewed = new Set();
     setHeroTitleLevel(false);
     setReaderTitle(activeStory.title, true);
     updateDocumentMeta(activeStory);
@@ -1312,6 +1463,7 @@
         return `
           <article
             class="slide"
+            data-reader-page="${page.pageNumber}"
             style="--slide-top: ${top}; --slide-wash: ${mid}99;"
           >
             <div class="slide-scene" aria-hidden="true"></div>
@@ -1348,20 +1500,26 @@
 
     slides.scrollTop = 0;
     updateProgress();
+    refreshReaderIllustrationStatus(activeStory);
+    if (hasPendingStoryIllustrations(activeStory)) startStoryIllustrationPolling(activeStory.id);
+    else stopStoryIllustrationPolling();
     window.setTimeout(() => readerTitle.focus({ preventScroll: true }), 0);
     if (!options.fromRoute) {
       navigateTo({ name: "story", storyId: activeStory.id }, { focus: false });
     }
+    trackPageViewForRoute({ name: "story", storyId: activeStory.id });
     trackEvent(EVENTS.STORY_OPENED, {
       storyId: activeStory.id,
-      title: activeStory.title,
-      source: activeStory.source
+      storyType: getStoryType(activeStory),
+      totalPages: activeStory.readerPages.length
     });
   }
 
   function closeReader() {
+    stopStoryIllustrationPolling();
     activeStory = null;
     activeStoryFinishedTracked = false;
+    activeStoryPageNumbersViewed = new Set();
     renderReaderLike();
     renderReaderIllustrationAction(null);
     navigateTo({ name: "stories", filter: activeFilter }, { focus: true });
@@ -1375,17 +1533,43 @@
     target.querySelector(".slide-text")?.focus?.({ preventScroll: true });
   }
 
+  function trackActiveReaderPageView() {
+    if (!activeStory?.readerPages?.length || !slides) return;
+
+    const readerPages = Array.from(slides.querySelectorAll("[data-reader-page]"));
+    if (!readerPages.length) return;
+
+    const current = readerPages.reduce((closest, page) => {
+      const distance = Math.abs(page.offsetTop - slides.scrollTop);
+      if (!closest || distance < closest.distance) return { page, distance };
+      return closest;
+    }, null);
+    const pageNumber = Number(current?.page?.dataset.readerPage || 0);
+
+    if (!pageNumber || activeStoryPageNumbersViewed.has(pageNumber)) return;
+
+    activeStoryPageNumbersViewed.add(pageNumber);
+    trackEvent(EVENTS.STORY_PAGE_VIEWED, {
+      storyId: activeStory.id,
+      storyType: getStoryType(activeStory),
+      pageNumber,
+      totalPages: activeStory.readerPages.length
+    });
+  }
+
   function updateProgress() {
     const scrollable = slides.scrollHeight - slides.clientHeight;
     const progress = scrollable <= 0 ? 0 : (slides.scrollTop / scrollable) * 100;
     readingProgress.style.width = `${Math.min(100, Math.max(0, progress))}%`;
 
+    trackActiveReaderPageView();
+
     if (activeStory && !activeStoryFinishedTracked && progress >= 98) {
       activeStoryFinishedTracked = true;
       trackEvent(EVENTS.STORY_FINISHED, {
         storyId: activeStory.id,
-        title: activeStory.title,
-        source: activeStory.source
+        storyType: getStoryType(activeStory),
+        totalPages: activeStory.readerPages.length
       });
     }
   }
@@ -1472,7 +1656,8 @@
       ageGroup: getFormValue(formData, "ageGroup", "5-7"),
       mood: getFormValue(formData, "mood", "bedtime"),
       lesson: getFormValue(formData, "lesson", "доброта становится сильнее, когда ей делятся"),
-      pageCount: Number(getFormValue(formData, "pageCount", "3"))
+      pageCount: Number(getFormValue(formData, "pageCount", "3")),
+      illustrationsEnabled: getFormValue(formData, "illustrations", "yes") === "yes"
     };
   }
 
@@ -1483,12 +1668,15 @@
     }
 
     const mood = getFormValue(formData, "mood", "bedtime");
-    const useIllustrations = getFormValue(formData, "illustrations", "yes") === "yes";
+    const useIllustrations = backendStory.useIllustrations !== false &&
+      backendStory.illustrationsEnabled !== false &&
+      getFormValue(formData, "illustrations", "yes") === "yes";
     const pages = backendStory.pages.map((page, index) => ({
       pageNumber: Number(page.pageNumber || index + 1),
       text: page.text || "",
       sceneTag: page.sceneTag || "forest_day",
-      imagePrompt: page.imagePrompt || ""
+      imagePrompt: page.imagePrompt || "",
+      imageStatus: page.imageStatus ?? null
     }));
 
     return {
@@ -1524,6 +1712,15 @@
     return Boolean(appConfig.GENERATION_API_ENABLED && appConfig.GENERATION_API_URL);
   }
 
+  function isLocalDevelopmentOrigin() {
+    const hostname = String(window.location?.hostname || "").trim().toLowerCase();
+    return !hostname || hostname === "localhost" || hostname === "127.0.0.1" || hostname.endsWith(".localhost");
+  }
+
+  function canUseBrowserMockGeneration() {
+    return !canUseGenerationApi() && isLocalDevelopmentOrigin();
+  }
+
   function canUseIllustrationApi() {
     return Boolean(appConfig.ILLUSTRATION_API_ENABLED && appConfig.ILLUSTRATION_API_URL);
   }
@@ -1532,11 +1729,192 @@
     return Boolean(error?.isBackendUnavailable);
   }
 
+  function createGenerationUnavailableError() {
+    return new Error("Сервис генерации временно недоступен. История не была сохранена, чтобы не обойти лимит тарифа. Попробуйте ещё раз немного позже.");
+  }
+
   function createIdempotencyKey() {
     if (typeof window.crypto?.randomUUID !== "function") {
       throw new Error("Браузер не поддерживает безопасный идентификатор запроса.");
     }
     return window.crypto.randomUUID();
+  }
+
+  async function runWithConcurrency(taskFactories, concurrency) {
+    const results = new Array(taskFactories.length);
+    let nextIndex = 0;
+
+    async function worker() {
+      while (nextIndex < taskFactories.length) {
+        const currentIndex = nextIndex;
+        nextIndex += 1;
+
+        try {
+          results[currentIndex] = await taskFactories[currentIndex]();
+        } catch (error) {
+          results[currentIndex] = { ok: false, error };
+        }
+      }
+    }
+
+    const workerCount = Math.min(Math.max(1, concurrency), taskFactories.length);
+    await Promise.all(Array.from({ length: workerCount }, () => worker()));
+    return results;
+  }
+
+  function getStoryIllustrationState(page) {
+    return String(page?.illustrationState || page?.imageStatus || "").trim();
+  }
+
+  function getPendingStoryIllustrationPages(story, options = {}) {
+    const pages = Array.isArray(story?.pages) ? story.pages : [];
+    return pages.filter((page, index) => {
+      if (options.force === true) return true;
+      const status = getStoryIllustrationState(page);
+      if (status === "ready") return false;
+      return Number(page?.pageNumber || index + 1) >= 1;
+    });
+  }
+
+  function hasPendingStoryIllustrations(story) {
+    const pages = Array.isArray(story?.readerPages) ? story.readerPages : story?.pages || [];
+    return pages.some((page) => {
+      const status = getStoryIllustrationState(page);
+      return status === "pending" || status === "generating";
+    });
+  }
+
+  function getStoryIllustrationAggregateStatus(story) {
+    const explicitStatus = String(story?.illustrationStatus || "").trim();
+    if (explicitStatus) return explicitStatus;
+    if (!story?.useIllustrations || story.useIllustrations === false) return "none";
+
+    const pages = Array.isArray(story?.readerPages) ? story.readerPages : [];
+    const hasGenerating = pages.some((page) => getStoryIllustrationState(page) === "generating");
+    if (hasGenerating) return "generating";
+
+    const hasPending = pages.some((page) => getStoryIllustrationState(page) === "pending");
+    const hasReady = pages.some((page) => getStoryIllustrationState(page) === "ready");
+    const hasFailed = pages.some((page) => getStoryIllustrationState(page) === "failed");
+
+    if (hasReady && (hasPending || hasFailed)) return "partially_ready";
+    if (hasPending) return "pending";
+    if (hasReady) return "ready";
+    if (hasFailed) return "failed";
+    return "none";
+  }
+
+  function getStoryIllustrationAction(story) {
+    const pages = Array.isArray(story?.readerPages) ? story.readerPages : story?.pages || [];
+    const readyCount = pages.filter((page) => getStoryIllustrationState(page) === "ready").length;
+
+    if (readyCount === 0) return { label: "Нарисовать иллюстрации", force: false };
+    if (readyCount < pages.length) return { label: "Дорисовать иллюстрации", force: false };
+    return { label: "Перерисовать иллюстрации", force: true };
+  }
+
+  function getReaderIllustrationStatusMessage(story) {
+    if (!story?.useIllustrations || story.useIllustrations === false) return "";
+    const status = getStoryIllustrationAggregateStatus(story);
+    if (status === "pending" || status === "generating") return "Иллюстрации ещё рисуются.";
+    if (status === "partially_ready") return "Часть картинок уже готова, остальные ещё дорисовываются.";
+    if (status === "failed") return "Картинки пока не получились.";
+    return "";
+  }
+
+  function refreshReaderIllustrationStatus(story) {
+    const status = document.querySelector("#readerIllustrationStatus");
+    if (!status) return;
+    status.textContent = getReaderIllustrationStatusMessage(story);
+  }
+
+  function refreshReaderIllustrations(story) {
+    story.readerPages.forEach((page) => {
+      const slide = slides.querySelector(`[data-reader-page="${page.pageNumber}"]`);
+      const slideCard = slide?.querySelector(".slide-card");
+      if (!slideCard) return;
+
+      const markup = getReaderIllustrationMarkup(page, story.title);
+      const existingSlot = slideCard.querySelector(`[data-page-illustration="${page.pageNumber}"]`);
+
+      if (markup && existingSlot) {
+        existingSlot.innerHTML = markup;
+      } else if (markup && !existingSlot) {
+        const kicker = slideCard.querySelector(".slide-kicker");
+        kicker?.insertAdjacentHTML(
+          "afterend",
+          `<div class="reader-illustration-slot" data-page-illustration="${page.pageNumber}">${markup}</div>`
+        );
+      } else if (!markup && existingSlot) {
+        existingSlot.remove();
+      }
+
+      slideCard.classList.toggle("with-illustration", Boolean(markup));
+    });
+
+    refreshReaderIllustrationStatus(story);
+  }
+
+  async function syncStoryFromServer(storyId, options = {}) {
+    if (!storyId || !supabaseService?.isAuthenticated?.()) return null;
+
+    const refreshedStory = await storyService.refreshUserStory(storyId);
+    const preparedStory = refreshedStory ? storyService.prepareStoryForReader(refreshedStory) : null;
+
+    if (preparedStory) prewarmReaderIllustrations(preparedStory);
+
+    if (options.renderLists) renderAllStoryLists();
+
+    if (preparedStory && activeStory?.id === storyId) {
+      activeStory = preparedStory;
+      refreshReaderIllustrations(activeStory);
+      renderReaderIllustrationAction(activeStory);
+    }
+
+    return refreshedStory;
+  }
+
+  function stopStoryIllustrationPolling() {
+    if (storyIllustrationPollTimerId) window.clearTimeout(storyIllustrationPollTimerId);
+    storyIllustrationPollTimerId = null;
+    storyIllustrationPollStoryId = "";
+    storyIllustrationPollRequestId += 1;
+  }
+
+  function startStoryIllustrationPolling(storyId) {
+    if (!storyId || !supabaseService?.isAuthenticated?.()) return;
+    if (storyIllustrationPollStoryId === storyId && storyIllustrationPollTimerId) return;
+
+    stopStoryIllustrationPolling();
+    storyIllustrationPollStoryId = storyId;
+    const requestId = storyIllustrationPollRequestId + 1;
+    storyIllustrationPollRequestId = requestId;
+
+    const poll = async () => {
+      if (storyIllustrationPollStoryId !== storyId || storyIllustrationPollRequestId !== requestId) return;
+
+      try {
+        const refreshedStory = await syncStoryFromServer(storyId, { renderLists: false });
+        if (!refreshedStory) {
+          stopStoryIllustrationPolling();
+          return;
+        }
+
+        const preparedStory = storyService.prepareStoryForReader(refreshedStory);
+        if (!hasPendingStoryIllustrations(preparedStory)) {
+          stopStoryIllustrationPolling();
+          return;
+        }
+      } catch (error) {
+        console.warn("[app] Cannot refresh illustration polling", error);
+      }
+
+      if (storyIllustrationPollStoryId === storyId && storyIllustrationPollRequestId === requestId) {
+        storyIllustrationPollTimerId = window.setTimeout(poll, STORY_ILLUSTRATION_POLL_MS);
+      }
+    };
+
+    storyIllustrationPollTimerId = window.setTimeout(poll, STORY_ILLUSTRATION_POLL_MS);
   }
 
   async function requestBackendStory(formData) {
@@ -1631,41 +2009,152 @@
   }
 
   async function requestStoryIllustrations(story, options = {}) {
-    const pages = Array.isArray(story?.pages) ? story.pages : [];
+    const pages = getPendingStoryIllustrationPages(story, options);
+    const totalPages = Array.isArray(story?.pages) ? story.pages.length : 0;
+    const alreadyCompleted = totalPages - pages.length;
     const result = {
-      illustrated: false,
-      completed: 0,
+      illustrated: alreadyCompleted > 0,
+      completed: alreadyCompleted,
       failed: 0,
-      total: pages.length,
+      total: totalPages,
       missingConfiguration: []
     };
     const actionLabel = options.force ? "Перерисовываю" : "Рисую";
 
-    for (let index = 0; index < pages.length; index += 1) {
-      const pageNumber = Number(pages[index]?.pageNumber || index + 1);
-      updateGenerationStatus(`${actionLabel} иллюстрацию ${index + 1} из ${pages.length}...`);
+    let completedPages = alreadyCompleted;
+    let failedPages = 0;
+    const reportProgress = () => options.onProgress?.({
+      completed: completedPages,
+      failed: failedPages,
+      total: totalPages
+    });
+    reportProgress();
+    if (!pages.length) return result;
 
-      try {
-        const pageResult = await requestStoryIllustration(story.id, pageNumber, options);
-        if (pageResult?.illustrated) {
-          result.illustrated = true;
-          result.completed += 1;
-        } else {
-          const missingConfiguration = Array.isArray(pageResult?.missingConfiguration)
-            ? pageResult.missingConfiguration
-            : [];
-          missingConfiguration.forEach((name) => {
-            if (!result.missingConfiguration.includes(name)) result.missingConfiguration.push(name);
-          });
-          result.failed += 1;
-        }
-      } catch (error) {
-        console.warn("[app] Cannot generate page illustration", error);
-        result.failed += 1;
+    const pageTasks = pages.map((page, index) => async () => {
+      const pageNumber = Number(page?.pageNumber || index + 1);
+      if (options.updateStatus !== false) {
+        updateGenerationStatus(`${actionLabel} иллюстрацию ${index + 1} из ${pages.length}...`);
       }
-    }
+
+      let payload;
+      try {
+        payload = await requestStoryIllustration(story.id, pageNumber, options);
+      } catch (error) {
+        failedPages += 1;
+        reportProgress();
+        throw error;
+      }
+      if (payload?.illustrated) completedPages += 1;
+      else failedPages += 1;
+      reportProgress();
+      if (payload?.illustrated && typeof options.onPageIllustrated === "function") {
+        Promise.resolve(options.onPageIllustrated(pageNumber, payload)).catch((error) => {
+          console.warn("[app] Cannot refresh a completed illustration", error);
+        });
+      }
+      return { ok: true, pageNumber, payload };
+    });
+
+    const pageResults = await runWithConcurrency(pageTasks, ILLUSTRATION_CONCURRENCY);
+    pageResults.forEach((pageResult) => {
+      if (pageResult?.ok === false || pageResult?.error) {
+        console.warn("[app] Cannot generate page illustration", pageResult?.error);
+        result.failed += 1;
+        return;
+      }
+
+      if (pageResult?.payload?.illustrated) {
+        result.illustrated = true;
+        result.completed += 1;
+        return;
+      }
+
+      const missingConfiguration = Array.isArray(pageResult?.payload?.missingConfiguration)
+        ? pageResult.payload.missingConfiguration
+        : [];
+      missingConfiguration.forEach((name) => {
+        if (!result.missingConfiguration.includes(name)) result.missingConfiguration.push(name);
+      });
+      result.failed += 1;
+    });
 
     return result;
+  }
+
+  function createStoryIllustrationRefreshScheduler(storyId) {
+    let refreshPromise = null;
+    let refreshRequested = false;
+    let latestStory = null;
+
+    function schedule() {
+      refreshRequested = true;
+      if (refreshPromise) return refreshPromise;
+
+      refreshPromise = Promise.resolve().then(async () => {
+        while (refreshRequested) {
+          refreshRequested = false;
+          latestStory = await syncStoryFromServer(storyId, { renderLists: false });
+        }
+        return latestStory;
+      }).finally(() => {
+        refreshPromise = null;
+      });
+
+      return refreshPromise;
+    }
+
+    async function flush() {
+      return refreshPromise || latestStory;
+    }
+
+    return { schedule, flush };
+  }
+
+  function startStoryIllustrationJob(story, options = {}) {
+    if (!story?.id || story.useIllustrations === false) {
+      return Promise.resolve({
+        illustrated: false,
+        completed: 0,
+        failed: 0,
+        total: 0,
+        missingConfiguration: []
+      });
+    }
+
+    const existingJob = activeIllustrationJobs.get(story.id);
+    if (existingJob) return existingJob;
+
+    const job = (async () => {
+      const refreshScheduler = createStoryIllustrationRefreshScheduler(story.id);
+      const result = await requestStoryIllustrations(story, {
+        ...options,
+        onPageIllustrated: () => refreshScheduler.schedule()
+      });
+      let refreshedStory = await refreshScheduler.flush();
+      if (refreshedStory) {
+        if (options.renderLists === true) renderAllStoryLists();
+      } else {
+        refreshedStory = await syncStoryFromServer(story.id, {
+          renderLists: options.renderLists === true
+        });
+      }
+
+      if (activeStory?.id === story.id) {
+        const preparedStory = refreshedStory
+          ? storyService.prepareStoryForReader(refreshedStory)
+          : activeStory;
+        if (hasPendingStoryIllustrations(preparedStory)) startStoryIllustrationPolling(story.id);
+        else stopStoryIllustrationPolling();
+      }
+
+      return result;
+    })().finally(() => {
+      activeIllustrationJobs.delete(story.id);
+    });
+
+    activeIllustrationJobs.set(story.id, job);
+    return job;
   }
 
   function getIllustrationConfigurationMessage(result) {
@@ -1680,14 +2169,22 @@
     const status = document.querySelector("#readerIllustrationStatus");
     if (!story) return;
 
+    const illustrationAction = getStoryIllustrationAction(story);
+
     button.disabled = true;
-    button.textContent = "Перерисовываем...";
-    if (status) status.textContent = "Перерисовываем страницы по точному тексту сказки...";
+    button.textContent = illustrationAction.force ? "Перерисовываем..." : "Дорисовываем...";
+    if (status) {
+      status.textContent = illustrationAction.force
+        ? "Перерисовываем страницы по точному тексту сказки..."
+        : "Дорисовываем страницы без готовых иллюстраций...";
+    }
 
     try {
-      const result = await requestStoryIllustrations(story, { force: true });
-      await storyService.initializeUserStories();
-      renderAllStoryLists();
+      const result = await startStoryIllustrationJob(story, {
+        force: getStoryIllustrationAction(story).force,
+        renderLists: true,
+        updateStatus: false
+      });
 
       if (!result.illustrated) {
         if (status) status.textContent = getIllustrationConfigurationMessage(result);
@@ -1704,19 +2201,20 @@
         return;
       }
 
-      if (status) status.textContent = "Иллюстрации обновлены. Открываем новую версию сказки...";
+      if (status) status.textContent = "Иллюстрации готовы. Открываем новую версию сказки...";
       openStory(story.id, { fromRoute: true });
     } catch (error) {
       console.warn("[app] Cannot regenerate story illustrations", error);
       if (status) status.textContent = `Не удалось обновить иллюстрации: ${error.message || "ошибка"}`;
     } finally {
       button.disabled = false;
-      button.textContent = "Перерисовать";
+      button.textContent = illustrationAction.force ? "Перерисовать" : illustrationAction.label.replace(" иллюстрации", "");
     }
   }
 
   async function generateStory(formData) {
     if (!canUseGenerationApi()) {
+      if (!canUseBrowserMockGeneration()) throw createGenerationUnavailableError();
       return {
         story: buildMockStory(formData),
         mode: "browser-mock",
@@ -1734,12 +2232,12 @@
         meta: backendResult.meta
       };
     } catch (error) {
-      if (supabaseService?.isAuthenticated?.()) {
-        throw new Error("Сервис генерации временно недоступен. История не была сохранена, чтобы не обойти лимит тарифа. Попробуйте ещё раз немного позже.");
-      }
-
       if (!isBackendUnavailableError(error)) {
         throw error;
+      }
+
+      if (supabaseService?.isAuthenticated?.() || !canUseBrowserMockGeneration()) {
+        throw createGenerationUnavailableError();
       }
 
       console.warn("[app] Backend generation unavailable, using browser mock", error);
@@ -1777,10 +2275,13 @@
     if (!subscriptionService.canGenerateStory()) showSubscriptionScreen();
 
     const formData = new FormData(generatorForm);
+    const generationStartedAt = getNowMs();
+    const generationAnalyticsMeta = getGenerationAnalyticsMeta(formData);
     let generationFailed = false;
     generationInProgress = true;
     submitButton.disabled = true;
     generationFlow.start({ ageGroup: getFormValue(formData, "ageGroup", "5-6"), trigger: submitButton });
+    trackEvent(EVENTS.STORY_GENERATION_STARTED, generationAnalyticsMeta);
 
     try {
       updateGenerationStatus("Создаю историю...");
@@ -1802,50 +2303,65 @@
         await subscriptionService.incrementLocalGenerationUsage();
       }
 
-      let illustrationResult = null;
-      if (isBackendGenerated && savedStory.useIllustrations !== false) {
-        updateGenerationStatus("Рисую иллюстрации для страниц истории...");
-        try {
-          illustrationResult = await requestStoryIllustrations(savedStory);
-          if (illustrationResult?.illustrated) {
-            await storyService.initializeUserStories();
-            savedStory = storyService.getStoryById(savedStory.id) || savedStory;
-          }
-        } catch (illustrationError) {
-          console.warn("[app] Cannot generate story illustration", illustrationError);
-        }
-      }
-
-      const storageState = storyService.getUserStoriesStorageState();
       hideSubscriptionScreen();
-      updateGenerationStatus(
-        storageState.mode === "supabase"
-          ? illustrationResult?.illustrated
-            ? illustrationResult.failed
-              ? `История создана: ${generated.label}. Часть иллюстраций готова и сохранена в Supabase.`
-              : `История создана: ${generated.label}. Иллюстрации готовы и сохранены в Supabase.`
-            : `История создана: ${generated.label}. Сохранена в Supabase.`
-          : `История создана: ${generated.label}. Сохранена локально.`
-      );
+      clearGenerationStatus();
       renderSubscriptionPanel();
       renderAuthPanel();
       renderAllStoryLists();
-      trackEvent(EVENTS.STORY_GENERATED_MOCK, {
+      trackEvent(EVENTS.STORY_GENERATION_COMPLETED, {
         storyId: savedStory.id,
+        storyType: "generated",
         pageCount: savedStory.pages.length,
-        mood: savedStory.mood
+        generationDurationMs: Math.round(getNowMs() - generationStartedAt),
+        mode: generated.mode,
+        mood: generationAnalyticsMeta.mood,
+        illustrationsEnabled: savedStory.useIllustrations !== false
       });
       analyticsService.recordGenerationResult({
         mode: generated.mode,
         meta: generated.meta,
         fallbackReason: generated.fallbackReason
       });
-      generationFlow.setReady({ storyId: savedStory.id });
+      generationFlow.setReady({
+        storyId: savedStory.id,
+        illustrationsPending: isBackendGenerated && savedStory.useIllustrations !== false
+      });
+
+      if (isBackendGenerated && savedStory.useIllustrations !== false) {
+        let illustrationProgress = { completed: 0, failed: 0, total: savedStory.pages.length };
+        void startStoryIllustrationJob(savedStory, {
+          renderLists: true,
+          updateStatus: false,
+          onProgress: (progress) => {
+            illustrationProgress = progress;
+            generationFlow.setIllustrationProgress({ storyId: savedStory.id, ...progress });
+          }
+        }).then((result) => {
+          generationFlow.setIllustrationProgress({
+            storyId: savedStory.id,
+            ...result,
+            finished: true
+          });
+        }).catch((illustrationError) => {
+          console.warn("[app] Cannot refresh generated story illustrations", illustrationError);
+          generationFlow.setIllustrationProgress({
+            storyId: savedStory.id,
+            ...illustrationProgress,
+            syncFailed: true,
+            finished: true
+          });
+        });
+      }
     } catch (error) {
       console.warn("[app] Cannot save generated story", error);
       const message = `Не удалось создать историю: ${error.message || "ошибка"}`;
       generationFailed = true;
-      updateGenerationStatus(message);
+      trackEvent(EVENTS.STORY_GENERATION_FAILED, {
+        ...generationAnalyticsMeta,
+        generationDurationMs: Math.round(getNowMs() - generationStartedAt),
+        errorType: getGenerationErrorType(error)
+      });
+      clearGenerationStatus();
       generationFlow.setError({ message });
       renderAuthPanel();
     } finally {
@@ -1921,12 +2437,14 @@
         : "Готовим иллюстрации к страницам истории...";
 
       try {
-        const result = await requestStoryIllustrations(story, { force });
-        await storyService.initializeUserStories();
-        renderAllStoryLists();
+        const result = await startStoryIllustrationJob(story, {
+          force,
+          renderLists: true,
+          updateStatus: false
+        });
         libraryStatus.textContent = result.illustrated
           ? result.failed
-            ? "Часть иллюстраций готова. Для остальных временно используется акварельная библиотека."
+            ? "Часть иллюстраций готова. Для остальных можно попробовать ещё раз позже."
             : "Иллюстрации ко всем страницам готовы."
           : getIllustrationConfigurationMessage(result);
       } catch (error) {
@@ -2005,6 +2523,9 @@
         );
       } else if (action === "signup") {
         const authState = await supabaseService.signUpWithPassword(email, password);
+        trackEvent(EVENTS.USER_REGISTERED, {
+          status: authState.status === "pending_confirmation" ? "pending_confirmation" : "signed_in"
+        });
         setAuthNotice(
           authState.status === "pending_confirmation"
             ? "Регистрация создана. Проверьте почту и перейдите по ссылке подтверждения."
@@ -2013,6 +2534,7 @@
         );
       } else {
         await supabaseService.signInWithPassword(email, password);
+        trackEvent(EVENTS.USER_LOGGED_IN);
         setAuthNotice("Вход выполнен.", "success");
       }
 
@@ -2025,6 +2547,7 @@
       }
 
       renderAuthPanel();
+      void refreshAdminNavigation();
     } catch (error) {
       console.warn("[app] Auth failed", error);
       setAuthNotice(getAuthErrorMessage(error, action), "warning");
@@ -2076,6 +2599,7 @@
       passwordRecoverySession = null;
       passwordResetForm.reset();
       supabaseService.clearAuthParamsFromUrl?.();
+      stopStoryIllustrationPolling();
       await supabaseService.signOut();
       await storyService.initializeUserStories();
       await subscriptionService.initializeSubscription();
@@ -2083,6 +2607,7 @@
       setAuthNotice("Пароль обновлён. Теперь войдите с новым паролем.", "success");
       renderAuthPanel();
       renderAllStoryLists();
+      void refreshAdminNavigation();
     } catch (error) {
       console.warn("[app] Password reset failed", error);
       setAuthNotice(getAuthErrorMessage(error, "recover"), "warning");
@@ -2103,6 +2628,7 @@
   async function handleSignOut() {
     if (!supabaseService?.isEnabled?.()) return;
 
+    stopStoryIllustrationPolling();
     await supabaseService.signOut();
     await storyService.initializeUserStories();
     await subscriptionService.initializeSubscription();
@@ -2110,6 +2636,7 @@
     setAuthNotice("Вы вышли из аккаунта. Теперь истории снова сохраняются локально.", "warning");
     renderAuthPanel();
     renderAllStoryLists();
+    void refreshAdminNavigation();
   }
 
   async function handleRefreshAccount() {
@@ -2393,6 +2920,7 @@
       renderAllStoryLists();
     }
 
+    void refreshAdminNavigation();
     await refreshAfterPaymentReturn();
 
     if (passwordRecoverySession || supabaseService?.hasPasswordRecoveryIntent?.()) {
@@ -2402,5 +2930,6 @@
     }
   }
 
-  initializeApp();
+  applyRoute({ focus: false });
+  void initializeApp();
 })(window, document);

@@ -25,9 +25,11 @@
       taskPanel: find("#generationTasksPanel"),
       taskCards: find("#generationTaskCards"),
       activeTaskCard: find("#generationTaskCard"),
-      taskText: find("#generationTaskText"),
+      taskImage: find("#generationTaskImage"),
       taskOptions: find("#generationTaskOptions"),
       feedback: find("#generationTaskFeedback"),
+      selection: find("#generationTaskSelection"),
+      illustrationProgress: find("#generationIllustrationProgress"),
       hint: find("#generationTaskHint"),
       skip: find("#generationTaskSkip"),
       next: find("#generationTaskNext"),
@@ -44,9 +46,13 @@
     let triggerElement = null;
     let tasks = [];
     let taskIndex = 0;
+    let ageGroup = "5-6";
+    let recentTaskIds = [];
+    let preloadedTask = null;
     let wrongAnswerCount = 0;
     let phaseIndex = 0;
     let storyId = "";
+    let illustrationsPending = false;
     let state = "idle";
     let open = false;
     let destroyed = false;
@@ -83,7 +89,7 @@
       phases.forEach((phase, index) => {
         const active = index === phaseIndex;
         phase.classList?.toggle("is-active", active);
-        phase.classList?.toggle("is-complete", state === "ready" || index < phaseIndex);
+        phase.classList?.toggle("is-complete", (state === "ready" && !illustrationsPending) || index < phaseIndex);
         if (active) phase.setAttribute?.("aria-current", "step");
         else phase.removeAttribute?.("aria-current");
       });
@@ -131,38 +137,13 @@
       return true;
     }
 
-    function shouldShowTaskPreviews() {
-      return Boolean(window.matchMedia?.("(min-width: 960px)").matches);
-    }
-
-    function createPreviewCard(task, position) {
-      const preview = documentRef.createElement("article");
-      const label = documentRef.createElement("p");
-      const text = documentRef.createElement("p");
-      preview.className = "generation-task-card generation-task-card--preview";
-      preview.setAttribute?.("aria-hidden", "true");
-      label.className = "generation-task-card__eyebrow";
-      label.textContent = `Следующая задачка ${position}`;
-      text.className = "generation-task-card__text";
-      text.textContent = task.text || "Новая маленькая задачка уже ждёт.";
-      preview.append?.(label, text);
-      return preview;
-    }
-
     function renderTaskCards(task) {
       if (!elements.taskCards || !elements.activeTaskCard) return;
-      const previews = shouldShowTaskPreviews()
-        ? tasks
-            .map((previewTask, index) => ({ previewTask, index }))
-            .filter(({ index }) => index !== taskIndex)
-            .slice(0, 2)
-            .map(({ previewTask }, index) => createPreviewCard(previewTask, index + 1))
-        : [];
-      elements.taskCards.replaceChildren?.(elements.activeTaskCard, ...previews);
+      elements.taskCards.replaceChildren?.(elements.activeTaskCard);
     }
 
     function refreshTaskCards() {
-      if (state === "generating" && tasks[taskIndex]) renderTaskCards(tasks[taskIndex]);
+      if ((state === "generating" || state === "ready") && tasks[taskIndex]) renderTaskCards(tasks[taskIndex]);
     }
 
     function renderTask() {
@@ -170,36 +151,64 @@
       const task = tasks[taskIndex];
       wrongAnswerCount = 0;
       setText(elements.feedback, "");
+      setText(elements.selection, "");
       setText(elements.hint, "");
       setHidden(elements.hint, true);
 
       if (!task) {
-        setHidden(elements.taskPanel, true);
+        setHidden(elements.taskPanel, false);
+        setHidden(elements.taskImage, true);
+        elements.taskCards?.replaceChildren?.(elements.activeTaskCard);
+        elements.taskOptions?.replaceChildren?.();
+        setHidden(elements.skip, true);
+        setHidden(elements.next, true);
         return;
       }
 
       setHidden(elements.taskPanel, false);
+      setHidden(elements.skip, false);
+      setHidden(elements.next, false);
+      setText(elements.next, "Другая задачка");
       renderTaskCards(task);
-      setText(elements.taskText, task.text || "");
+      if (elements.taskImage) {
+        elements.taskImage.src = task.image || "";
+        elements.taskImage.alt = task.text ? `Задание: ${task.text}` : "Иллюстрация к заданию";
+        setHidden(elements.taskImage, !task.image);
+      }
       if (!elements.taskOptions) return;
 
-      const answerButtons = (task.options || []).map((answer) => {
+      const answerButtons = (task.options || []).map((answer, index) => {
         const button = documentRef.createElement("button");
         button.type = "button";
         button.className = "generation-task-answer";
         button.dataset.answer = String(answer);
         button.textContent = String(answer);
-        addListener(button, "click", () => answerTask(task, String(answer)), taskBindings);
+        button.setAttribute("aria-label", `Выбрать вариант: ${answer}`);
+        button.setAttribute("aria-pressed", "false");
+        const bounds = task.answerBounds?.[index];
+        if (bounds) {
+          const [left, top, width, height] = bounds.map((value) => value / 3.2);
+          button.setAttribute("style", `left:${left}%;top:${top}%;width:${width}%;height:${height}%`);
+        }
+        addListener(button, "click", () => answerTask(task, String(answer), button), taskBindings);
         return button;
       });
       elements.taskOptions.replaceChildren?.(...answerButtons);
     }
 
-    function answerTask(task, answer) {
-      if (state !== "generating") return;
+    function answerTask(task, answer, button) {
+      if (state !== "generating" && state !== "ready") return;
+      if (button?.disabled || task !== tasks[taskIndex]) return;
+      Array.from(elements.taskOptions?.children || []).forEach((answerButton) => {
+        answerButton.setAttribute("aria-pressed", String(answerButton === button));
+        answerButton.classList?.remove("is-wrong", "is-correct");
+      });
+      setText(elements.selection, `Твой ответ: ${answer}`);
       const result = window.HFGenerationTasks?.checkAnswer?.(task, answer);
       if (result?.correct) {
-        setText(elements.feedback, "Верно!");
+        button?.classList?.add("is-correct");
+        Array.from(elements.taskOptions?.children || []).forEach((answerButton) => { answerButton.disabled = true; });
+        setText(elements.feedback, "Верно! ⭐");
         if (advanceTimerId) window.clearTimeout(advanceTimerId);
         advanceTimerId = window.setTimeout(() => {
           advanceTimerId = null;
@@ -209,6 +218,7 @@
       }
 
       wrongAnswerCount += 1;
+      button?.classList?.add("is-wrong");
       setText(elements.feedback, "Попробуй ещё раз");
       if (wrongAnswerCount >= 2) {
         setText(elements.hint, result?.hint || task.hint || "");
@@ -217,31 +227,58 @@
     }
 
     function advanceTask() {
-      if (!tasks.length || state !== "generating") return;
+      if (state !== "generating" && state !== "ready") return;
       if (advanceTimerId) window.clearTimeout(advanceTimerId);
       advanceTimerId = null;
-      taskIndex = (taskIndex + 1) % tasks.length;
-      renderTask();
+      selectNextTask();
     }
 
-    function start({ ageGroup, trigger } = {}) {
+    function preloadNextTask() {
+      if (preloadedTask || !window.HFGenerationTasks?.pickNextTask) return;
+      preloadedTask = window.HFGenerationTasks.pickNextTask(ageGroup, recentTaskIds);
+      if (!preloadedTask?.image || typeof window.Image !== "function") return;
+      const image = new window.Image();
+      image.src = preloadedTask.image;
+    }
+
+    function selectNextTask() {
+      const nextTask = preloadedTask || window.HFGenerationTasks?.pickNextTask?.(ageGroup, recentTaskIds);
+      if (!nextTask) {
+        tasks = [];
+        renderTask();
+        return;
+      }
+      preloadedTask = null;
+      tasks = [nextTask];
+      taskIndex = 0;
+      recentTaskIds = [...recentTaskIds, nextTask.id].slice(-2);
+      renderTask();
+      preloadNextTask();
+    }
+
+    function start({ ageGroup: requestedAgeGroup, trigger } = {}) {
       if (destroyed || !root) return;
       clearTimers();
       removeListeners(staticBindings);
       removeListeners(taskBindings);
       triggerElement = trigger || documentRef?.activeElement || null;
       storyId = "";
+      illustrationsPending = false;
       taskIndex = 0;
+      ageGroup = String(requestedAgeGroup || "5-6");
+      recentTaskIds = [];
+      preloadedTask = null;
       phaseIndex = 0;
-      tasks = window.HFGenerationTasks?.createTaskSet?.(ageGroup, 3) || [];
+      tasks = [];
       show("generating", true);
       setText(elements.title, "Мы создаём вашу историю…");
       setText(elements.error, "");
+      setText(elements.illustrationProgress, "");
       setHidden(elements.open, true);
       setHidden(elements.retry, true);
-      setHidden(elements.next, true);
+      setHidden(elements.next, false);
       updatePhase();
-      renderTask();
+      selectNextTask();
       phaseTimerId = window.setInterval(() => {
         const pendingPhaseCount = Math.max(phases.length - 1, 1);
         phaseIndex = phases.length ? (phaseIndex + 1) % pendingPhaseCount : 0;
@@ -249,19 +286,45 @@
       }, PHASE_INTERVAL_MS);
     }
 
-    function setReady({ storyId: nextStoryId } = {}) {
+    function setReady({ storyId: nextStoryId, illustrationsPending: nextIllustrationsPending = false } = {}) {
       if (destroyed || !root) return;
       clearTimers();
       storyId = String(nextStoryId || "");
+      illustrationsPending = nextIllustrationsPending === true;
       show("ready", false);
-      setText(elements.title, "Ваша сказка готова!");
+      setText(elements.title, illustrationsPending ? "Текст готов — рисуем картинки…" : "Сказка готова!");
+      setText(elements.illustrationProgress, illustrationsPending ? "Иллюстрации ещё создаются. Они появятся в сказке автоматически." : "");
       setHidden(elements.open, false);
       setHidden(elements.retry, true);
-      setHidden(elements.taskPanel, true);
-      phaseIndex = phases.length ? phases.length - 1 : 0;
+      setHidden(elements.taskPanel, false);
+      setText(elements.open, illustrationsPending ? "Читать, пока рисуются картинки" : "Читать сказку");
+      renderTask();
+      phaseIndex = phases.length ? Math.max(0, phases.length - (illustrationsPending ? 2 : 1)) : 0;
       updatePhase();
       if (elements.open) elements.open.dataset.storyId = storyId;
       elements.open?.focus?.();
+    }
+
+    function setIllustrationProgress({ storyId: updatedStoryId, completed = 0, total = 0, failed = 0, finished = false, syncFailed = false } = {}) {
+      if (destroyed || state !== "ready" || storyId !== updatedStoryId) return;
+      if (syncFailed) {
+        illustrationsPending = true;
+        setText(elements.title, "Текст готов. Не удалось обновить картинки");
+        setText(elements.illustrationProgress, `Готово картинок: ${completed} из ${total}. Не удалось загрузить обновления. Открой сказку, чтобы загрузить их снова.`);
+        setText(elements.open, "Открыть сказку");
+        return;
+      }
+      const allReady = finished && total > 0 && completed === total && failed === 0;
+      illustrationsPending = !allReady;
+      setText(elements.title, allReady ? "Сказка готова!" : finished ? "Текст готов. Не все картинки получились" : "Текст готов — рисуем картинки…");
+      setText(elements.illustrationProgress, allReady
+        ? `Все картинки готовы: ${completed} из ${total}.`
+        : finished
+          ? `Готово картинок: ${completed} из ${total}. Открой сказку и нажми «${completed > 0 ? "Дорисовать" : "Нарисовать"} иллюстрации», чтобы попробовать снова.`
+          : `Готово картинок: ${completed} из ${total}. ${completed === total ? "Подготавливаем сказку к чтению." : "Остальные ещё рисуются."}`);
+      setText(elements.open, allReady ? "Читать сказку" : finished ? "Читать готовый текст" : "Читать, пока рисуются картинки");
+      phaseIndex = phases.length ? Math.max(0, phases.length - (allReady ? 1 : 2)) : 0;
+      updatePhase();
     }
 
     function setError({ message } = {}) {
@@ -326,6 +389,8 @@
       hide();
       destroyed = true;
       tasks = [];
+      recentTaskIds = [];
+      preloadedTask = null;
       triggerElement = null;
     }
 
@@ -333,7 +398,7 @@
       return open;
     }
 
-    return { start, setReady, setError, hide, destroy, isOpen };
+    return { start, setReady, setIllustrationProgress, setError, hide, destroy, isOpen };
   }
 
   window.HFCreateStoryFlow = { create };

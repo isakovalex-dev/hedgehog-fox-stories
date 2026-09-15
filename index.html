@@ -33,7 +33,9 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=28" />
+    <link rel="preload" href="styles.css?v=38" as="style" />
+    <script src="js/routeBootstrap.js?v=1"></script>
+    <link rel="stylesheet" href="styles.css?v=38" />
   </head>
   <body>
     <a class="skip-link" href="#mainContent">Перейти к содержанию</a>
@@ -74,6 +76,7 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.7"></circle><circle cx="12" cy="9.2" r="2.5"></circle><path d="M7.6 18.3c.7-2.3 2.3-3.6 4.4-3.6s3.7 1.3 4.4 3.6"></path></svg>
             </button>
             <button class="nav-action nav-subscribe" id="navGeneratorButton" type="button">Создать историю</button>
+            <a class="nav-action nav-admin-link hidden" id="navAdminAnalyticsButton" href="/admin/analytics">Аналитика</a>
             <a class="nav-action nav-library-link" id="navLibraryButton" href="/library">Библиотека</a>
           </div>
         </div>
@@ -110,7 +113,7 @@
             alt="Ёжик и Лисёнок сидят на скамейке у моря и смотрят на маяк"
             width="1200"
             height="713"
-            fetchpriority="high"
+            loading="lazy"
             decoding="async"
           />
         </div>
@@ -139,6 +142,7 @@
         </div>
 
         <div class="story-list home-story-list" id="storyList" aria-live="polite"></div>
+
       </section>
 
       <section class="travel-map journey-map journey-map--reference" id="travel-map" aria-labelledby="travelMapTitle">
@@ -897,11 +901,6 @@
         />
         <button class="button quiet generation-overlay__close" id="generationClose" type="button">Закрыть</button>
         <header class="generation-overlay__header">
-          <div>
-            <p class="eyebrow">Новая книжка уже в пути</p>
-            <h2 id="generationOverlayTitle">Мы создаём вашу историю…</h2>
-            <p>Ежонок придумывает сюжет, а Лисёнок готовит иллюстрации. Это может занять несколько минут.</p>
-          </div>
           <img
             class="generation-overlay__hero"
             src="assets/create/generation-hero.png"
@@ -911,9 +910,12 @@
             loading="lazy"
             decoding="async"
           />
+          <div class="generation-overlay__copy">
+            <p class="eyebrow">Это займёт 2–3 минуты</p>
+            <h2 id="generationOverlayTitle">Мы создаём вашу историю…</h2>
+            <p>Ежонок и Лисёнок раскрыли волшебную книгу. Пока страницы наполняются приключениями, можно решить маленькую задачку.</p>
+          </div>
         </header>
-
-        <p class="generation-status" id="generationStatus" aria-live="polite"></p>
 
         <ol class="generation-progress" id="generationProgress" aria-label="Этапы создания истории">
           <li class="is-active" data-generation-phase>Придумываем героев</li>
@@ -923,20 +925,33 @@
           <li data-generation-phase>Собираем книжку</li>
         </ol>
 
+        <p class="generation-status" id="generationStatus" aria-live="polite"></p>
+        <p class="generation-illustration-progress" id="generationIllustrationProgress" role="status"></p>
+
         <section class="generation-tasks-panel" id="generationTasksPanel" aria-labelledby="generationTaskTitle">
-          <p class="eyebrow">Пока ждём</p>
-          <h3 id="generationTaskTitle">Маленькая задачка</h3>
+          <h3 id="generationTaskTitle">А пока реши маленькую задачку</h3>
           <div class="generation-task-cards" id="generationTaskCards">
             <article class="generation-task-card generation-task-card--active" id="generationTaskCard">
-              <p id="generationTaskText">Решите маленькую задачку.</p>
-              <div class="generation-task-options" id="generationTaskOptions" aria-label="Варианты ответа"></div>
+              <div class="generation-task-image-stage">
+                <img
+                  class="generation-task-image"
+                  id="generationTaskImage"
+                  width="640"
+                  height="640"
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                />
+                <div class="generation-task-options" id="generationTaskOptions" aria-label="Варианты ответа"></div>
+              </div>
+              <p class="generation-task-selection" id="generationTaskSelection" aria-live="polite"></p>
               <p class="generation-task-feedback" id="generationTaskFeedback" aria-live="assertive"></p>
               <p class="generation-task-hint" id="generationTaskHint" hidden></p>
-              <div class="generation-task-actions">
-                <button class="button quiet" id="generationTaskSkip" type="button">Пропустить</button>
-                <button class="button quiet" id="generationTaskNext" type="button" hidden>Другая задачка</button>
-              </div>
             </article>
+          </div>
+          <div class="generation-task-actions">
+            <button class="button quiet" id="generationTaskSkip" type="button">Пропустить</button>
+            <button class="button primary" id="generationTaskNext" type="button">Другая задачка</button>
           </div>
         </section>
 
@@ -964,18 +979,18 @@
 
     <script defer src="js/config.js?v=16"></script>
     <script defer src="js/storageService.js?v=12"></script>
-    <script defer src="js/supabaseService.js?v=17"></script>
+    <script defer src="js/supabaseService.js?v=18"></script>
     <script defer src="js/storyService.js?v=13"></script>
-    <script defer src="js/generationTasks.js?v=2"></script>
-    <script defer src="js/createStoryFlow.js?v=2"></script>
+    <script defer src="js/generationTasks.js?v=6"></script>
+    <script defer src="js/createStoryFlow.js?v=9"></script>
     <script defer src="js/likeService.js?v=12"></script>
     <script defer src="js/subscriptionService.js?v=12"></script>
-    <script defer src="js/analyticsService.js?v=14"></script>
+    <script defer src="js/analyticsService.js?v=15"></script>
     <script defer src="js/miniGamesData.js?v=1"></script>
     <script defer src="js/miniGames.js?v=1"></script>
     <script defer src="js/memoryGame.js?v=2"></script>
     <script defer src="js/introSplash.js?v=1"></script>
-    <script defer src="js/app.js?v=29"></script>
+    <script defer src="js/app.js?v=40"></script>
     <script defer src="js/vercel-analytics.js?v=1"></script>
     <script defer src="/_vercel/insights/script.js"></script>
   </body>

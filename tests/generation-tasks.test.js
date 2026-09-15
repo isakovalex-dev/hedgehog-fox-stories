@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 
@@ -6,50 +7,75 @@ global.window = {};
 require(path.join(__dirname, "..", "js", "generationTasks.js"));
 const tasks = window.HFGenerationTasks;
 
-const EXPECTED_IDS = {
+const TASKS_BY_AGE = {
   "5-6": [
-    "5-6-counting-berries",
-    "5-6-comparison-apples",
-    "5-6-sequence-steps",
-    "5-6-color-sun",
-    "5-6-shape-triangle",
-    "5-6-pair-mitten",
-    "5-6-letter-kot"
+    ["5-6-01", "Сколько грибочков?", "5"],
+    ["5-6-02", "Где ягод больше?", "Справа"],
+    ["5-6-03", "У Ёжика 3 яблока, а у Лисёнка 2. Сколько яблок всего?", "5"],
+    ["5-6-04", "Какое число пропущено?\n1 — 2 — 3 — ? — 5", "4"],
+    ["5-6-05", "Какой первый звук в слове МАК?", "М"],
+    ["5-6-06", "Какой последний звук в слове КОТ?", "Т"],
+    ["5-6-07", "Сколько слогов в слове ЛИСА?", "2"],
+    ["5-6-08", "Что начинается со звука [С]?", "СОК"],
+    ["5-6-09", "Что лишнее?", "Ромашка"],
+    ["5-6-10", "Продолжи ряд\nкрасный круг → синий квадрат → красный круг → синий квадрат → красный круг → ?", "синий квадрат"],
+    ["5-6-11", "Что дальше?\nбольшой круг → маленький круг → большой круг → ?", "маленький круг"],
+    ["5-6-12", "Назови одним словом\nяблоко, груша, слива", "Фрукты"]
   ],
   "7-8": [
-    "7-8-addition-8-7",
-    "7-8-subtraction-18-9",
-    "7-8-multiply-5-3",
-    "7-8-multiply-4-2",
-    "7-8-multiply-3-5",
-    "7-8-sequence-3-6-9",
-    "7-8-syllables-moloko",
-    "7-8-logic-nuts"
+    ["7-8-01", "8 + 7 = ?", "15"],
+    ["7-8-02", "16 − 9 = ?", "7"],
+    ["7-8-03", "□ + 6 = 14", "8"],
+    ["7-8-04", "На ветке сидели 9 птиц.\n4 птицы улетели.\nСколько птиц осталось?", "5"],
+    ["7-8-05", "Сколько слогов в слове МАШИНА?", "3"],
+    ["7-8-06", "На какой слог падает ударение в слове МОЛОКО́?", "3"],
+    ["7-8-07", "Вставь букву: Ж_РАФ", "И"],
+    ["7-8-08", "В каком слове нужен Ь?", "КОНЬ"],
+    ["7-8-09", "Продолжи ряд\n2, 5, 8, 11, ?", "14"],
+    ["7-8-10", "Закончи пару\nРыба — вода, птица — ?", "Небо"],
+    ["7-8-11", "Что лишнее?", "Берёза"],
+    ["7-8-12", "Карандаш не красный и не синий. Какого он цвета?", "Зелёный"]
   ],
   "9-10": [
-    "9-10-multiply-7-8",
-    "9-10-divide-48-6",
-    "9-10-expression-4-5-3",
-    "9-10-word-problem-baskets",
-    "9-10-classification-transport",
-    "9-10-spelling-poles",
-    "9-10-route-garden"
+    ["9-10-01", "7 × 8 = ?", "56"],
+    ["9-10-02", "63 ÷ 9 = ?", "7"],
+    ["9-10-03", "36 + 24 ÷ 6 = ?", "40"],
+    ["9-10-04", "В четырёх коробках лежит по 6 карандашей.\n5 карандашей взяли.\nСколько осталось?", "19"],
+    ["9-10-05", "Какое слово поможет проверить безударную гласную в слове «леса́»?", "Лес"],
+    ["9-10-06", "Какую букву нужно вставить в слове ГРИ_? Проверочное слово — ГРИБЫ.", "Б"],
+    ["9-10-07", "Какой частью речи является слово БЫСТРЫЙ?", "Прилагательное"],
+    ["9-10-08", "Какая общая часть у слов: лес, лесной, лесник?", "ЛЕС"],
+    ["9-10-09", "Продолжи ряд\n3, 6, 12, 24, ?", "48"],
+    ["9-10-10", "Аня выше Бори.\nБоря выше Вовы.\nКто ниже всех?", "Вова"],
+    ["9-10-11", "Ёжик прошёл:\n3 клетки вверх,\n2 клетки вправо,\n3 клетки вниз.\n\nГде он оказался относительно старта?", "2 клетки справа"],
+    ["9-10-12", "Есть 2 шарфа и 3 шапки.\nСколько разных комплектов «шарф + шапка» можно составить?", "6"]
   ]
 };
 
 function getFullCatalog(ageGroup) {
-  return tasks.createTaskSet(ageGroup, EXPECTED_IDS[ageGroup].length, () => 0);
+  return tasks.createTaskSet(ageGroup, TASKS_BY_AGE[ageGroup].length, () => 0);
 }
 
-test("task catalog keeps stable unique identifiers with an answer in every age-appropriate option set", () => {
-  Object.entries(EXPECTED_IDS).forEach(([ageGroup, expectedIds]) => {
+test("each age catalog matches the approved questions, answers, and local illustration paths", () => {
+  Object.entries(TASKS_BY_AGE).forEach(([ageGroup, expectedTasks]) => {
     const generated = getFullCatalog(ageGroup);
-    assert.deepEqual(generated.map((task) => task.id), expectedIds);
-    assert.equal(new Set(generated.map((task) => task.id)).size, expectedIds.length);
+    assert.deepEqual(
+      generated.map(({ id, text, correctAnswer }) => [id, text, correctAnswer]),
+      expectedTasks
+    );
 
-    generated.forEach((task) => {
+    generated.forEach((task, index) => {
       assert.equal(task.ageGroup, ageGroup);
+      assert.equal(task.image, `/images/generation-tasks/${ageGroup}/task-${String(index + 1).padStart(2, "0")}.webp`);
+      const imagePath = path.join(__dirname, "..", "public", task.image);
+      assert.equal(fs.existsSync(imagePath), true);
+      assert.equal(fs.readFileSync(imagePath).subarray(0, 4).toString("ascii"), "RIFF");
       assert.ok(task.options.includes(task.correctAnswer));
+      assert.equal(task.answerBounds.length, task.options.length);
+      task.answerBounds.forEach(([x, y, width, height]) => {
+        assert.ok(x >= 0 && y >= 0 && width > 0 && height > 0);
+        assert.ok(x + width <= 320 && y + height <= 320);
+      });
       assert.equal(new Set(task.options.map(tasks.normalizeAnswer)).size, task.options.length);
       assert.equal(tasks.checkAnswer(task, task.correctAnswer).correct, true);
       assert.equal(tasks.checkAnswer(task, "неверный ответ").correct, false);
@@ -57,57 +83,26 @@ test("task catalog keeps stable unique identifiers with an answer in every age-a
   });
 });
 
-test("5–6 catalog stays within early-learning operations and two or three answers", () => {
-  const generated = getFullCatalog("5-6");
-  assert.deepEqual(
-    generated.map((task) => task.visual.operation),
-    ["count", "comparison", "sequence", "color", "shape", "pair", "missing-letter"]
-  );
-  generated.forEach((task) => assert.ok(task.options.length >= 2 && task.options.length <= 3));
+test("image-backed task options keep the artwork order so invisible hitboxes match", () => {
+  const kotTask = getFullCatalog("5-6").find((task) => task.id === "5-6-06");
 
-  const counting = generated[0].visual;
-  const comparison = generated[1].visual;
-  const sequence = generated[2].visual;
-  assert.ok(counting.count <= 10);
-  assert.ok(comparison.left <= 10 && comparison.right <= 10);
-  assert.ok(sequence.values.every((value) => value <= 10));
+  assert.ok(kotTask);
+  assert.deepEqual(kotTask.options, ["К", "О", "Т"]);
+  assert.equal(tasks.checkAnswer(kotTask, "Т").correct, true);
+  assert.equal(tasks.checkAnswer(kotTask, "К").correct, false);
 });
 
-test("7–8 catalog uses addition or subtraction to twenty, selected tables, sequences, syllables, and one-step logic", () => {
-  const generated = getFullCatalog("7-8");
-  assert.deepEqual(
-    generated.map((task) => task.visual.operation),
-    ["add", "subtract", "multiply", "multiply", "multiply", "sequence", "syllables", "logic"]
-  );
-  generated.forEach((task) => assert.ok(task.options.length >= 3 && task.options.length <= 4));
+test("next task never repeats either of the two most recently shown task identifiers", () => {
+  const shown = ["7-8-01", "7-8-02"];
+  const next = tasks.pickNextTask("7-8", shown, () => 0);
 
-  const [addition, subtraction] = generated.map((task) => task.visual);
-  const multiplicationTables = generated
-    .filter((task) => task.visual.operation === "multiply")
-    .map((task) => task.visual.right)
-    .sort((left, right) => left - right);
-  assert.ok(addition.left + addition.right <= 20);
-  assert.ok(subtraction.left <= 20 && subtraction.left - subtraction.right >= 0);
-  assert.deepEqual(multiplicationTables, [2, 3, 5]);
+  assert.equal(next.id, "7-8-03");
+  assert.equal(shown.includes(next.id), false);
 });
 
-test("9–10 catalog uses multiplication, division, two-step math, word problems, classification, spelling, and routes", () => {
-  const generated = getFullCatalog("9-10");
-  assert.deepEqual(
-    generated.map((task) => task.visual.operation),
-    ["multiply", "divide", "two-step", "word-problem", "classification", "spelling", "route"]
-  );
-  generated.forEach((task) => assert.ok(task.options.length >= 3 && task.options.length <= 4));
-
-  const multiplication = generated[0];
-  multiplication.correctAnswer = "999";
-  assert.equal(tasks.checkAnswer(multiplication, "56").correct, true);
-  assert.equal(tasks.checkAnswer(multiplication, "55").correct, false);
-});
-
-test("injected random input selects the same stable task set without duplicate identifiers", () => {
-  const first = tasks.createTaskSet("9-10", 3, () => 0.68).map((task) => task.id);
-  const second = tasks.createTaskSet("9-10", 3, () => 0.68).map((task) => task.id);
-  assert.deepEqual(first, second);
-  assert.equal(new Set(first).size, first.length);
+test("answer checking uses the stored answer instead of recalculating from image metadata", () => {
+  const task = getFullCatalog("9-10")[2];
+  assert.equal(task.correctAnswer, "40");
+  assert.equal(tasks.checkAnswer(task, "40").correct, true);
+  assert.equal(tasks.checkAnswer(task, "60").correct, false);
 });
