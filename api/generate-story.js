@@ -231,6 +231,24 @@ function cleanText(value, fallback, maxLength) {
 
 const SUPPORTED_AGE_GROUPS = new Set(["5-6", "7-8", "9-10", "5-7", "8-10"]);
 
+const AGE_STORY_PROFILES = Object.freeze({
+  "5-6": Object.freeze({
+    sentenceRange: "1-2",
+    characterRange: "90-180",
+    guidance: "Короткие простые фразы и понятные дошкольнику слова."
+  }),
+  "7-8": Object.freeze({
+    sentenceRange: "2-3",
+    characterRange: "180-330",
+    guidance: "Добавь небольшое развитие события и знакомые детали."
+  }),
+  "9-10": Object.freeze({
+    sentenceRange: "3-4",
+    characterRange: "300-520",
+    guidance: "Добавь больше событий, деталей и короткий естественный диалог."
+  })
+});
+
 function normalizePageCount(value) {
   const pageCount = Number(value || 5);
   if (!Number.isInteger(pageCount)) return 5;
@@ -239,6 +257,13 @@ function normalizePageCount(value) {
 
 function normalizeAgeGroup(value) {
   return SUPPORTED_AGE_GROUPS.has(value) ? value : "5-6";
+}
+
+function getAgeStoryProfile(ageGroup) {
+  const normalizedAgeGroup = normalizeAgeGroup(ageGroup);
+  if (normalizedAgeGroup === "5-7") return AGE_STORY_PROFILES["5-6"];
+  if (normalizedAgeGroup === "8-10") return AGE_STORY_PROFILES["9-10"];
+  return AGE_STORY_PROFILES[normalizedAgeGroup];
 }
 
 function getMood(value) {
@@ -296,31 +321,31 @@ function capitalize(value) {
   return value ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : value;
 }
 
-function getMockPageText({ topic, mood, lesson, pageNumber, pageCount }) {
+function getMockPageText({ topic, mood, lesson, pageNumber, pageCount, ageGroup }) {
   const isLastPage = pageNumber === pageCount;
   const moodLabel = MOOD_CONFIG[mood].label;
+  const profile = getAgeStoryProfile(ageGroup);
+  let text;
 
   if (pageNumber === 1) {
-    return `Ежонок и Лисёнок нашли маленькую подсказку про ${topic}. Она лежала тихо-тихо и звала друзей в добрую историю ${moodLabel}.`;
+    text = `Ежонок и Лисёнок нашли маленькую подсказку про ${topic}. Она лежала тихо-тихо и звала друзей в добрую историю ${moodLabel}.`;
+  } else if (isLastPage) {
+    text = `Когда путь закончился, Ежонок улыбнулся, а Лисёнок мягко махнул хвостом. Друзья поняли главное: ${lesson}.`;
+  } else if (mood === "bravery") {
+    text = `На странице ${pageNumber} Ежонку стало немного тревожно, но Лисёнок шёл рядом. Они сделали один маленький смелый шаг, и ${topic} стала понятнее.`;
+  } else if (mood === "friendship") {
+    text = `На странице ${pageNumber} друзья помогали друг другу: Ежонок замечал детали, а Лисёнок искал дорогу. Так ${topic} становилась теплее.`;
+  } else if (mood === "adventure") {
+    text = `На странице ${pageNumber} тропинка повернула за травы и камушки. Ежонок задавал вопросы, Лисёнок проверял путь, и ${topic} открывала новый добрый секрет.`;
+  } else {
+    text = `На странице ${pageNumber} вечер становился мягче. Ежонок слушал тишину, Лисёнок берёг тёплый свет, и ${topic} укладывалась в спокойную сказку.`;
   }
 
-  if (isLastPage) {
-    return `Когда путь закончился, Ежонок улыбнулся, а Лисёнок мягко махнул хвостом. Друзья поняли главное: ${lesson}.`;
+  if (profile === AGE_STORY_PROFILES["5-6"]) return text;
+  if (profile === AGE_STORY_PROFILES["7-8"]) {
+    return `${text} Друзья обсудили находку и решили, что делать дальше.`;
   }
-
-  if (mood === "bravery") {
-    return `На странице ${pageNumber} Ежонку стало немного тревожно, но Лисёнок шёл рядом. Они сделали один маленький смелый шаг, и ${topic} стала понятнее.`;
-  }
-
-  if (mood === "friendship") {
-    return `На странице ${pageNumber} друзья помогали друг другу: Ежонок замечал детали, а Лисёнок искал дорогу. Так ${topic} становилась теплее.`;
-  }
-
-  if (mood === "adventure") {
-    return `На странице ${pageNumber} тропинка повернула за травы и камушки. Ежонок задавал вопросы, Лисёнок проверял путь, и ${topic} открывала новый добрый секрет.`;
-  }
-
-  return `На странице ${pageNumber} вечер становился мягче. Ежонок слушал тишину, Лисёнок берёг тёплый свет, и ${topic} укладывалась в спокойную сказку.`;
+  return `${text} «Давай не будем спешить», — предложил Лисёнок, и Ежонок согласился. Они заметили важную деталь, проверили свою догадку и с радостью продолжили путь вместе.`;
 }
 
 function buildMockStory(input) {
@@ -463,7 +488,7 @@ function getAiSystemPrompt() {
     "Возраст читателей: 5-10 лет.",
     "Тон: добрый, тёплый, без страшных, взрослых, опасных и манипулятивных тем.",
     "Верни только JSON без markdown и без пояснений.",
-    "Каждая страница должна быть короткой.",
+    "Следуй требованиям к длине и сложности текста из constraints.pageTextLength и constraints.ageGuidance.",
     "Для каждой страницы обязательно верни imagePrompt на русском языке длиной 80-240 символов.",
     "imagePrompt - это точное визуальное ТЗ только для текста этой страницы: кто в кадре, где находится, что именно происходит и какая деталь важна.",
     "Не пиши общие фразы вроде 'добрая акварельная сцена', не добавляй события или предметы, которых нет в text.",
@@ -472,6 +497,8 @@ function getAiSystemPrompt() {
 }
 
 function getAiUserPrompt(input) {
+  const ageProfile = getAgeStoryProfile(input.ageGroup);
+
   return JSON.stringify({
     task: "generate_child_story",
     outputFormat: {
@@ -495,6 +522,8 @@ function getAiUserPrompt(input) {
       lesson: input.lesson,
       pageCount: normalizePageCount(input.pageCount),
       maxPages: 7,
+      pageTextLength: `${ageProfile.sentenceRange} предложений, примерно ${ageProfile.characterRange} символов на страницу`,
+      ageGuidance: ageProfile.guidance,
       heroes: ["Ежонок", "Лисёнок"],
       allowedSceneTags: ALLOWED_SCENE_TAGS
     }
@@ -687,6 +716,6 @@ async function handler(req, res) {
   }
 }
 
-handler.__testables = { normalizeAgeGroup, normalizePageCount };
+handler.__testables = { getAgeStoryProfile, normalizeAgeGroup, normalizePageCount };
 
 module.exports = handler;

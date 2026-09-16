@@ -32,3 +32,23 @@ test("generation contract accepts new ages and seven pages without rewriting leg
   const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
   assert.match(html, /name="pageCount" value="7"/);
 });
+
+test("story text requirements become longer and more detailed for older readers", () => {
+  const api = handler.__testables;
+
+  assert.deepEqual(api.getAgeStoryProfile("5-6"), {
+    sentenceRange: "1-2",
+    characterRange: "90-180",
+    guidance: "Короткие простые фразы и понятные дошкольнику слова."
+  });
+  assert.deepEqual(api.getAgeStoryProfile("7-8"), {
+    sentenceRange: "2-3",
+    characterRange: "180-330",
+    guidance: "Добавь небольшое развитие события и знакомые детали."
+  });
+  assert.deepEqual(api.getAgeStoryProfile("9-10"), {
+    sentenceRange: "3-4",
+    characterRange: "300-520",
+    guidance: "Добавь больше событий, деталей и короткий естественный диалог."
+  });
+});
