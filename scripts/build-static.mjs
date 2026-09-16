@@ -30,6 +30,10 @@ await cp(join(projectRoot, "public", "assets"), join(outputDirectory, "assets"),
   recursive: true,
 });
 
+await cp(join(projectRoot, "public", "images"), join(outputDirectory, "images"), {
+  recursive: true,
+});
+
 for (const file of publicRootFiles) {
   await cp(join(projectRoot, file), join(outputDirectory, file));
 }

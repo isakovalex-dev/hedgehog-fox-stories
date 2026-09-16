@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
@@ -81,6 +82,16 @@ test("each age catalog matches the approved questions, answers, and local illust
       assert.equal(tasks.checkAnswer(task, "неверный ответ").correct, false);
     });
   });
+});
+
+test("static build publishes task illustrations at their browser URLs", () => {
+  const projectRoot = path.join(__dirname, "..");
+  execFileSync(process.execPath, ["scripts/build-static.mjs"], { cwd: projectRoot, stdio: "pipe" });
+
+  assert.equal(
+    fs.existsSync(path.join(projectRoot, "dist", "images", "generation-tasks", "5-6", "task-12.webp")),
+    true
+  );
 });
 
 test("image-backed task options keep the artwork order so invisible hitboxes match", () => {
