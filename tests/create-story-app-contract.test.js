@@ -16,3 +16,12 @@ test("app delegates generation lifecycle to the create-story flow", () => {
   assert.doesNotMatch(source, /generationTaskTimerId/);
   assert.doesNotMatch(source, /generationMessageTimerId/);
 });
+
+test("featured home cards use the catalog duration and age", () => {
+  const source = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  const resolver = source.match(/function resolveHomeFeaturedStory\(featuredStory\) \{[\s\S]*?\n  \}/)?.[0] || "";
+
+  assert.match(resolver, /title: catalogStory\.title/);
+  assert.match(resolver, /duration: catalogStory\.time/);
+  assert.match(resolver, /age: catalogStory\.age/);
+});

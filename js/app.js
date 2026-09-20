@@ -1183,7 +1183,9 @@
 
     return {
       ...featuredStory,
-      title: catalogStory.title
+      title: catalogStory.title,
+      duration: catalogStory.time,
+      age: catalogStory.age
     };
   }
 
