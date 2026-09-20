@@ -32,5 +32,7 @@ test("story listings offer a direct path to create a new story", () => {
   const css = fs.readFileSync(path.join(__dirname, "..", "styles.css"), "utf8");
 
   assert.match(html, /<a class="button secondary stories-create-button" href="\/create">Создать свою историю<\/a>/);
+  assert.match(html, /<a class="section-link" href="\/stories">Все истории<\/a>/);
+  assert.doesNotMatch(html, /Все истории\s*<span[^>]*>→<\/span>/);
   assert.match(css, /\.home-route \.stories-library-heading\s*\{\s*display: flex;/);
 });
