@@ -26,3 +26,11 @@ test("create page exposes semantic controls, linked helpers, and its available a
     assert.equal(fs.existsSync(path.join(__dirname, "..", "assets", "create", file)), true);
   });
 });
+
+test("story listings offer a direct path to create a new story", () => {
+  const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+  const css = fs.readFileSync(path.join(__dirname, "..", "styles.css"), "utf8");
+
+  assert.match(html, /<a class="button secondary stories-create-button" href="\/create">Создать свою историю<\/a>/);
+  assert.match(css, /\.home-route \.stories-library-heading\s*\{\s*display: flex;/);
+});
