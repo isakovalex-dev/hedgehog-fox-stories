@@ -62,7 +62,7 @@
     return "Тропинка";
   }
 
-  function renderGame() {
+  function renderGame(focusSelector) {
     const level = currentLevel();
     const game = state.game;
     app.innerHTML = `
@@ -74,25 +74,33 @@
         <div id="labyrinthBoard" class="labyrinth-board" style="--maze-columns:${level.map[0].length}" aria-label="Лабиринт. ${game.message}">
           ${level.map.map((line, row) => [...line].map((tile, column) => {
             const isHero = game.position.row === row && game.position.column === column;
-            if (tile === "#") return '<span class="labyrinth-wall" aria-hidden="true"></span>';
+            if (tile === "#") return `<button class="labyrinth-wall" data-row="${row}" data-column="${column}" type="button" aria-label="Густые кусты"></button>`;
             return `<button class="labyrinth-tile ${isHero ? "is-hero" : ""} ${tile === "G" ? "is-goal" : ""}" data-row="${row}" data-column="${column}" type="button" aria-label="${tileLabel(tile, row, column)}">${isHero ? `<span class="hero-token hero-token--${hero().className}" aria-hidden="true">${hero().mark}</span>` : tile === "G" ? `<span class="goal-token" aria-hidden="true">${levelIcon(level)}</span>` : ""}</button>`;
           }).join("")).join("")}
         </div>
         <div class="labyrinth-controls" aria-label="Управление лабиринтом"><span></span><button data-move="up" type="button" aria-label="Идти вверх">↑</button><span></span><button data-move="left" type="button" aria-label="Идти влево">←</button><button data-move="down" type="button" aria-label="Идти вниз">↓</button><button data-move="right" type="button" aria-label="Идти вправо">→</button></div>
         <div class="labyrinth-underboard"><span aria-hidden="true">❧</span> Не торопись — в каждой тропинке можно подумать ещё раз.</div>
       </section>
-      <section id="labyrinthResult" class="labyrinth-result ${game.completed ? "is-visible" : ""}" ${game.completed ? "" : "hidden"} aria-live="polite">
+      <section id="labyrinthResult" class="labyrinth-result ${game.completed ? "is-visible" : ""}" ${game.completed ? "" : "hidden"} aria-live="polite" tabindex="-1">
         <div class="labyrinth-result__mark" aria-hidden="true">${levelIcon(level)}</div><p class="labyrinth-kicker">ДОБРАЯ НАХОДКА</p><h2>Находка найдена!</h2><p>${hero().title} наш${state.hero === "fox" ? "ёл" : "ёл"} ${level.finding} и оставил${state.hero === "fox" ? "" : ""} на карте свой след.</p><p class="labyrinth-result__steps">Пройдено шагов: <strong>${game.moves}</strong></p><div><button class="labyrinth-primary" data-action="again" type="button">Пройти ещё раз</button><button class="labyrinth-secondary" data-action="choose" type="button">Другая тропинка</button></div>
       </section>`;
-    if (game.completed) document.querySelector("#labyrinthResult")?.focus?.({ preventScroll: true });
+    if (game.completed) { app.querySelector("#labyrinthResult")?.focus({ preventScroll: true }); return; }
+    app.querySelector(focusSelector || ".labyrinth-tile.is-hero")?.focus({ preventScroll: true });
   }
 
   function start() { state.game = engine.createState(state.levelId, state.hero); renderGame(); document.querySelector("#labyrinthBoard button")?.focus({ preventScroll: true }); }
-  function move(direction) { state.game = engine.move(state.game, direction); if (state.game.completed && !state.completed.includes(state.levelId)) { state.completed.push(state.levelId); saveProgress(); } renderGame(); }
+  function focusSelectorForActiveElement() {
+    const active = document.activeElement;
+    if (active?.dataset?.move) return `[data-move="${active.dataset.move}"]`;
+    if (active?.dataset?.row) return `[data-row="${active.dataset.row}"][data-column="${active.dataset.column}"]`;
+    return ".labyrinth-tile.is-hero";
+  }
+  function move(direction, focusSelector = focusSelectorForActiveElement()) { state.game = engine.move(state.game, direction); if (state.game.completed && !state.completed.includes(state.levelId)) { state.completed.push(state.levelId); saveProgress(); } renderGame(focusSelector); }
   function moveTo(row, column) {
     const distance = Math.abs(state.game.position.row - row) + Math.abs(state.game.position.column - column);
-    if (distance !== 1) { state.game = { ...state.game, message: "Идти можно только по соседней клетке." }; renderGame(); return; }
-    if (row < state.game.position.row) move("up"); else if (row > state.game.position.row) move("down"); else if (column < state.game.position.column) move("left"); else move("right");
+    const focusSelector = `[data-row="${row}"][data-column="${column}"]`;
+    if (distance !== 1) { state.game = { ...state.game, message: "Идти можно только по соседней клетке." }; renderGame(focusSelector); return; }
+    if (row < state.game.position.row) move("up", focusSelector); else if (row > state.game.position.row) move("down", focusSelector); else if (column < state.game.position.column) move("left", focusSelector); else move("right", focusSelector);
   }
 
   app.addEventListener("click", (event) => {

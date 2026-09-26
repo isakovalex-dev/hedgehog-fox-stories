@@ -32,3 +32,22 @@ test("the phone layout keeps the four movement buttons visible and tappable", as
     expect(box?.height).toBeGreaterThanOrEqual(44);
   }
 });
+
+test("keeps a control focused, gives the same hint for wall taps, and focuses the reward", async ({ page }) => {
+  await page.goto("/labyrinth.html", { waitUntil: "networkidle" });
+  await page.getByRole("button", { name: "Отправиться в лабиринт" }).click();
+
+  const right = page.getByRole("button", { name: "Идти вправо" });
+  await right.focus();
+  await right.press("Enter");
+  await expect(right).toBeFocused();
+  await right.press("Enter");
+  await expect(page.locator(".game-counter strong")).toHaveText("2");
+
+  await page.locator('#labyrinthBoard [data-row="0"][data-column="3"]').click();
+  await expect(page.locator("#labyrinthStatus")).toHaveText("Там густые кусты. Попробуй другую тропинку.");
+
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator("#labyrinthResult")).toBeFocused();
+});
