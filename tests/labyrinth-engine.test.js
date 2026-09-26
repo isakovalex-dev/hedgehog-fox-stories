@@ -34,5 +34,18 @@ test("every trail has a passable start and finding inside its map", () => {
     const state = createState(level.id, "hedgehog");
     assert.equal(level.map[state.position.row][state.position.column], "S");
     assert.equal(level.map[state.goal.row][state.goal.column], "G");
+
+    const queue = [state.position];
+    const visited = new Set([`${state.position.row}:${state.position.column}`]);
+    while (queue.length) {
+      const current = queue.shift();
+      for (const next of [[current.row - 1, current.column], [current.row + 1, current.column], [current.row, current.column - 1], [current.row, current.column + 1]]) {
+        const [row, column] = next;
+        const key = `${row}:${column}`;
+        if (visited.has(key) || level.map[row]?.[column] === "#") continue;
+        visited.add(key); queue.push({ row, column });
+      }
+    }
+    assert.ok(visited.has(`${state.goal.row}:${state.goal.column}`), `${level.id} should have a route to its finding`);
   }
 });

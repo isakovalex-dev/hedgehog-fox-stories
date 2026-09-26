@@ -18,3 +18,17 @@ test("a child can choose a hero, pass an easy trail by keyboard, and see a gentl
   await expect(page.locator("#labyrinthResult")).toBeVisible();
   await expect(page.locator("#labyrinthResult")).toContainText("Находка найдена");
 });
+
+test("the phone layout keeps the four movement buttons visible and tappable", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/labyrinth.html", { waitUntil: "networkidle" });
+  await page.getByRole("button", { name: "Отправиться в лабиринт" }).click();
+
+  for (const direction of ["вверх", "влево", "вниз", "вправо"]) {
+    const control = page.getByRole("button", { name: `Идти ${direction}` });
+    await expect(control).toBeVisible();
+    const box = await control.boundingBox();
+    expect(box?.width).toBeGreaterThanOrEqual(44);
+    expect(box?.height).toBeGreaterThanOrEqual(44);
+  }
+});
