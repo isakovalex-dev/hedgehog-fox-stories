@@ -1,18 +1,812 @@
-:root { color-scheme: light; }
+:root {
+  color-scheme: light;
+  --paper: #f7f0df;
+  --paper-bright: #fffaf0;
+  --ink: #403e32;
+  --pine: #40553d;
+  --moss: #71855e;
+  --moss-light: #a5b083;
+  --ochre: #c6924c;
+  --line: rgba(136, 111, 68, .38);
+  --shadow: rgba(69, 55, 33, .16);
+}
+
 * { box-sizing: border-box; }
-body.labyrinth-page { min-width: 320px; margin: 0; color: #403b31; background: #fbf7ed; font-family: Arial, sans-serif; }
-.labyrinth-page::before { position: fixed; z-index: -1; inset: 0; opacity: .35; background-image: radial-gradient(rgba(89, 75, 43, .12) .65px, transparent .65px); background-size: 5px 5px; content: ""; pointer-events: none; }
-.labyrinth-skip { position: fixed; z-index: 10; top: 10px; left: 10px; padding: 10px 14px; color: #fffaf0; background: #40553d; transform: translateY(-150%); }.labyrinth-skip:focus { transform: translateY(0); }
-.labyrinth-header { display: flex; align-items: center; justify-content: space-between; width: min(1160px, calc(100% - 40px)); min-height: 84px; margin: 0 auto; border-bottom: 1px solid rgba(145, 125, 81, .35); }
-.labyrinth-brand { display: inline-flex; align-items: center; gap: 7px; color: #403b31; font: 500 clamp(24px, 3vw, 34px)/1 Georgia, serif; letter-spacing: -.055em; text-decoration: none; }.labyrinth-brand__mark { color: #758b5f; font-size: 29px; transform: rotate(-18deg); }.labyrinth-back,.labyrinth-text-button { color: #40553d; font: 600 14px/1 Arial, sans-serif; text-decoration: none; }.labyrinth-text-button { padding: 0; border: 0; background: transparent; cursor: pointer; }
-.labyrinth-app { width: min(1160px, calc(100% - 40px)); margin: 0 auto; padding: clamp(28px, 6vw, 78px) 0 72px; }.labyrinth-app:focus { outline: 0; }
-.labyrinth-intro { display: grid; grid-template-columns: minmax(0, .94fr) minmax(390px, 1.06fr); overflow: hidden; min-height: 440px; border: 1px solid rgba(145, 125, 81, .45); border-radius: 20px; background: #f6efd9; box-shadow: 0 16px 48px rgba(73, 59, 34, .13); }
-.labyrinth-intro__copy { display: flex; position: relative; z-index: 1; flex-direction: column; justify-content: center; padding: clamp(34px, 5.4vw, 76px); }.labyrinth-kicker { margin: 0; color: #71855e; font-size: 11px; font-weight: 700; letter-spacing: .13em; }.labyrinth-intro h1,.labyrinth-section-heading h2,.game-heading h1,.labyrinth-result h2 { margin: 12px 0 18px; color: #40553d; font: 500 clamp(43px, 6.1vw, 78px)/.93 Georgia, serif; letter-spacing: -.07em; }.labyrinth-lead { max-width: 430px; margin: 0; font-size: 16px; line-height: 1.62; }.labyrinth-intro__art { position: relative; overflow: hidden; min-height: 360px; background: #cad8b9; }.labyrinth-intro__art::after { position: absolute; inset: 0; background: linear-gradient(90deg, #f6efd9 0%, transparent 25%, rgba(91, 116, 81, .08)); content: ""; pointer-events: none; }.labyrinth-intro__art img { width: 100%; height: 100%; object-fit: cover; object-position: 52% 60%; mix-blend-mode: multiply; }
-.labyrinth-trail { display: flex; align-items: center; gap: 8px; margin-top: 32px; color: #b29565; }.labyrinth-trail i { width: 34px; border-top: 2px dotted currentColor; }.labyrinth-trail span { font-size: 13px; }.labyrinth-trail span:nth-of-type(even) { transform: translateY(9px); }
-.labyrinth-picker { margin-top: clamp(48px, 7vw, 92px); }.labyrinth-section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 22px; }.labyrinth-section-heading h2 { margin: 7px 0 25px; font-size: clamp(34px, 4.4vw, 53px); }.hero-choice-grid,.level-choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }.hero-choice,.level-choice { display: flex; position: relative; align-items: center; min-height: 146px; padding: 20px; border: 1px solid rgba(155, 128, 78, .42); border-radius: 16px; color: #403b31; background: rgba(255, 252, 243, .7); box-shadow: 0 8px 18px rgba(73, 59, 34, .05); cursor: pointer; text-align: left; transition: transform .18s ease, border-color .18s ease, background .18s ease; }.hero-choice:hover,.level-choice:hover { border-color: #70865e; transform: translateY(-3px); }.hero-choice.is-selected,.level-choice.is-selected { border: 2px solid #617954; background: #f1eedc; box-shadow: 0 10px 23px rgba(73, 59, 34, .12); }.hero-choice__portrait { display: grid; flex: 0 0 94px; width: 94px; height: 94px; margin-right: 18px; border: 1px solid rgba(90, 73, 44, .24); border-radius: 50%; color: #fffaf0; font: 500 53px/1 Georgia, serif; place-items: center; }.hero-choice--hedgehog .hero-choice__portrait,.hero-token--hedgehog { background: #806046; }.hero-choice--fox .hero-choice__portrait,.hero-token--fox { background: #c97435; }.hero-choice__copy { display: grid; gap: 7px; }.hero-choice__copy strong,.level-choice strong { color: #40553d; font: 500 25px/1 Georgia, serif; }.hero-choice__copy span { font-size: 13px; line-height: 1.45; }.hero-choice__check { position: absolute; top: 14px; right: 16px; color: #617954; font-size: 22px; font-weight: 700; }
-.labyrinth-picker--levels { padding-top: 40px; border-top: 1px dashed rgba(145, 125, 81, .6); }.level-choice-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }.level-choice { align-items: flex-start; min-height: 128px; gap: 13px; }.level-choice__icon { display: grid; flex: 0 0 42px; width: 42px; height: 42px; border-radius: 50%; color: #40553d; background: #e7ddb9; font: 28px/1 Georgia, serif; place-items: center; }.level-choice span:not(.level-choice__icon) { display: grid; gap: 7px; }.level-choice small { font-size: 12px; line-height: 1.4; }.level-choice em { position: absolute; right: 13px; bottom: 12px; color: #637a54; font-size: 11px; font-style: normal; font-weight: 700; }.labyrinth-ready { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-top: 25px; padding: 20px 22px; border-radius: 14px; background: #ece6ce; }.labyrinth-ready p { display: flex; align-items: center; gap: 9px; margin: 0; font-size: 14px; }.hero-token { display: inline-grid; width: 34px; height: 34px; border: 2px solid rgba(255, 250, 240, .75); border-radius: 50%; color: #fffaf0; font: 500 19px/1 Georgia, serif; place-items: center; }.labyrinth-primary,.labyrinth-secondary { min-height: 47px; padding: 0 19px; border-radius: 11px; font: 700 14px/1 Arial, sans-serif; cursor: pointer; }.labyrinth-primary { border: 1px solid #40553d; color: #fffaf0; background: #40553d; box-shadow: 0 7px 13px rgba(48, 67, 46, .18); }.labyrinth-primary:hover { background: #536d4e; }.labyrinth-secondary { border: 1px solid #9b875f; color: #4a493b; background: transparent; }.labyrinth-secondary:hover { background: #f8f0d9; }
-.labyrinth-game-shell { max-width: 880px; margin: 0 auto; }.game-topline { display: flex; align-items: center; justify-content: space-between; padding-bottom: 18px; border-bottom: 1px solid rgba(145, 125, 81, .35); color: #7c7058; font-size: 12px; }.game-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 22px; margin-top: 30px; }.game-heading h1 { margin-bottom: 0; font-size: clamp(40px, 5vw, 64px); }.game-counter { min-width: 75px; padding: 10px; border-radius: 12px; color: #40553d; background: #ede6cd; text-align: center; }.game-counter span,.game-counter strong { display: block; }.game-counter span { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }.game-counter strong { margin-top: 3px; font: 500 30px/1 Georgia, serif; }.labyrinth-game-copy { max-width: 590px; margin: 22px 0 8px; line-height: 1.55; }.labyrinth-game-copy kbd { padding: 2px 5px; border: 1px solid #c8b78e; border-radius: 4px; background: #fffaf0; font: 12px Arial, sans-serif; }.labyrinth-status { min-height: 27px; margin: 0; color: #617954; font-size: 14px; font-weight: 700; }
-.labyrinth-board { display: grid; grid-template-columns: repeat(var(--maze-columns), 1fr); width: min(100%, 620px); aspect-ratio: 1.25; margin: 16px auto 21px; padding: clamp(13px, 3vw, 26px); border: 12px solid #d2bf8d; border-radius: 24px; background: #f6edcf; box-shadow: inset 0 0 0 2px rgba(134, 112, 67, .25), 0 12px 26px rgba(73, 59, 34, .15); }.labyrinth-wall { display: block; min-width: 0; min-height: 0; margin: 4px; border: 0; border-radius: 7px; background: #758b5f; box-shadow: inset 0 -4px rgba(53, 74, 48, .18); cursor: pointer; }.labyrinth-tile { display: grid; min-width: 0; min-height: 0; margin: 2px; border: 0; border-radius: 8px; background: #fbf7e9; cursor: pointer; place-items: center; }.labyrinth-tile:hover { background: #eee2bd; }.labyrinth-tile:focus-visible,.labyrinth-wall:focus-visible,.labyrinth-controls button:focus-visible,.hero-choice:focus-visible,.level-choice:focus-visible,.labyrinth-primary:focus-visible,.labyrinth-secondary:focus-visible,.labyrinth-text-button:focus-visible { outline: 3px solid #c78345; outline-offset: 3px; }.labyrinth-tile.is-hero { background: #e6dcc0; }.goal-token { display: grid; width: clamp(24px, 4vw, 38px); height: clamp(24px, 4vw, 38px); border-radius: 50%; color: #79562d; background: #f3cb70; font: 22px/1 Georgia, serif; place-items: center; }.labyrinth-controls { display: grid; grid-template-columns: repeat(3, 52px); justify-content: center; gap: 7px; }.labyrinth-controls button { min-height: 47px; border: 1px solid rgba(102, 124, 83, .6); border-radius: 12px; color: #40553d; background: #f8f2df; font-size: 24px; cursor: pointer; }.labyrinth-controls button:hover { background: #e7ddb9; }.labyrinth-underboard { margin-top: 18px; color: #70664f; font-size: 13px; text-align: center; }.labyrinth-underboard span { color: #71855e; font-size: 20px; }
-.labyrinth-result { max-width: 630px; margin: 40px auto 0; padding: 39px 30px; border: 1px solid rgba(149, 123, 73, .48); border-radius: 20px; background: #f7efd9; box-shadow: 0 16px 32px rgba(73, 59, 34, .14); text-align: center; }.labyrinth-result[hidden] { display: none; }.labyrinth-result__mark { display: grid; width: 78px; height: 78px; margin: 0 auto 20px; border-radius: 50%; color: #79562d; background: #f0c96f; font: 42px/1 Georgia, serif; place-items: center; }.labyrinth-result h2 { margin: 8px 0 13px; font-size: clamp(38px, 5vw, 56px); }.labyrinth-result p { max-width: 430px; margin: 0 auto; line-height: 1.55; }.labyrinth-result__steps { margin-top: 12px !important; color: #617954; }.labyrinth-result > div:last-child { display: flex; justify-content: center; gap: 10px; margin-top: 25px; }
-@media (max-width: 760px) { .labyrinth-header,.labyrinth-app { width: min(100% - 28px, 600px); }.labyrinth-header { min-height: 68px; }.labyrinth-brand { font-size: 25px; }.labyrinth-back { font-size: 12px; }.labyrinth-app { padding-top: 27px; }.labyrinth-intro { grid-template-columns: 1fr; }.labyrinth-intro__copy { min-height: 350px; padding: 37px 25px; }.labyrinth-intro h1 { font-size: 53px; }.labyrinth-intro__art { min-height: 250px; }.labyrinth-intro__art::after { background: linear-gradient(0deg, #f6efd9 0%, transparent 35%); }.hero-choice-grid,.level-choice-grid { grid-template-columns: 1fr; }.hero-choice,.level-choice { min-height: 113px; }.hero-choice__portrait { flex-basis: 72px; width: 72px; height: 72px; margin-right: 13px; font-size: 43px; }.hero-choice__copy strong,.level-choice strong { font-size: 22px; }.labyrinth-ready { align-items: stretch; flex-direction: column; }.labyrinth-ready .labyrinth-primary { width: 100%; }.game-heading { align-items: flex-start; }.labyrinth-board { border-width: 8px; border-radius: 18px; }.labyrinth-result { padding: 31px 20px; }.labyrinth-result > div:last-child { flex-direction: column; }.labyrinth-primary,.labyrinth-secondary { width: 100%; } }
-@media (prefers-reduced-motion: reduce) { *,*::before,*::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
+
+body.labyrinth-page {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  color: var(--ink);
+  background:
+    radial-gradient(ellipse at 10% 0%, rgba(255, 255, 255, .78), transparent 30%),
+    radial-gradient(ellipse at 100% 100%, rgba(231, 211, 159, .24), transparent 35%),
+    var(--paper);
+  font-family: "Avenir Next", "Trebuchet MS", Arial, sans-serif;
+}
+
+body.labyrinth-page::before {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  opacity: .31;
+  background-image: radial-gradient(rgba(88, 70, 38, .16) .6px, transparent .7px);
+  background-size: 5px 5px;
+  content: "";
+  pointer-events: none;
+}
+
+button,
+a { -webkit-tap-highlight-color: transparent; }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.labyrinth-skip {
+  position: fixed;
+  z-index: 30;
+  top: 10px;
+  left: 10px;
+  padding: 10px 14px;
+  color: var(--paper-bright);
+  background: var(--pine);
+  border-radius: 8px;
+  transform: translateY(-180%);
+}
+
+.labyrinth-skip:focus { transform: translateY(0); }
+
+.labyrinth-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: min(1180px, calc(100% - 40px));
+  min-height: 84px;
+  margin: 0 auto;
+  border-bottom: 1px solid var(--line);
+}
+
+.labyrinth-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font: 500 clamp(24px, 3vw, 35px)/1 Georgia, "Times New Roman", serif;
+  letter-spacing: -.065em;
+  text-decoration: none;
+}
+
+.labyrinth-brand__mark {
+  color: var(--moss);
+  font-size: 30px;
+  transform: rotate(-18deg);
+}
+
+.labyrinth-back,
+.labyrinth-text-button {
+  color: var(--pine);
+  font: 700 13px/1 "Avenir Next", Arial, sans-serif;
+  text-decoration: none;
+}
+
+.labyrinth-text-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.labyrinth-app {
+  width: min(1180px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: clamp(28px, 6vw, 78px) 0 74px;
+}
+
+.labyrinth-app:focus { outline: 0; }
+
+.labyrinth-kicker {
+  margin: 0;
+  color: var(--moss);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .15em;
+}
+
+.labyrinth-intro {
+  display: grid;
+  grid-template-columns: minmax(0, .95fr) minmax(420px, 1.05fr);
+  overflow: hidden;
+  min-height: 442px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: rgba(250, 244, 226, .76);
+  box-shadow: 0 18px 48px var(--shadow);
+}
+
+.labyrinth-intro__copy {
+  display: flex;
+  position: relative;
+  z-index: 1;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(35px, 5.7vw, 76px);
+}
+
+.labyrinth-intro h1,
+.labyrinth-section-heading h2,
+.game-heading h1,
+.labyrinth-result h2,
+.labyrinth-encounter h2 {
+  margin: 12px 0 18px;
+  color: var(--pine);
+  font: 500 clamp(42px, 6vw, 76px)/.94 Georgia, "Times New Roman", serif;
+  letter-spacing: -.07em;
+}
+
+.labyrinth-lead {
+  max-width: 455px;
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+.labyrinth-intro__art {
+  position: relative;
+  overflow: hidden;
+  min-height: 360px;
+  background: #d4dbc6;
+}
+
+.labyrinth-intro__art::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, #f8f2df 0%, rgba(248, 242, 223, .22) 24%, transparent 52%);
+  content: "";
+  pointer-events: none;
+}
+
+.labyrinth-intro__art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 55% 58%;
+  mix-blend-mode: multiply;
+}
+
+.labyrinth-trail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 33px;
+  color: #b79358;
+}
+
+.labyrinth-trail i { width: 34px; border-top: 2px dotted currentColor; }
+.labyrinth-trail span { font-size: 17px; }
+.labyrinth-trail span:nth-of-type(even) { transform: translateY(9px); }
+
+.labyrinth-picker { margin-top: clamp(48px, 7vw, 92px); }
+
+.labyrinth-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 22px;
+}
+
+.labyrinth-section-heading h2 {
+  margin: 7px 0 25px;
+  font-size: clamp(34px, 4.4vw, 53px);
+}
+
+.hero-choice-grid,
+.level-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.hero-choice,
+.level-choice {
+  display: flex;
+  position: relative;
+  align-items: center;
+  min-height: 144px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  color: var(--ink);
+  background: rgba(255, 252, 243, .72);
+  box-shadow: 0 9px 20px rgba(73, 59, 34, .055);
+  cursor: pointer;
+  text-align: left;
+  transition: transform .18s ease, border-color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+
+.hero-choice::after,
+.level-choice::after {
+  position: absolute;
+  right: 13px;
+  bottom: 10px;
+  color: rgba(113, 133, 94, .4);
+  content: "❧";
+  font-size: 17px;
+}
+
+.hero-choice:hover,
+.level-choice:hover {
+  border-color: var(--moss);
+  background: rgba(255, 252, 243, .95);
+  box-shadow: 0 13px 25px rgba(73, 59, 34, .11);
+  transform: translateY(-3px);
+}
+
+.hero-choice.is-selected,
+.level-choice.is-selected {
+  border: 2px solid var(--moss);
+  background: #f0efd9;
+  box-shadow: 0 12px 25px rgba(73, 59, 34, .12);
+}
+
+.hero-choice__portrait {
+  display: grid;
+  position: relative;
+  flex: 0 0 94px;
+  width: 94px;
+  height: 94px;
+  margin-right: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(90, 73, 44, .24);
+  border-radius: 50%;
+  place-items: center;
+}
+
+.hero-choice__portrait::before {
+  position: absolute;
+  inset: 0;
+  opacity: .28;
+  background: url("assets/labyrinth/forest-friends.png") 52% 57% / 220% auto no-repeat;
+  content: "";
+}
+
+.hero-choice__portrait i {
+  position: relative;
+  z-index: 1;
+  color: var(--paper-bright);
+  font: 500 52px/1 Georgia, serif;
+  font-style: normal;
+  text-shadow: 0 2px 5px rgba(54, 43, 26, .3);
+}
+
+.hero-choice--hedgehog .hero-choice__portrait,
+.hero-token--hedgehog { background-color: #806046; }
+
+.hero-choice--fox .hero-choice__portrait,
+.hero-token--fox { background-color: #c87937; }
+
+.hero-choice__copy { display: grid; gap: 7px; }
+.hero-choice__copy strong,
+.level-choice strong { color: var(--pine); font: 500 25px/1 Georgia, serif; }
+.hero-choice__copy span { font-size: 13px; line-height: 1.48; }
+.hero-choice__check { position: absolute; top: 13px; right: 16px; color: var(--moss); font-size: 22px; font-weight: 800; }
+
+.labyrinth-picker--levels {
+  padding-top: 40px;
+  border-top: 1px dashed rgba(145, 125, 81, .6);
+}
+
+.level-choice-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.level-choice { align-items: flex-start; min-height: 130px; gap: 13px; }
+
+.level-choice__icon {
+  display: grid;
+  flex: 0 0 43px;
+  width: 43px;
+  height: 43px;
+  border: 1px solid rgba(126, 98, 51, .3);
+  border-radius: 50%;
+  color: #7b5a32;
+  background: #eddbac;
+  font: 26px/1 Georgia, serif;
+  place-items: center;
+}
+
+.level-choice span:not(.level-choice__icon) { display: grid; gap: 7px; }
+.level-choice small { font-size: 12px; line-height: 1.4; }
+.level-choice em { position: absolute; right: 14px; bottom: 13px; color: var(--moss); font-size: 11px; font-style: normal; font-weight: 800; }
+
+.labyrinth-ready {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 25px;
+  padding: 20px 22px;
+  border: 1px solid rgba(136, 111, 68, .25);
+  border-radius: 15px;
+  background: rgba(235, 230, 204, .85);
+}
+
+.labyrinth-ready p { display: flex; align-items: center; gap: 9px; margin: 0; font-size: 14px; }
+
+.hero-token {
+  display: inline-grid;
+  width: 38px;
+  height: 38px;
+  border: 2px solid rgba(255, 250, 240, .85);
+  border-radius: 50%;
+  color: var(--paper-bright);
+  box-shadow: 0 3px 8px rgba(52, 42, 24, .26);
+  font: 500 20px/1 Georgia, serif;
+  place-items: center;
+}
+
+.labyrinth-primary,
+.labyrinth-secondary {
+  min-height: 48px;
+  padding: 0 20px;
+  border-radius: 12px;
+  font: 800 14px/1 "Avenir Next", Arial, sans-serif;
+  cursor: pointer;
+  transition: transform .15s ease, background .15s ease;
+}
+
+.labyrinth-primary {
+  border: 1px solid var(--pine);
+  color: var(--paper-bright);
+  background: linear-gradient(135deg, #4d6848, #385039);
+  box-shadow: 0 7px 14px rgba(48, 67, 46, .2);
+}
+
+.labyrinth-primary:hover { background: linear-gradient(135deg, #627c57, #405b40); transform: translateY(-1px); }
+.labyrinth-secondary { border: 1px solid #a58a57; color: var(--ink); background: rgba(255, 250, 238, .72); }
+.labyrinth-secondary:hover { background: #f8f0d9; }
+
+.game-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+  color: #7c7058;
+  font-size: 12px;
+}
+
+.labyrinth-game-shell { max-width: 960px; margin: 0 auto; }
+
+.game-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 22px;
+  margin-top: 30px;
+}
+
+.game-heading h1 { margin-bottom: 0; font-size: clamp(39px, 5vw, 64px); }
+
+.game-counter {
+  min-width: 79px;
+  padding: 10px;
+  border: 1px solid rgba(133, 110, 68, .25);
+  border-radius: 13px;
+  color: var(--pine);
+  background: rgba(237, 230, 205, .82);
+  text-align: center;
+}
+
+.game-counter span,
+.game-counter strong { display: block; }
+.game-counter span { font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.game-counter strong { margin-top: 3px; font: 500 31px/1 Georgia, serif; }
+
+.labyrinth-game-copy { max-width: 670px; margin: 22px 0 8px; line-height: 1.58; }
+
+.labyrinth-game-copy kbd {
+  padding: 2px 5px;
+  border: 1px solid #c8b78e;
+  border-radius: 4px;
+  background: #fffaf0;
+  font: 12px Arial, sans-serif;
+}
+
+.labyrinth-status { min-height: 27px; margin: 0; color: #617954; font-size: 14px; font-weight: 800; }
+
+.labyrinth-map-frame {
+  position: relative;
+  width: min(100%, 830px);
+  margin: 9px auto 22px;
+  padding: clamp(27px, 5vw, 46px) clamp(16px, 4vw, 42px) clamp(20px, 4vw, 37px);
+  overflow: hidden;
+  border: 12px solid #d4bf8d;
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(255, 250, 232, .68), rgba(230, 221, 187, .32)),
+    url("assets/labyrinth/forest-friends.png") center 57% / cover;
+  box-shadow: inset 0 0 0 2px rgba(104, 82, 43, .3), 0 15px 30px var(--shadow);
+}
+
+.labyrinth-map-frame::before {
+  position: absolute;
+  z-index: 0;
+  inset: 11px;
+  border: 1px dashed rgba(94, 100, 63, .48);
+  border-radius: 17px;
+  content: "";
+  pointer-events: none;
+}
+
+.labyrinth-map-caption {
+  display: flex;
+  position: relative;
+  z-index: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin-bottom: 11px;
+  color: #665b42;
+  font: italic 13px/1 Georgia, serif;
+  letter-spacing: .04em;
+}
+
+.labyrinth-map-caption i { color: var(--moss); font-size: 19px; font-style: normal; }
+
+.labyrinth-board {
+  display: grid;
+  position: relative;
+  z-index: 1;
+  grid-template-columns: repeat(var(--maze-columns), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--maze-rows), minmax(0, 1fr));
+  width: 100%;
+  aspect-ratio: var(--maze-columns) / var(--maze-rows);
+  overflow: hidden;
+  border: 1px solid rgba(74, 91, 56, .48);
+  border-radius: 16px;
+  background:
+    linear-gradient(rgba(244, 239, 212, .2), rgba(177, 195, 165, .18)),
+    url("assets/labyrinth/forest-friends.png") center 57% / cover;
+  box-shadow: 0 4px 16px rgba(56, 51, 32, .16), inset 0 0 40px rgba(80, 86, 52, .15);
+  touch-action: none;
+}
+
+.labyrinth-tile {
+  display: grid;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid rgba(98, 91, 58, .1);
+  color: var(--pine);
+  background: rgba(250, 241, 211, .26);
+  cursor: pointer;
+  place-items: center;
+  transition: background .22s ease, opacity .22s ease;
+}
+
+.labyrinth-tile.is-discovered:not(.labyrinth-wall)::before {
+  position: absolute;
+  inset: 10%;
+  border: 1px dashed rgba(154, 118, 59, .42);
+  border-radius: 42% 57% 44% 50%;
+  content: "";
+  opacity: .55;
+  pointer-events: none;
+}
+
+.labyrinth-tile.is-discovered:not(.labyrinth-wall) { background: rgba(255, 246, 220, .38); }
+.labyrinth-tile.is-discovered:not(.labyrinth-wall):hover { background: rgba(255, 250, 230, .66); }
+
+.labyrinth-wall {
+  background:
+    radial-gradient(circle at 23% 22%, rgba(182, 191, 125, .92) 0 10%, transparent 11%),
+    radial-gradient(circle at 72% 28%, rgba(86, 109, 62, .96) 0 17%, transparent 18%),
+    radial-gradient(circle at 42% 76%, rgba(70, 92, 59, .96) 0 21%, transparent 22%),
+    linear-gradient(125deg, #6f8558, #456043);
+}
+
+.labyrinth-wall.is-discovered { box-shadow: inset 0 -8px rgba(43, 66, 40, .15); }
+
+.labyrinth-tile.is-fogged {
+  border-color: rgba(237, 243, 226, .62);
+  background: rgba(196, 207, 187, .34);
+}
+
+.labyrinth-tile.is-fogged::after {
+  position: absolute;
+  z-index: 3;
+  inset: -11%;
+  background:
+    radial-gradient(ellipse at 24% 28%, rgba(245, 246, 232, .96) 0 27%, transparent 28%),
+    radial-gradient(ellipse at 72% 42%, rgba(236, 240, 224, .95) 0 34%, transparent 35%),
+    radial-gradient(ellipse at 42% 80%, rgba(222, 232, 214, .97) 0 30%, transparent 31%),
+    rgba(184, 200, 179, .81);
+  box-shadow: inset 0 0 18px rgba(121, 141, 115, .35);
+  content: "";
+  pointer-events: none;
+}
+
+.labyrinth-tile.is-fogged > * { opacity: 0; }
+
+.labyrinth-tile.is-hero {
+  z-index: 2;
+  background: rgba(250, 244, 219, .86);
+  box-shadow: inset 0 0 0 2px rgba(181, 141, 67, .38);
+}
+
+.labyrinth-tile.is-hero::before { opacity: .9; }
+
+.labyrinth-tile .hero-token {
+  position: relative;
+  z-index: 4;
+  grid-area: 1 / 1;
+  width: clamp(29px, 5.6vw, 45px);
+  height: clamp(29px, 5.6vw, 45px);
+  font-size: clamp(16px, 2.8vw, 23px);
+}
+
+.trail-footprint {
+  position: relative;
+  z-index: 1;
+  color: rgba(110, 94, 60, .45);
+  font: 700 clamp(17px, 2.3vw, 28px)/1 Georgia, serif;
+  transform: rotate(-14deg);
+}
+
+.goal-token {
+  display: grid;
+  position: relative;
+  z-index: 4;
+  grid-area: 1 / 1;
+  width: clamp(29px, 5.7vw, 48px);
+  height: clamp(29px, 5.7vw, 48px);
+  border: 2px solid rgba(117, 83, 37, .22);
+  border-radius: 50%;
+  color: #79562d;
+  background: radial-gradient(circle at 35% 30%, #fff3bb, #e9bd58);
+  box-shadow: 0 3px 9px rgba(120, 84, 34, .22);
+  font: clamp(19px, 3.6vw, 29px)/1 Georgia, serif;
+  place-items: center;
+}
+
+.labyrinth-tile.is-hero.is-goal .goal-token {
+  z-index: 3;
+  transform: translate(31%, 29%) scale(.72);
+}
+
+.labyrinth-map-compass {
+  position: absolute;
+  right: clamp(10px, 2vw, 20px);
+  bottom: clamp(7px, 2vw, 15px);
+  z-index: 2;
+  display: grid;
+  width: 47px;
+  height: 47px;
+  border: 1px solid rgba(104, 82, 43, .47);
+  border-radius: 50%;
+  color: #75613d;
+  background: rgba(255, 247, 220, .66);
+  font: 25px/1 Georgia, serif;
+  place-items: center;
+  transform: rotate(-9deg);
+}
+
+.labyrinth-map-compass small { position: absolute; top: 3px; font: 8px/1 Arial, sans-serif; }
+
+.labyrinth-controls {
+  display: grid;
+  grid-template-columns: repeat(3, 54px);
+  justify-content: center;
+  gap: 7px;
+}
+
+.labyrinth-controls button {
+  min-height: 50px;
+  border: 1px solid rgba(102, 124, 83, .6);
+  border-radius: 50%;
+  color: var(--pine);
+  background: rgba(250, 244, 224, .93);
+  box-shadow: 0 4px 8px rgba(86, 69, 38, .1);
+  font-size: 25px;
+  cursor: pointer;
+}
+
+.labyrinth-controls button:hover { background: #e5e3c3; transform: translateY(-1px); }
+
+.labyrinth-underboard { margin-top: 18px; color: #70664f; font-size: 13px; line-height: 1.4; text-align: center; }
+.labyrinth-underboard span { color: var(--moss); font-size: 20px; }
+
+.labyrinth-result {
+  max-width: 650px;
+  margin: 42px auto 0;
+  padding: 40px 31px;
+  border: 1px solid rgba(149, 123, 73, .48);
+  border-radius: 22px;
+  background:
+    linear-gradient(135deg, rgba(255, 251, 235, .89), rgba(242, 229, 184, .78)),
+    url("assets/labyrinth/forest-friends.png") center / cover;
+  box-shadow: 0 16px 32px var(--shadow);
+  text-align: center;
+}
+
+.labyrinth-result[hidden] { display: none; }
+
+.labyrinth-result__mark {
+  display: grid;
+  width: 78px;
+  height: 78px;
+  margin: 0 auto 20px;
+  border: 2px solid rgba(117, 83, 37, .22);
+  border-radius: 50%;
+  color: #79562d;
+  background: radial-gradient(circle at 35% 30%, #fff3bb, #e9bd58);
+  box-shadow: 0 5px 12px rgba(102, 72, 31, .17);
+  font: 42px/1 Georgia, serif;
+  place-items: center;
+}
+
+.labyrinth-result h2 { margin: 8px 0 13px; font-size: clamp(36px, 5vw, 55px); }
+.labyrinth-result p { max-width: 460px; margin: 0 auto; line-height: 1.57; }
+.labyrinth-result__steps { margin-top: 13px !important; color: var(--moss); }
+.labyrinth-result > div:last-child { display: flex; justify-content: center; gap: 10px; margin-top: 25px; }
+
+.labyrinth-encounter-backdrop {
+  display: grid;
+  position: fixed;
+  z-index: 25;
+  inset: 0;
+  padding: 18px;
+  overflow: hidden;
+  background: rgba(33, 49, 38, .45);
+  backdrop-filter: blur(3px);
+  place-items: center;
+}
+
+.labyrinth-encounter {
+  width: min(100%, 460px);
+  max-height: calc(100dvh - 36px);
+  padding: clamp(24px, 5vw, 35px);
+  overflow: hidden;
+  border: 1px solid rgba(131, 102, 55, .65);
+  border-radius: 23px;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, .68), transparent 45%),
+    #f8f0dd;
+  box-shadow: 0 22px 58px rgba(22, 35, 26, .34);
+  text-align: center;
+}
+
+.labyrinth-encounter__topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--moss);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .13em;
+}
+
+.labyrinth-encounter__topline span:last-child { color: #bd8b47; font-size: 19px; }
+
+.labyrinth-encounter__icon {
+  display: grid;
+  width: 65px;
+  height: 65px;
+  margin: 14px auto 3px;
+  border: 1px solid rgba(137, 100, 43, .32);
+  border-radius: 50%;
+  color: #886236;
+  background: radial-gradient(circle at 36% 29%, #fff4c5, #edd283);
+  box-shadow: 0 4px 10px rgba(107, 79, 36, .13);
+  font: 34px/1 Georgia, serif;
+  place-items: center;
+}
+
+.labyrinth-encounter h2 { margin: 11px 0 11px; font-size: clamp(32px, 7vw, 47px); }
+
+.labyrinth-encounter > p:not(.labyrinth-encounter__feedback) {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.labyrinth-answer-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 21px;
+}
+
+.labyrinth-answer {
+  min-height: 50px;
+  border: 1px solid rgba(99, 119, 76, .64);
+  border-radius: 12px;
+  color: var(--pine);
+  background: rgba(255, 251, 237, .88);
+  box-shadow: 0 3px 7px rgba(79, 64, 36, .07);
+  font: 500 24px/1 Georgia, serif;
+  cursor: pointer;
+}
+
+.labyrinth-answer:hover { background: #e9e5c9; transform: translateY(-1px); }
+.labyrinth-encounter__continue { width: 100%; margin-top: 22px; }
+.labyrinth-encounter__feedback { margin: 14px 0 0; color: #9b5937; font-size: 13px; font-weight: 700; }
+
+.labyrinth-tile:focus-visible,
+.labyrinth-controls button:focus-visible,
+.hero-choice:focus-visible,
+.level-choice:focus-visible,
+.labyrinth-primary:focus-visible,
+.labyrinth-secondary:focus-visible,
+.labyrinth-text-button:focus-visible,
+.labyrinth-answer:focus-visible {
+  outline: 3px solid #d39a4e;
+  outline-offset: 3px;
+}
+
+@media (max-width: 760px) {
+  .labyrinth-header,
+  .labyrinth-app { width: min(100% - 28px, 600px); }
+  .labyrinth-header { min-height: 68px; }
+  .labyrinth-brand { font-size: 25px; }
+  .labyrinth-back { font-size: 12px; }
+  .labyrinth-app { padding-top: 27px; }
+  .labyrinth-intro { grid-template-columns: 1fr; }
+  .labyrinth-intro__copy { min-height: 330px; padding: 37px 25px; }
+  .labyrinth-intro h1 { font-size: 52px; }
+  .labyrinth-intro__art { min-height: 240px; }
+  .labyrinth-intro__art::after { background: linear-gradient(0deg, #f7f0df 0%, transparent 35%); }
+  .hero-choice-grid,
+  .level-choice-grid { grid-template-columns: 1fr; }
+  .hero-choice,
+  .level-choice { min-height: 111px; }
+  .hero-choice__portrait { flex-basis: 72px; width: 72px; height: 72px; margin-right: 13px; }
+  .hero-choice__portrait i { font-size: 41px; }
+  .hero-choice__copy strong,
+  .level-choice strong { font-size: 22px; }
+  .labyrinth-ready { align-items: stretch; flex-direction: column; }
+  .labyrinth-ready .labyrinth-primary { width: 100%; }
+  .game-heading { align-items: flex-start; }
+  .game-heading h1 { font-size: clamp(37px, 11.5vw, 52px); }
+  .labyrinth-game-copy { font-size: 14px; }
+  .labyrinth-map-frame { border-width: 8px; border-radius: 21px; }
+  .labyrinth-map-caption { margin-bottom: 8px; font-size: 11px; }
+  .labyrinth-map-compass { width: 37px; height: 37px; font-size: 20px; }
+  .labyrinth-result { padding: 31px 20px; }
+  .labyrinth-result > div:last-child { flex-direction: column; }
+  .labyrinth-primary,
+  .labyrinth-secondary { width: 100%; }
+  .labyrinth-encounter-backdrop { padding: 13px; }
+  .labyrinth-encounter { padding: 23px 20px; border-radius: 20px; }
+  .labyrinth-encounter__icon { width: 57px; height: 57px; margin-top: 10px; font-size: 31px; }
+  .labyrinth-encounter h2 { margin: 9px 0; }
+}
+
+@media (max-width: 390px) {
+  .labyrinth-header,
+  .labyrinth-app { width: min(100% - 22px, 600px); }
+  .labyrinth-brand { font-size: 22px; }
+  .labyrinth-back { font-size: 11px; }
+  .labyrinth-map-frame { padding-right: 12px; padding-left: 12px; }
+  .labyrinth-game-copy kbd { display: none; }
+  .labyrinth-encounter__topline { font-size: 9px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

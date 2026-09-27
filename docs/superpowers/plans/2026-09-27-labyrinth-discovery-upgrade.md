@@ -39,7 +39,7 @@
 
 **Files:**
 - Modify: `labyrinth.html`, `labyrinth.css`, `js/labyrinth-game.js`, `tests/labyrinth.spec.mjs`
-- Create: `assets/labyrinth/forest-friends.webp`
+- Create: `assets/labyrinth/forest-friends.png` (the local system cannot encode WebP; PNG preserves the supplied watercolour artwork)
 
 - [ ] Write failing browser coverage for the entry encounter, fog, a branch modal and final reward.
 - [ ] Run targeted Playwright coverage and verify it fails.
