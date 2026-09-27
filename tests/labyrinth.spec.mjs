@@ -9,9 +9,9 @@ async function openTrail(page, heroId, levelId) {
   await expect(page.locator('[data-screen="play"]')).toHaveAttribute("data-level", levelId);
 }
 
-async function solveEasyEntry(page) {
+async function solveEasyEntry(page, answer = "1") {
   await expect(page.getByRole("dialog", { name: "Записка у входа" })).toBeVisible();
-  await page.locator('[data-answer="1"]').click();
+  await page.locator(`[data-answer="${answer}"]`).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 }
 
@@ -135,4 +135,68 @@ test("keeps four sufficiently large direction buttons tappable on a phone", asyn
     expect(box?.width).toBeGreaterThanOrEqual(44);
     expect(box?.height).toBeGreaterThanOrEqual(44);
   }
+});
+
+test("renders storybook playfield and keeps phone controls in viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await openTrail(page, "hedgehog", "easy");
+
+  await expect(page.locator("#labyrinthBoard")).toHaveAttribute("data-art", "assets/labyrinth/storybook/forest-trail.png");
+  await expect(page.locator(".labyrinth-game-hud")).toBeVisible();
+  await expect(page.locator(".labyrinth-heart-counter")).toHaveAttribute("data-lives", "3");
+  await expect(page.locator(".labyrinth-findings-counter")).toContainText("0/3");
+
+  const viewport = page.viewportSize();
+  const required = [
+    page.getByRole("dialog", { name: "Записка у входа" }),
+    page.getByRole("button", { name: "Идти вверх" }),
+    page.getByRole("button", { name: "Идти влево" }),
+    page.getByRole("button", { name: "Идти вниз" }),
+    page.getByRole("button", { name: "Идти вправо" })
+  ];
+
+  for (const locator of required) {
+    await expect(locator).toBeVisible();
+    const box = await locator.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box?.width).toBeGreaterThanOrEqual(44);
+    expect(box?.height).toBeGreaterThanOrEqual(44);
+    expect(box?.x).toBeGreaterThanOrEqual(0);
+    expect((box?.x || 0) + (box?.width || 0)).toBeLessThanOrEqual(viewport.width);
+    expect(box?.y).toBeGreaterThanOrEqual(0);
+    expect((box?.y || 0) + (box?.height || 0)).toBeLessThanOrEqual(viewport.height);
+  }
+
+  const heroBox = await page.locator('#labyrinthBoard [data-current="true"]').boundingBox();
+  const helpBox = await page.locator(".labyrinth-map-help").boundingBox();
+  expect(heroBox).not.toBeNull();
+  expect(helpBox).not.toBeNull();
+  const helperCoversHero = (heroBox?.x || 0) < (helpBox?.x || 0) + (helpBox?.width || 0)
+    && (heroBox?.x || 0) + (heroBox?.width || 0) > (helpBox?.x || 0)
+    && (heroBox?.y || 0) < (helpBox?.y || 0) + (helpBox?.height || 0)
+    && (heroBox?.y || 0) + (heroBox?.height || 0) > (helpBox?.y || 0);
+  expect(helperCoversHero).toBe(false);
+});
+
+test("places every playable marker on an authored illustrated trail", async ({ page }) => {
+  await openTrail(page, "hedgehog", "medium");
+  await solveEasyEntry(page, "0");
+
+  const markers = page.locator("#labyrinthBoard [data-row]");
+  await expect(markers).toHaveCount(23);
+  const allMarkersUseTrailCoordinates = await markers.evaluateAll((nodes) => nodes.every((node) => (
+    node.hasAttribute("data-path-x")
+      && node.hasAttribute("data-path-y")
+      && node.getAttribute("style")?.includes("--path-x")
+      && node.getAttribute("style")?.includes("--path-y")
+  )));
+  expect(allMarkersUseTrailCoordinates).toBe(true);
+
+  const hero = page.locator('#labyrinthBoard [data-current="true"]');
+  await expect(hero).toHaveAttribute("data-path-x", "12");
+  await expect(hero).toHaveAttribute("data-path-y", "84");
+
+  await page.keyboard.press("ArrowDown");
+  await expect(page.locator('#labyrinthBoard [data-current="true"]')).toHaveAttribute("data-path-x", "17");
+  await expect(page.locator('#labyrinthBoard [data-current="true"]')).toHaveAttribute("data-path-y", "78");
 });
