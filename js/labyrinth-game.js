@@ -107,7 +107,7 @@
     const game = state.game;
     const encounter = activeEncounter();
     app.innerHTML = `
-      <section class="labyrinth-game-shell" aria-labelledby="gameTitle">
+      <section class="labyrinth-game-shell" aria-labelledby="gameTitle" ${encounter ? "inert" : ""}>
         <div class="game-topline"><button class="labyrinth-text-button" data-action="choose" type="button">← Выбрать другую тропинку</button><span>${level.label} · ${level.age}</span></div>
         <div class="game-heading"><div><p class="labyrinth-kicker">КАРТА ПУТЕШЕСТВИЯ</p><h1 id="gameTitle">${level.title}</h1></div><div class="game-counter" aria-label="Количество шагов"><span>Шаги</span><strong>${game.moves}</strong></div></div>
         <p class="labyrinth-game-copy">Туман отступает там, где идёт ${hero().title}. Нажимай стрелки, клавиши <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>, соседнюю тропинку или проведи пальцем по карте.</p>
@@ -230,6 +230,7 @@
     const answer = event.target.closest("[data-answer]");
     if (answer) { completeEncounter(answer.dataset.answer); return; }
     if (event.target.closest("[data-encounter-continue]")) { completeEncounter(); return; }
+    if (state.game?.pendingEncounter) return;
 
     const heroButton = event.target.closest("[data-hero]");
     if (heroButton) { state.hero = heroButton.dataset.hero; renderSelection(); return; }
@@ -246,6 +247,17 @@
   });
 
   document.addEventListener("keydown", (event) => {
+    if (event.key === "Tab" && state.game?.pendingEncounter) {
+      const encounter = app.querySelector(".labyrinth-encounter");
+      const controls = [...(encounter?.querySelectorAll("button:not([disabled])") || [])];
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (first && last && (!encounter.contains(document.activeElement) || (event.shiftKey ? document.activeElement === first : document.activeElement === last))) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+        return;
+      }
+    }
     if (!state.game || state.game.completed || !DIRECTION_BY_KEY[event.key]) return;
     event.preventDefault();
     move(DIRECTION_BY_KEY[event.key]);

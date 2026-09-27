@@ -36,6 +36,31 @@ test("opens the entry puzzle over a foggy illustrated map and keeps it in place"
   await expect(page.locator('#labyrinthBoard [data-row="1"][data-column="3"]')).toHaveAttribute("data-fogged", "false");
 });
 
+test("keeps background actions blocked while the entry encounter is open", async ({ page }) => {
+  await openEasyTrail(page);
+
+  await page.locator('.labyrinth-game-shell [data-action="choose"]').evaluate((button) => button.click());
+
+  await expect(page.getByRole("dialog", { name: "Находка у входа" })).toBeVisible();
+  await expect(page.locator("#labyrinthBoard")).toBeVisible();
+});
+
+test("removes the map controls from the tab order while an encounter is open", async ({ page }) => {
+  await openEasyTrail(page);
+
+  await expect(page.locator(".labyrinth-game-shell")).toHaveAttribute("inert", "");
+});
+
+test("keeps Tab navigation inside an open encounter", async ({ page }) => {
+  await openEasyTrail(page);
+
+  const lastAnswer = page.getByRole("button", { name: "4" });
+  await lastAnswer.focus();
+  await page.keyboard.press("Tab");
+
+  await expect(page.getByRole("button", { name: "2" })).toBeFocused();
+});
+
 test("shows a branch ticket as a modal and reveals the final finding only after the goal", async ({ page }) => {
   await openEasyTrail(page);
   await solveEntryEncounter(page);
