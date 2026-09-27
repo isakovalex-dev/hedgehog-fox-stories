@@ -1,15 +1,17 @@
 import { expect, test } from "@playwright/test";
 
-async function openEasyTrail(page) {
+async function openTrail(page, heroId, levelId) {
   await page.goto("/labyrinth.html", { waitUntil: "networkidle" });
-  await page.getByRole("button", { name: "Лёгкая тропинка" }).click();
-  await page.getByRole("button", { name: "Открыть карту" }).click();
-  await expect(page.locator("#labyrinthBoard")).toBeVisible();
+  await page.locator(`button[data-hero-choice="${heroId}"]`).click();
+  await expect(page.locator('[data-screen="level"]')).toHaveAttribute("data-hero", heroId);
+  await page.locator(`button[data-level-choice="${levelId}"]`).click();
+  await page.getByRole("button", { name: "Начать путь" }).click();
+  await expect(page.locator('[data-screen="play"]')).toHaveAttribute("data-level", levelId);
 }
 
-async function solveEntryEncounter(page) {
-  await expect(page.getByRole("dialog", { name: "Находка у входа" })).toBeVisible();
-  await page.getByRole("button", { name: "3" }).click();
+async function solveEasyEntry(page) {
+  await expect(page.getByRole("dialog", { name: "Записка у входа" })).toBeVisible();
+  await page.locator('[data-answer="1"]').click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 }
 
@@ -17,67 +19,114 @@ async function collectEasyTicket(page) {
   await page.keyboard.press("ArrowRight");
   await page.keyboard.press("ArrowRight");
   await expect(page.getByRole("dialog", { name: "Призовой билетик" })).toBeVisible();
-  await expect(page.locator("#labyrinthBoard")).toBeVisible();
   await page.getByRole("button", { name: "Положить билетик в кармашек" }).click();
 }
 
-test("opens the entry puzzle over a foggy illustrated map and keeps it in place", async ({ page }) => {
-  await openEasyTrail(page);
+test("selects either hero and opens each named storybook trail", async ({ page }) => {
+  const journeys = [
+    ["hedgehog", "easy", "Лесная тропинка"],
+    ["fox", "medium", "Долина ручьёв"],
+    ["hedgehog", "hard", "Горный перевал"]
+  ];
 
-  await expect(page.getByRole("dialog", { name: "Находка у входа" })).toContainText("Сколько находок в корзинке?");
+  for (const [heroId, levelId, title] of journeys) {
+    await openTrail(page, heroId, levelId);
+    const playfield = page.locator('[data-screen="play"]');
+    await expect(playfield).toHaveAttribute("data-hero", heroId);
+    await expect(playfield.getByRole("heading", { name: title })).toBeVisible();
+  }
+});
+
+test("shows a foggy entry map with three hearts and spends one heart for a wrong answer", async ({ page }) => {
+  await openTrail(page, "hedgehog", "easy");
+  const playfield = page.locator('[data-screen="play"]');
+
+  await expect(playfield).toHaveAttribute("data-lives", "3");
+  await expect(playfield).toHaveAttribute("data-finding-count", "0");
   await expect(page.locator('#labyrinthBoard [data-row="1"][data-column="5"]')).toHaveAttribute("data-fogged", "true");
-  await expect(page.locator('#labyrinthBoard [data-row="1"][data-column="5"] .goal-token')).toHaveCount(0);
+  await page.locator('[data-answer="0"]').click();
 
-  await page.keyboard.press("ArrowRight");
-  await expect(page.locator(".game-counter strong")).toHaveText("0");
-  await solveEntryEncounter(page);
-  await page.keyboard.press("ArrowRight");
-  await expect(page.locator(".game-counter strong")).toHaveText("1");
-  await expect(page.locator('#labyrinthBoard [data-row="1"][data-column="3"]')).toHaveAttribute("data-fogged", "false");
+  await expect(playfield).toHaveAttribute("data-lives", "2");
+  await expect(playfield).toHaveAttribute("data-finding-count", "0");
+  await expect(page.locator("[data-move-count]")).toHaveText("0");
+  await expect(page.getByRole("dialog", { name: "Записка у входа" })).toBeVisible();
 });
 
-test("keeps background actions blocked while the entry encounter is open", async ({ page }) => {
-  await openEasyTrail(page);
+test("blocks map actions and keeps Tab inside an open finding dialog", async ({ page }) => {
+  await openTrail(page, "fox", "easy");
 
-  await page.locator('.labyrinth-game-shell [data-action="choose"]').evaluate((button) => button.click());
+  await page.locator('[data-action="back-level"]').evaluate((button) => button.click());
+  await expect(page.getByRole("dialog", { name: "Записка у входа" })).toBeVisible();
+  await expect(page.locator(".labyrinth-playfield")).toHaveAttribute("inert", "");
 
-  await expect(page.getByRole("dialog", { name: "Находка у входа" })).toBeVisible();
-  await expect(page.locator("#labyrinthBoard")).toBeVisible();
-});
-
-test("removes the map controls from the tab order while an encounter is open", async ({ page }) => {
-  await openEasyTrail(page);
-
-  await expect(page.locator(".labyrinth-game-shell")).toHaveAttribute("inert", "");
-});
-
-test("keeps Tab navigation inside an open encounter", async ({ page }) => {
-  await openEasyTrail(page);
-
-  const lastAnswer = page.getByRole("button", { name: "4" });
-  await lastAnswer.focus();
+  await page.locator('[data-answer="2"]').focus();
   await page.keyboard.press("Tab");
-
-  await expect(page.getByRole("button", { name: "2" })).toBeFocused();
+  await expect(page.locator('[data-answer="0"]')).toBeFocused();
 });
 
-test("shows a branch ticket as a modal and reveals the final finding only after the goal", async ({ page }) => {
-  await openEasyTrail(page);
-  await solveEntryEncounter(page);
+test("collects entry, branch, and chest as exactly three findings before the completion screen", async ({ page }) => {
+  await openTrail(page, "hedgehog", "easy");
+  await solveEasyEntry(page);
+  await expect(page.locator('[data-screen="play"]')).toHaveAttribute("data-finding-count", "1");
   await collectEasyTicket(page);
+  await expect(page.locator('[data-screen="play"]')).toHaveAttribute("data-finding-count", "2");
 
   await page.keyboard.press("ArrowRight");
   await page.keyboard.press("ArrowRight");
+  await expect(page.locator('[data-screen="treasure"]')).toHaveAttribute("data-finding-count", "3");
+  await expect(page.getByRole("dialog", { name: "Сундучок лесных секретов" })).toBeVisible();
+  await page.getByRole("button", { name: "Дальше" }).click();
 
-  await expect(page.locator("#labyrinthResult")).toBeVisible();
-  await expect(page.locator("#labyrinthResult")).toContainText("Письмо с добрыми словами");
-  await expect(page.locator("#labyrinthBoard [data-row=\"1\"][data-column=\"5\"] .goal-token")).toBeVisible();
+  await expect(page.locator('[data-screen="complete"]')).toBeVisible();
+  await expect(page.locator('[data-stars="3"]')).toBeVisible();
+  await expect(page.locator("[data-complete-findings]")).toHaveText("3/3");
 });
 
-test("the phone layout keeps the four movement buttons visible and tappable", async ({ page }) => {
+test("shows a pause guide without resetting the journey", async ({ page }) => {
+  await openTrail(page, "fox", "easy");
+  await solveEasyEntry(page);
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator("[data-move-count]")).toHaveText("1");
+
+  await page.getByRole("button", { name: "Пауза" }).click();
+  await expect(page.getByRole("dialog", { name: "Как управлять героем?" })).toBeVisible();
+  await page.getByRole("button", { name: "Продолжить путь" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator("[data-move-count]")).toHaveText("1");
+});
+
+test("supports a real touch swipe and suppresses the following map click", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
-  await openEasyTrail(page);
-  await solveEntryEncounter(page);
+  await openTrail(page, "hedgehog", "easy");
+  await solveEasyEntry(page);
+
+  const heroCell = page.locator('#labyrinthBoard [data-current="true"]');
+  const box = await heroCell.boundingBox();
+  const startX = (box?.x || 0) + (box?.width || 0) / 2;
+  const startY = (box?.y || 0) + (box?.height || 0) / 2;
+  const client = await page.context().newCDPSession(page);
+  await client.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [{ x: startX, y: startY, id: 1, radiusX: 1, radiusY: 1, force: 1 }]
+  });
+  await client.send("Input.dispatchTouchEvent", {
+    type: "touchMove",
+    touchPoints: [{ x: startX + 90, y: startY + 4, id: 1, radiusX: 1, radiusY: 1, force: 1 }]
+  });
+  await client.send("Input.dispatchTouchEvent", {
+    type: "touchEnd",
+    touchPoints: []
+  });
+
+  await expect(page.locator("[data-move-count]")).toHaveText("1");
+  await page.locator('#labyrinthBoard [data-row="1"][data-column="2"]').click();
+  await expect(page.locator("[data-move-count]")).toHaveText("1");
+});
+
+test("keeps four sufficiently large direction buttons tappable on a phone", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await openTrail(page, "hedgehog", "easy");
+  await solveEasyEntry(page);
 
   for (const direction of ["вверх", "влево", "вниз", "вправо"]) {
     const control = page.getByRole("button", { name: `Идти ${direction}` });
@@ -86,42 +135,4 @@ test("the phone layout keeps the four movement buttons visible and tappable", as
     expect(box?.width).toBeGreaterThanOrEqual(44);
     expect(box?.height).toBeGreaterThanOrEqual(44);
   }
-});
-
-test("a finger swipe moves the hero exactly once without a duplicate map click", async ({ page }) => {
-  await page.setViewportSize({ width: 375, height: 812 });
-  await openEasyTrail(page);
-  await solveEntryEncounter(page);
-
-  const board = page.locator("#labyrinthBoard");
-  const box = await board.boundingBox();
-  const startX = (box?.x || 0) + 90;
-  const startY = (box?.y || 0) + 90;
-  await board.dispatchEvent("pointerdown", { pointerId: 1, pointerType: "touch", isPrimary: true, clientX: startX, clientY: startY });
-  await board.dispatchEvent("pointerup", { pointerId: 1, pointerType: "touch", isPrimary: true, clientX: startX + 90, clientY: startY + 4 });
-
-  await expect(page.locator(".game-counter strong")).toHaveText("1");
-  await page.locator('#labyrinthBoard [data-row="1"][data-column="2"]').click();
-  await expect(page.locator(".game-counter strong")).toHaveText("1");
-});
-
-test("keeps a control focused, gives the same hint for wall taps, and focuses the reward", async ({ page }) => {
-  await openEasyTrail(page);
-  await solveEntryEncounter(page);
-
-  const right = page.getByRole("button", { name: "Идти вправо" });
-  await right.focus();
-  await right.press("Enter");
-  await expect(right).toBeFocused();
-  await right.press("Enter");
-  await expect(page.getByRole("dialog", { name: "Призовой билетик" })).toBeVisible();
-  await page.getByRole("button", { name: "Положить билетик в кармашек" }).click();
-  await expect(right).toBeFocused();
-
-  await page.locator('#labyrinthBoard [data-row="0"][data-column="3"]').click();
-  await expect(page.locator("#labyrinthStatus")).toHaveText("Там густые кусты. Попробуй другую тропинку.");
-
-  await page.keyboard.press("ArrowRight");
-  await page.keyboard.press("ArrowRight");
-  await expect(page.locator("#labyrinthResult")).toBeFocused();
 });
