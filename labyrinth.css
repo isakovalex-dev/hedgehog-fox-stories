@@ -474,7 +474,10 @@ a { -webkit-tap-highlight-color: transparent; }
     linear-gradient(rgba(244, 239, 212, .2), rgba(177, 195, 165, .18)),
     url("assets/labyrinth/forest-friends.png") center 57% / cover;
   box-shadow: 0 4px 16px rgba(56, 51, 32, .16), inset 0 0 40px rgba(80, 86, 52, .15);
+  overscroll-behavior: contain;
   touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .labyrinth-tile {

@@ -9,6 +9,7 @@
     hedgehog: { name: "Ежика", title: "Ёжик", mark: "Ё", className: "hedgehog", description: "Добрый и внимательный. Замечает самые тихие тропинки." },
     fox: { name: "Лисёнка", title: "Лисёнок", mark: "Л", className: "fox", description: "Смелый и любопытный. Любит идти навстречу открытиям." }
   };
+  const SWIPE_MIN_DISTANCE = 24;
   const DIRECTION_BY_KEY = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right", w: "up", W: "up", a: "left", A: "left", s: "down", S: "down", d: "right", D: "right", ц: "up", ф: "left", ы: "down", в: "right" };
   const state = {
     hero: "hedgehog",
@@ -16,7 +17,9 @@
     game: null,
     completed: readProgress(),
     encounterError: "",
-    modalReturnFocus: ".labyrinth-tile.is-hero"
+    modalReturnFocus: ".labyrinth-tile.is-hero",
+    pointerStart: null,
+    ignoreBoardClickUntil: 0
   };
 
   function readProgress() {
@@ -190,7 +193,40 @@
     renderGame(focusSelector);
   }
 
+  function directionFromSwipe(deltaX, deltaY) {
+    if (Math.abs(deltaX) >= Math.abs(deltaY)) return deltaX > 0 ? "right" : "left";
+    return deltaY > 0 ? "down" : "up";
+  }
+
+  function canUseMapGesture(event) {
+    return Boolean(event.target.closest("#labyrinthBoard") && state.game && !state.game.completed && !state.game.pendingEncounter);
+  }
+
+  app.addEventListener("pointerdown", (event) => {
+    if (!event.isPrimary || !canUseMapGesture(event)) return;
+    state.pointerStart = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY };
+    event.target.setPointerCapture?.(event.pointerId);
+  });
+
+  app.addEventListener("pointerup", (event) => {
+    const pointerStart = state.pointerStart;
+    state.pointerStart = null;
+    if (!pointerStart || pointerStart.pointerId !== event.pointerId || !state.game || state.game.completed || state.game.pendingEncounter) return;
+    const deltaX = event.clientX - pointerStart.clientX;
+    const deltaY = event.clientY - pointerStart.clientY;
+    if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) < SWIPE_MIN_DISTANCE) return;
+    event.preventDefault();
+    state.ignoreBoardClickUntil = Date.now() + 450;
+    move(directionFromSwipe(deltaX, deltaY), ".labyrinth-tile.is-hero");
+  });
+
+  app.addEventListener("pointercancel", () => { state.pointerStart = null; });
+
   app.addEventListener("click", (event) => {
+    if (Date.now() < state.ignoreBoardClickUntil && event.target.closest("#labyrinthBoard")) {
+      event.preventDefault();
+      return;
+    }
     const answer = event.target.closest("[data-answer]");
     if (answer) { completeEncounter(answer.dataset.answer); return; }
     if (event.target.closest("[data-encounter-continue]")) { completeEncounter(); return; }

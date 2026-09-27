@@ -63,6 +63,23 @@ test("the phone layout keeps the four movement buttons visible and tappable", as
   }
 });
 
+test("a finger swipe moves the hero exactly once without a duplicate map click", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await openEasyTrail(page);
+  await solveEntryEncounter(page);
+
+  const board = page.locator("#labyrinthBoard");
+  const box = await board.boundingBox();
+  const startX = (box?.x || 0) + 90;
+  const startY = (box?.y || 0) + 90;
+  await board.dispatchEvent("pointerdown", { pointerId: 1, pointerType: "touch", isPrimary: true, clientX: startX, clientY: startY });
+  await board.dispatchEvent("pointerup", { pointerId: 1, pointerType: "touch", isPrimary: true, clientX: startX + 90, clientY: startY + 4 });
+
+  await expect(page.locator(".game-counter strong")).toHaveText("1");
+  await page.locator('#labyrinthBoard [data-row="1"][data-column="2"]').click();
+  await expect(page.locator(".game-counter strong")).toHaveText("1");
+});
+
 test("keeps a control focused, gives the same hint for wall taps, and focuses the reward", async ({ page }) => {
   await openEasyTrail(page);
   await solveEntryEncounter(page);
