@@ -510,9 +510,9 @@ img { display: block; max-width: 100%; }
 
 .labyrinth-pause-button {
   display: grid;
-  flex: 0 0 36px;
-  width: 36px;
-  height: 36px;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border: 1px solid rgba(105, 78, 47, .36);
   border-radius: 50%;
@@ -599,6 +599,10 @@ img { display: block; max-width: 100%; }
 
 .labyrinth-tile.is-hero,
 .labyrinth-tile.is-goal { z-index: 5; }
+
+/* Only at the final step the marker yields the tap to the veiled treasure below it. */
+.labyrinth-tile.is-hero.is-yielding-tap { pointer-events: none; }
+.labyrinth-tile.is-fogged { pointer-events: none; }
 
 .labyrinth-tile.is-discovered:hover::after,
 .labyrinth-tile:focus-visible::after {
@@ -903,9 +907,9 @@ a:focus-visible {
   .labyrinth-heart { font-size: 18px; }
   .labyrinth-findings-counter { min-height: 30px; padding: 0 6px; font-size: 11px; }
   .labyrinth-findings-counter > span { font-size: 18px; }
-  .labyrinth-pause-button { flex-basis: 31px; width: 31px; height: 31px; font-size: 15px; }
+  .labyrinth-pause-button { flex-basis: 44px; width: 44px; height: 44px; font-size: 15px; }
 
-  .labyrinth-map-heading { top: 54px; left: 8px; max-width: 160px; padding: 6px 8px; }
+  .labyrinth-map-heading { top: 60px; left: 8px; max-width: 160px; padding: 6px 8px; }
   .labyrinth-map-heading .labyrinth-text-button { margin-bottom: 3px; font-size: 8px; }
   .labyrinth-map-heading .labyrinth-step { font-size: 6px; }
   .labyrinth-map-heading h1 { font-size: 18px; }
@@ -913,7 +917,7 @@ a:focus-visible {
   .labyrinth-move-counter strong { font-size: 17px; }
   .labyrinth-status { top: 119px; left: 8px; max-width: 164px; padding: 5px 6px; font-size: 8px; }
 
-  .labyrinth-map-help { top: 54px; right: 8px; bottom: auto; left: auto; max-width: 124px; padding: 5px 6px; }
+  .labyrinth-map-help { top: 60px; right: 8px; bottom: auto; left: auto; max-width: 124px; padding: 5px 6px; }
   .labyrinth-map-help span { font-size: 16px; }
   .labyrinth-map-help p { font-size: 8px; }
   .labyrinth-controls { right: 8px; bottom: 8px; grid-template-columns: repeat(3, 44px); gap: 4px; }

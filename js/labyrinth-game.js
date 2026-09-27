@@ -53,14 +53,14 @@
       "4:1": { x: 20, y: 75 }, "5:1": { x: 25, y: 71 }, "5:2": { x: 30, y: 67 },
       "5:3": { x: 35, y: 64 }, "5:4": { x: 40, y: 62 }, "5:5": { x: 45, y: 61 },
       "6:5": { x: 50, y: 61 }, "7:5": { x: 55, y: 61 }, "7:6": { x: 60, y: 61 },
-      "7:7": { x: 65, y: 61 }, "6:7": { x: 69, y: 59 }, "5:7": { x: 72, y: 56 },
-      "4:7": { x: 74, y: 52 }, "3:7": { x: 76, y: 48 }, "3:6": { x: 78, y: 44 },
-      "3:5": { x: 76, y: 40 }, "3:4": { x: 74, y: 36 }, "3:3": { x: 76, y: 33 },
-      "2:3": { x: 78, y: 30 }, "1:3": { x: 80, y: 27 }, "1:4": { x: 82, y: 24 },
-      "1:5": { x: 84, y: 21 }, "1:6": { x: 86, y: 19 }, "1:7": { x: 87, y: 17 },
-      "1:8": { x: 88, y: 15 }, "1:9": { x: 89, y: 14 }, "2:9": { x: 90, y: 13 },
-      "3:9": { x: 91, y: 12 }, "4:9": { x: 90, y: 12 }, "5:9": { x: 89, y: 13 },
-      "6:9": { x: 88, y: 14 }, "7:9": { x: 89, y: 14 }, "7:1": { x: 37, y: 72 },
+      "7:7": { x: 65, y: 61 }, "6:7": { x: 68, y: 59 }, "5:7": { x: 70, y: 56 },
+      "4:7": { x: 72, y: 53 }, "3:7": { x: 75, y: 50 }, "3:6": { x: 76, y: 47 },
+      "3:5": { x: 74, y: 44 }, "3:4": { x: 71, y: 42 }, "3:3": { x: 70, y: 39 },
+      "2:3": { x: 72, y: 36 }, "1:3": { x: 75, y: 34 }, "1:4": { x: 76, y: 31 },
+      "1:5": { x: 74, y: 29 }, "1:6": { x: 71, y: 28 }, "1:7": { x: 74, y: 28 },
+      "1:8": { x: 77, y: 28 }, "1:9": { x: 80, y: 28 }, "2:9": { x: 82, y: 26 },
+      "3:9": { x: 83, y: 23 }, "4:9": { x: 85, y: 20 }, "5:9": { x: 86, y: 17 },
+      "6:9": { x: 88, y: 14 }, "7:9": { x: 90, y: 12 }, "7:1": { x: 37, y: 72 },
       "7:2": { x: 42, y: 68 }, "7:3": { x: 47, y: 65 }, "7:4": { x: 51, y: 62 }
     }
   };
@@ -118,6 +118,15 @@
 
   function trailStyle(point) {
     return `--path-x:${point.x};--path-y:${point.y}`;
+  }
+
+  function isBesideGoal(level, row, column) {
+    return [
+      level.map[row - 1]?.[column],
+      level.map[row + 1]?.[column],
+      level.map[row]?.[column - 1],
+      level.map[row]?.[column + 1]
+    ].includes("G");
   }
 
   function nextLevel() {
@@ -193,7 +202,8 @@
   function renderFog(level, game) {
     return level.map.map((line, row) => [...line].map((tile, column) => {
       const point = trailPoint(level, row, column);
-      if (tile === "#" || !point || game.discovered.includes(`${row}:${column}`)) return "";
+      const keepsTreasureHidden = tile === "G" && !game.completed;
+      if (tile === "#" || !point || (game.discovered.includes(`${row}:${column}`) && !keepsTreasureHidden)) return "";
       return `<span class="labyrinth-fog-cell" aria-hidden="true" style="${trailStyle(point)}"></span>`;
     }).join("")).join("");
   }
@@ -214,11 +224,14 @@
       const isHero = game.position.row === row && game.position.column === column;
       const isDiscovered = game.discovered.includes(`${row}:${column}`);
       const isGoalVisible = tile === "G" && game.completed;
-      const classes = ["labyrinth-tile", isHero ? "is-hero" : "", isDiscovered ? "is-discovered" : "is-fogged", isGoalVisible ? "is-goal" : ""].filter(Boolean).join(" ");
+      const isFogged = !isDiscovered;
+      const isGoalVeiled = tile === "G" && !game.completed;
+      const isYieldingTap = isHero && !game.completed && isBesideGoal(level, row, column);
+      const classes = ["labyrinth-tile", isHero ? "is-hero" : "", isFogged ? "is-fogged" : "is-discovered", isGoalVeiled ? "is-goal-veiled" : "", isYieldingTap ? "is-yielding-tap" : "", isGoalVisible ? "is-goal" : ""].filter(Boolean).join(" ");
       const marker = isHero
         ? `<img class="labyrinth-board-hero hero-token--${hero().className}" src="${hero().portrait}" alt="" />`
         : isGoalVisible ? `<span class="goal-token" aria-hidden="true">✦</span>` : "";
-      return `<button class="${classes}" data-row="${row}" data-column="${column}" data-path-x="${point.x}" data-path-y="${point.y}" data-fogged="${String(!isDiscovered)}" data-current="${String(isHero)}" style="${trailStyle(point)}" type="button" tabindex="${isHero ? "0" : "-1"}" aria-label="${tileLabel(tile, row, column, isDiscovered, isGoalVisible)}">${marker}</button>`;
+      return `<button class="${classes}" data-row="${row}" data-column="${column}" data-path-x="${point.x}" data-path-y="${point.y}" data-fogged="${String(isFogged || isGoalVeiled)}" data-current="${String(isHero)}" style="${trailStyle(point)}" type="button" tabindex="${isHero ? "0" : "-1"}" aria-label="${tileLabel(tile, row, column, isDiscovered, isGoalVisible)}">${marker}</button>`;
     }).join("")).join("");
   }
 

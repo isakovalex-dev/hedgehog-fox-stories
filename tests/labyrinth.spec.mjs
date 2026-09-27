@@ -135,6 +135,10 @@ test("keeps four sufficiently large direction buttons tappable on a phone", asyn
     expect(box?.width).toBeGreaterThanOrEqual(44);
     expect(box?.height).toBeGreaterThanOrEqual(44);
   }
+
+  const pauseBox = await page.getByRole("button", { name: "Пауза" }).boundingBox();
+  expect(pauseBox?.width).toBeGreaterThanOrEqual(44);
+  expect(pauseBox?.height).toBeGreaterThanOrEqual(44);
 });
 
 test("renders storybook playfield and keeps phone controls in viewport", async ({ page }) => {
@@ -199,4 +203,48 @@ test("places every playable marker on an authored illustrated trail", async ({ p
   await page.keyboard.press("ArrowDown");
   await expect(page.locator('#labyrinthBoard [data-current="true"]')).toHaveAttribute("data-path-x", "17");
   await expect(page.locator('#labyrinthBoard [data-current="true"]')).toHaveAttribute("data-path-y", "78");
+});
+
+test("keeps the hard treasure hidden until the final illustrated approach", async ({ page }) => {
+  await openTrail(page, "fox", "hard");
+  await solveEasyEntry(page, "1");
+
+  const finalRoute = page.locator('#labyrinthBoard [data-row][data-column="9"]');
+  const points = await finalRoute.evaluateAll((nodes) => nodes.map((node) => ({
+    x: Number(node.getAttribute("data-path-x")),
+    y: Number(node.getAttribute("data-path-y"))
+  })));
+  expect(points).toHaveLength(7);
+  expect(new Set(points.map((point) => `${point.x}:${point.y}`)).size).toBe(7);
+  expect(points[0].y).toBeGreaterThan(24);
+  expect(points.at(-1)).toEqual({ x: 90, y: 12 });
+  expect(points.every((point, index) => index === 0 || (
+    point.x > points[index - 1].x && point.y < points[index - 1].y
+  ))).toBe(true);
+
+  for (const key of [
+    ...Array(4).fill("ArrowDown"),
+    ...Array(4).fill("ArrowRight")
+  ]) await page.keyboard.press(key);
+  await expect(page.getByRole("dialog", { name: "Билетик с компасом" })).toBeVisible();
+  await page.getByRole("button", { name: "Запомнить подсказку" }).click();
+
+  for (const key of [
+    ...Array(2).fill("ArrowDown"),
+    ...Array(2).fill("ArrowRight"),
+    ...Array(4).fill("ArrowUp"),
+    ...Array(4).fill("ArrowLeft"),
+    ...Array(2).fill("ArrowUp"),
+    ...Array(6).fill("ArrowRight"),
+    ...Array(5).fill("ArrowDown")
+  ]) await page.keyboard.press(key);
+
+  const goal = page.locator('#labyrinthBoard [data-row="7"][data-column="9"]');
+  const finalHero = page.locator('#labyrinthBoard [data-current="true"]');
+  await expect(goal).toHaveAttribute("data-fogged", "true");
+  await expect(goal).toHaveClass(/is-goal-veiled/);
+  await expect(goal).toHaveCSS("pointer-events", "auto");
+  await expect(finalHero).toHaveClass(/is-yielding-tap/);
+  await goal.click();
+  await expect(page.locator('[data-screen="treasure"]')).toBeVisible();
 });
