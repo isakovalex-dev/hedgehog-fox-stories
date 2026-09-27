@@ -8,22 +8,28 @@
   const LEVELS = [
     {
       id: "easy",
-      title: "Тропинка к письму",
-      label: "Лёгкая",
-      age: "5–6 лет",
-      finding: "письмо с добрыми словами",
+      title: "Лесная тропинка",
+      displayTitle: "Лесная тропинка",
+      label: "Лёгкий",
+      difficulty: "Лёгкий",
+      age: "3–5 лет",
+      art: "assets/labyrinth/storybook/forest-trail.png",
+      summary: "Короткий маршрут с простыми развилками.",
+      finding: "сундучок лесных секретов",
+      goalFindingId: "easy-chest",
       prize: {
-        icon: "✉",
-        title: "Письмо с добрыми словами",
-        description: "В нём написано: «Самая верная тропинка — та, по которой идёшь с добрым сердцем»."
+        icon: "✦",
+        title: "Сундучок лесных секретов",
+        description: "В нём лежат тёплый листик, звёздочка и добрые слова для следующего путешествия."
       },
       encounters: [
         {
           id: "easy-entry-puzzle",
+          findingId: "easy-entry-note",
           row: 1,
           column: 1,
           kind: "puzzle",
-          title: "Находка у входа",
+          title: "Записка у входа",
           icon: "❦",
           prompt: "У Ёжика две шишки и один желудь. Сколько находок в корзинке?",
           answers: ["2", "3", "4"],
@@ -32,6 +38,7 @@
         },
         {
           id: "easy-sun-ticket",
+          findingId: "easy-sun-ticket",
           row: 1,
           column: 3,
           kind: "ticket",
@@ -46,22 +53,28 @@
     },
     {
       id: "medium",
-      title: "Дорога к маяку",
-      label: "Смелая",
-      age: "7–8 лет",
-      finding: "маленький огонёк маяка",
+      title: "Долина ручьёв",
+      displayTitle: "Долина ручьёв",
+      label: "Средний",
+      difficulty: "Средний",
+      age: "6–7 лет",
+      art: "assets/labyrinth/storybook/river-valley.png",
+      summary: "Больше ходов, мостики и звонкие ручьи.",
+      finding: "фонарик долины",
+      goalFindingId: "medium-chest",
       prize: {
         icon: "✦",
-        title: "Маленький огонёк маяка",
-        description: "Его свет будет помогать друзьям возвращаться домой даже в самый тихий вечер."
+        title: "Фонарик долины",
+        description: "Его мягкий свет поможет друзьям замечать тропинки даже у самых тихих ручьёв."
       },
       encounters: [
         {
           id: "medium-entry-puzzle",
+          findingId: "medium-entry-note",
           row: 1,
           column: 1,
           kind: "puzzle",
-          title: "Находка у входа",
+          title: "Записка у входа",
           icon: "❦",
           prompt: "На дорожке лежат три круглых камешка и один листик. Чего больше: камешков или листиков?",
           answers: ["Камешков", "Листиков", "Поровну"],
@@ -70,6 +83,7 @@
         },
         {
           id: "medium-lantern-ticket",
+          findingId: "medium-lantern-ticket",
           row: 5,
           column: 5,
           kind: "ticket",
@@ -84,22 +98,28 @@
     },
     {
       id: "hard",
-      title: "Карта тёплого ветра",
-      label: "Большое путешествие",
-      age: "9–10 лет",
-      finding: "карту тёплого ветра",
+      title: "Горный перевал",
+      displayTitle: "Горный перевал",
+      label: "Сложный",
+      difficulty: "Сложный",
+      age: "8–10 лет",
+      art: "assets/labyrinth/storybook/mountain-pass.png",
+      summary: "Длинный путь с мостиками, ступеньками и новыми развилками.",
+      finding: "горную карту приключений",
+      goalFindingId: "hard-chest",
       prize: {
         icon: "✧",
-        title: "Карта тёплого ветра",
-        description: "На ней отмечены все добрые места, куда ещё смогут отправиться Ёжик и Лисёнок."
+        title: "Горная карта приключений",
+        description: "На ней отмечены добрые места, куда Ёжик и Лисёнок ещё обязательно заглянут вместе."
       },
       encounters: [
         {
           id: "hard-entry-puzzle",
+          findingId: "hard-entry-note",
           row: 1,
           column: 1,
           kind: "puzzle",
-          title: "Находка у входа",
+          title: "Записка у входа",
           icon: "❦",
           prompt: "У Лисёнка четыре ягодки. Две он оставил для друга. Сколько ягодок осталось у Лисёнка?",
           answers: ["1", "2", "3"],
@@ -108,6 +128,7 @@
         },
         {
           id: "hard-compass-ticket",
+          findingId: "hard-compass-ticket",
           row: 5,
           column: 5,
           kind: "ticket",
@@ -116,18 +137,6 @@
           prompt: "Стрелка маленького компаса не любит кусты и показывает к свободной тропинке внизу.",
           buttonLabel: "Запомнить подсказку",
           success: "Компас тихо звякнул: путь открыт."
-        },
-        {
-          id: "hard-leaf-puzzle",
-          row: 3,
-          column: 3,
-          kind: "puzzle",
-          title: "Листик на развилке",
-          icon: "❧",
-          prompt: "На листике три точки. Если добавить ещё одну, сколько точек станет?",
-          answers: ["3", "4", "5"],
-          correctAnswer: 1,
-          success: "Верно! Листик повернулся к тропинке наверх."
         }
       ],
       map: ["###########", "#S#.......#", "#.#.#####.#", "#.#.....#.#", "#.#####.#.#", "#.....#.#.#", "#####.#.#.#", "#.......#G#", "###########"]
@@ -195,6 +204,11 @@
     return getLevel(levelId).encounters.find((item) => item.row === position.row && item.column === position.column) || null;
   }
 
+  function addFinding(findings, findingId) {
+    if (!findingId || findings.includes(findingId)) return findings;
+    return [...findings, findingId];
+  }
+
   function createState(levelId, hero) {
     const level = getLevel(levelId);
     const position = findMarker(level.map, "S");
@@ -207,6 +221,9 @@
       moves: 0,
       moved: false,
       completed: false,
+      lives: 3,
+      maxLives: 3,
+      findings: [],
       prize: null,
       discovered: revealNearby(level, position),
       seenEncounters: [],
@@ -217,11 +234,22 @@
 
   function completeEncounter(state, encounterId) {
     if (!encounterId || state.pendingEncounter !== encounterId) return state;
+    const encounter = getEncounter(state.levelId, encounterId);
     return {
       ...state,
       pendingEncounter: null,
       seenEncounters: [...state.seenEncounters, encounterId],
+      findings: addFinding(state.findings, encounter.findingId),
       message: "Подсказка получена. Можно идти дальше."
+    };
+  }
+
+  function registerMistake(state, message = "Ничего страшного — попробуй ещё раз.") {
+    return {
+      ...state,
+      lives: Math.max(0, state.lives - 1),
+      moved: false,
+      message
     };
   }
 
@@ -237,7 +265,7 @@
     const tile = level.map[position.row]?.[position.column];
 
     if (!tile || tile === "#") {
-      return { ...state, moved: false, message: "Там густые кусты. Попробуй другую тропинку." };
+      return registerMistake(state, "Там густые кусты. Попробуй другую тропинку.");
     }
 
     const completed = tile === "G";
@@ -249,12 +277,13 @@
       moves: state.moves + 1,
       moved: true,
       completed,
-      prize: completed ? level.prize : null,
+      prize: completed ? level.prize : state.prize,
+      findings: completed ? addFinding(state.findings, level.goalFindingId) : state.findings,
       discovered: revealNearby(level, position, state.discovered),
       pendingEncounter,
       message: completed ? "Находка найдена!" : pendingEncounter ? "На тропинке ждёт маленькая подсказка." : "Тропинка ведёт дальше."
     };
   }
 
-  return { LEVELS, completeEncounter, createState, getEncounter, getEncounterAt, getLevel, move, positionKey };
+  return { LEVELS, completeEncounter, createState, getEncounter, getEncounterAt, getLevel, move, positionKey, registerMistake };
 });
