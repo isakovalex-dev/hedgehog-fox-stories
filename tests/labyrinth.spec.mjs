@@ -1,32 +1,57 @@
 import { expect, test } from "@playwright/test";
 
-async function openTrail(page, heroId, levelId) {
+const EASY_TO_TICKET = [
+  "ArrowUp", "ArrowUp",
+  "ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight",
+  "ArrowUp", "ArrowUp", "ArrowUp", "ArrowUp"
+];
+const EASY_TO_GOAL_AFTER_TICKET = ["ArrowRight", "ArrowRight", "ArrowUp", "ArrowUp"];
+const HARD_TO_TICKET = [
+  "ArrowUp", "ArrowUp", "ArrowRight", "ArrowRight",
+  "ArrowUp", "ArrowUp", "ArrowUp", "ArrowUp",
+  "ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight"
+];
+const HARD_TO_BESIDE_GOAL_AFTER_TICKET = [
+  "ArrowRight", "ArrowRight",
+  "ArrowDown", "ArrowDown", "ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight",
+  "ArrowUp", "ArrowUp", "ArrowUp", "ArrowUp", "ArrowLeft", "ArrowLeft",
+  "ArrowUp", "ArrowUp", "ArrowRight", "ArrowRight", "ArrowUp"
+];
+
+async function chooseTrail(page, heroId, levelId) {
   await page.goto("/labyrinth.html", { waitUntil: "networkidle" });
   await page.locator(`button[data-hero-choice="${heroId}"]`).click();
   await expect(page.locator('[data-screen="level"]')).toHaveAttribute("data-hero", heroId);
   await page.locator(`button[data-level-choice="${levelId}"]`).click();
   await page.getByRole("button", { name: "Начать путь" }).click();
+}
+
+async function openTrail(page, heroId, levelId) {
+  await chooseTrail(page, heroId, levelId);
   await expect(page.locator('[data-screen="play"]')).toHaveAttribute("data-level", levelId);
 }
 
-async function solveEasyEntry(page, answer = "1") {
+async function solveEntry(page, answer = "1") {
   await expect(page.getByRole("dialog", { name: "Записка у входа" })).toBeVisible();
   await page.locator(`[data-answer="${answer}"]`).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 }
 
-async function collectEasyTicket(page) {
-  await page.keyboard.press("ArrowRight");
-  await page.keyboard.press("ArrowRight");
-  await expect(page.getByRole("dialog", { name: "Призовой билетик" })).toBeVisible();
-  await page.getByRole("button", { name: "Положить билетик в кармашек" }).click();
+async function walk(page, keys) {
+  for (const key of keys) await page.keyboard.press(key);
 }
 
-test("selects either hero and opens each named storybook trail", async ({ page }) => {
+async function collectEasyTicket(page) {
+  await walk(page, EASY_TO_TICKET);
+  await expect(page.getByRole("dialog", { name: "Билетик развилки" })).toBeVisible();
+  await page.getByRole("button", { name: "Взять билетик" }).click();
+}
+
+test("selects either hero and opens each named orthogonal labyrinth", async ({ page }) => {
   const journeys = [
-    ["hedgehog", "easy", "Лесная тропинка"],
-    ["fox", "medium", "Долина ручьёв"],
-    ["hedgehog", "hard", "Горный перевал"]
+    ["hedgehog", "easy", "Лесной старт"],
+    ["fox", "medium", "Таинственный лес"],
+    ["hedgehog", "hard", "Горная пещера"]
   ];
 
   for (const [heroId, levelId, title] of journeys) {
@@ -42,17 +67,18 @@ test("shows a foggy entry map with three hearts and spends one heart for a wrong
   const playfield = page.locator('[data-screen="play"]');
 
   await expect(playfield).toHaveAttribute("data-lives", "3");
-  await expect(playfield).toHaveAttribute("data-finding-count", "0");
-  await expect(page.locator('#labyrinthBoard [data-row="1"][data-column="5"]')).toHaveAttribute("data-fogged", "true");
+  await expect(playfield).toHaveAttribute("data-hint-count", "0");
+  await expect(playfield).not.toHaveAttribute("data-finding-count", /.+/);
+  await expect(page.locator('#labyrinthBoard [data-row="1"][data-column="9"]')).toHaveAttribute("data-fogged", "true");
   await page.locator('[data-answer="0"]').click();
 
   await expect(playfield).toHaveAttribute("data-lives", "2");
-  await expect(playfield).toHaveAttribute("data-finding-count", "0");
+  await expect(playfield).toHaveAttribute("data-hint-count", "0");
   await expect(page.locator("[data-move-count]")).toHaveText("0");
   await expect(page.getByRole("dialog", { name: "Записка у входа" })).toBeVisible();
 });
 
-test("blocks map actions and keeps Tab inside an open finding dialog", async ({ page }) => {
+test("blocks map actions and keeps Tab inside an open hint dialog", async ({ page }) => {
   await openTrail(page, "fox", "easy");
 
   await page.locator('[data-action="back-level"]').evaluate((button) => button.click());
@@ -64,28 +90,62 @@ test("blocks map actions and keeps Tab inside an open finding dialog", async ({ 
   await expect(page.locator('[data-answer="0"]')).toBeFocused();
 });
 
-test("collects entry, branch, and chest as exactly three findings before the completion screen", async ({ page }) => {
+test("uses one uniform orthogonal grid for every playable marker", async ({ page }) => {
   await openTrail(page, "hedgehog", "easy");
-  await solveEasyEntry(page);
-  await expect(page.locator('[data-screen="play"]')).toHaveAttribute("data-finding-count", "1");
-  await collectEasyTicket(page);
-  await expect(page.locator('[data-screen="play"]')).toHaveAttribute("data-finding-count", "2");
+  const start = page.locator('#labyrinthBoard [data-row="9"][data-column="1"]');
+  const east = page.locator('#labyrinthBoard [data-row="9"][data-column="2"]');
+  const north = page.locator('#labyrinthBoard [data-row="8"][data-column="1"]');
 
-  await page.keyboard.press("ArrowRight");
-  await page.keyboard.press("ArrowRight");
-  await expect(page.locator('[data-screen="treasure"]')).toHaveAttribute("data-finding-count", "3");
+  const points = await Promise.all([start, east, north].map(async (locator) => ({
+    x: Number(await locator.getAttribute("data-grid-x")),
+    y: Number(await locator.getAttribute("data-grid-y")),
+    hasLegacyX: await locator.getAttribute("data-path-x"),
+    hasLegacyY: await locator.getAttribute("data-path-y")
+  })));
+  const [startPoint, eastPoint, northPoint] = points;
+
+  expect(startPoint).toMatchObject({ x: 18, y: 83.6, hasLegacyX: null, hasLegacyY: null });
+  expect(eastPoint.x - startPoint.x).toBeCloseTo(8, 3);
+  expect(eastPoint.y).toBeCloseTo(startPoint.y, 3);
+  expect(northPoint.x).toBeCloseTo(startPoint.x, 3);
+  expect(startPoint.y - northPoint.y).toBeCloseTo(8.4, 3);
+
+  const allMarkersUseGrid = await page.locator("#labyrinthBoard [data-row]").evaluateAll((nodes) => nodes.every((node) => (
+    node.hasAttribute("data-grid-x")
+      && node.hasAttribute("data-grid-y")
+      && node.getAttribute("style")?.includes("--grid-x")
+      && node.getAttribute("style")?.includes("--grid-y")
+      && !node.hasAttribute("data-path-x")
+      && !node.hasAttribute("data-path-y")
+  )));
+  expect(allMarkersUseGrid).toBe(true);
+});
+
+test("counts hints on the route but reveals the only prize in the final chest", async ({ page }) => {
+  await openTrail(page, "hedgehog", "easy");
+  await solveEntry(page);
+  await expect(page.locator('[data-screen="play"]')).toHaveAttribute("data-hint-count", "1");
+  await expect(page.locator("[data-finding-count]")).toHaveCount(0);
+
+  await collectEasyTicket(page);
+  await expect(page.locator('[data-screen="play"]')).toHaveAttribute("data-hint-count", "2");
+  await expect(page.locator(".labyrinth-treasure-count")).toHaveCount(0);
+
+  await walk(page, EASY_TO_GOAL_AFTER_TICKET);
+  await expect(page.locator('[data-screen="treasure"]')).toHaveAttribute("data-hint-count", "2");
   await expect(page.getByRole("dialog", { name: "Сундучок лесных секретов" })).toBeVisible();
+  await expect(page.locator(".labyrinth-treasure-count")).toHaveCount(0);
   await page.getByRole("button", { name: "Дальше" }).click();
 
   await expect(page.locator('[data-screen="complete"]')).toBeVisible();
   await expect(page.locator('[data-stars="3"]')).toBeVisible();
-  await expect(page.locator("[data-complete-findings]")).toHaveText("3/3");
+  await expect(page.locator("[data-complete-prize]")).toHaveText("Сундучок лесных секретов");
 });
 
 test("shows a pause guide without resetting the journey", async ({ page }) => {
   await openTrail(page, "fox", "easy");
-  await solveEasyEntry(page);
-  await page.keyboard.press("ArrowRight");
+  await solveEntry(page);
+  await page.keyboard.press("ArrowUp");
   await expect(page.locator("[data-move-count]")).toHaveText("1");
 
   await page.getByRole("button", { name: "Пауза" }).click();
@@ -98,7 +158,7 @@ test("shows a pause guide without resetting the journey", async ({ page }) => {
 test("supports a real touch swipe and suppresses the following map click", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await openTrail(page, "hedgehog", "easy");
-  await solveEasyEntry(page);
+  await solveEntry(page);
 
   const heroCell = page.locator('#labyrinthBoard [data-current="true"]');
   const box = await heroCell.boundingBox();
@@ -119,14 +179,14 @@ test("supports a real touch swipe and suppresses the following map click", async
   });
 
   await expect(page.locator("[data-move-count]")).toHaveText("1");
-  await page.locator('#labyrinthBoard [data-row="1"][data-column="2"]').click();
+  await page.locator('#labyrinthBoard [data-row="9"][data-column="3"]').click();
   await expect(page.locator("[data-move-count]")).toHaveText("1");
 });
 
 test("keeps four sufficiently large direction buttons tappable on a phone", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await openTrail(page, "hedgehog", "easy");
-  await solveEasyEntry(page);
+  await solveEntry(page);
 
   for (const direction of ["вверх", "влево", "вниз", "вправо"]) {
     const control = page.getByRole("button", { name: `Идти ${direction}` });
@@ -141,14 +201,15 @@ test("keeps four sufficiently large direction buttons tappable on a phone", asyn
   expect(pauseBox?.height).toBeGreaterThanOrEqual(44);
 });
 
-test("renders storybook playfield and keeps phone controls in viewport", async ({ page }) => {
+test("renders the new map art and keeps phone controls in viewport", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await openTrail(page, "hedgehog", "easy");
 
-  await expect(page.locator("#labyrinthBoard")).toHaveAttribute("data-art", "assets/labyrinth/storybook/forest-trail.png");
+  await expect(page.locator("#labyrinthBoard")).toHaveAttribute("data-art", "assets/labyrinth/storybook/forest-start-maze-v2.png");
+  await expect(page.locator("[data-map-art]")).toHaveAttribute("src", /forest-start-maze-v2\.png/);
   await expect(page.locator(".labyrinth-game-hud")).toBeVisible();
   await expect(page.locator(".labyrinth-heart-counter")).toHaveAttribute("data-lives", "3");
-  await expect(page.locator(".labyrinth-findings-counter")).toContainText("0/3");
+  await expect(page.locator(".labyrinth-hints-counter")).toContainText("0/2");
 
   const viewport = page.viewportSize();
   const required = [
@@ -170,76 +231,18 @@ test("renders storybook playfield and keeps phone controls in viewport", async (
     expect(box?.y).toBeGreaterThanOrEqual(0);
     expect((box?.y || 0) + (box?.height || 0)).toBeLessThanOrEqual(viewport.height);
   }
-
-  const heroBox = await page.locator('#labyrinthBoard [data-current="true"]').boundingBox();
-  const helpBox = await page.locator(".labyrinth-map-help").boundingBox();
-  expect(heroBox).not.toBeNull();
-  expect(helpBox).not.toBeNull();
-  const helperCoversHero = (heroBox?.x || 0) < (helpBox?.x || 0) + (helpBox?.width || 0)
-    && (heroBox?.x || 0) + (heroBox?.width || 0) > (helpBox?.x || 0)
-    && (heroBox?.y || 0) < (helpBox?.y || 0) + (helpBox?.height || 0)
-    && (heroBox?.y || 0) + (heroBox?.height || 0) > (helpBox?.y || 0);
-  expect(helperCoversHero).toBe(false);
 });
 
-test("places every playable marker on an authored illustrated trail", async ({ page }) => {
-  await openTrail(page, "hedgehog", "medium");
-  await solveEasyEntry(page, "0");
-
-  const markers = page.locator("#labyrinthBoard [data-row]");
-  await expect(markers).toHaveCount(23);
-  const allMarkersUseTrailCoordinates = await markers.evaluateAll((nodes) => nodes.every((node) => (
-    node.hasAttribute("data-path-x")
-      && node.hasAttribute("data-path-y")
-      && node.getAttribute("style")?.includes("--path-x")
-      && node.getAttribute("style")?.includes("--path-y")
-  )));
-  expect(allMarkersUseTrailCoordinates).toBe(true);
-
-  const hero = page.locator('#labyrinthBoard [data-current="true"]');
-  await expect(hero).toHaveAttribute("data-path-x", "12");
-  await expect(hero).toHaveAttribute("data-path-y", "84");
-
-  await page.keyboard.press("ArrowDown");
-  await expect(page.locator('#labyrinthBoard [data-current="true"]')).toHaveAttribute("data-path-x", "17");
-  await expect(page.locator('#labyrinthBoard [data-current="true"]')).toHaveAttribute("data-path-y", "78");
-});
-
-test("keeps the hard treasure hidden until the final illustrated approach", async ({ page }) => {
+test("keeps the hard treasure hidden until the final orthogonal approach", async ({ page }) => {
   await openTrail(page, "fox", "hard");
-  await solveEasyEntry(page, "1");
+  await solveEntry(page, "1");
 
-  const finalRoute = page.locator('#labyrinthBoard [data-row][data-column="9"]');
-  const points = await finalRoute.evaluateAll((nodes) => nodes.map((node) => ({
-    x: Number(node.getAttribute("data-path-x")),
-    y: Number(node.getAttribute("data-path-y"))
-  })));
-  expect(points).toHaveLength(7);
-  expect(new Set(points.map((point) => `${point.x}:${point.y}`)).size).toBe(7);
-  expect(points[0].y).toBeGreaterThan(24);
-  expect(points.at(-1)).toEqual({ x: 90, y: 12 });
-  expect(points.every((point, index) => index === 0 || (
-    point.x > points[index - 1].x && point.y < points[index - 1].y
-  ))).toBe(true);
-
-  for (const key of [
-    ...Array(4).fill("ArrowDown"),
-    ...Array(4).fill("ArrowRight")
-  ]) await page.keyboard.press(key);
+  await walk(page, HARD_TO_TICKET);
   await expect(page.getByRole("dialog", { name: "Билетик с компасом" })).toBeVisible();
   await page.getByRole("button", { name: "Запомнить подсказку" }).click();
+  await walk(page, HARD_TO_BESIDE_GOAL_AFTER_TICKET);
 
-  for (const key of [
-    ...Array(2).fill("ArrowDown"),
-    ...Array(2).fill("ArrowRight"),
-    ...Array(4).fill("ArrowUp"),
-    ...Array(4).fill("ArrowLeft"),
-    ...Array(2).fill("ArrowUp"),
-    ...Array(6).fill("ArrowRight"),
-    ...Array(5).fill("ArrowDown")
-  ]) await page.keyboard.press(key);
-
-  const goal = page.locator('#labyrinthBoard [data-row="7"][data-column="9"]');
+  const goal = page.locator('#labyrinthBoard [data-row="1"][data-column="13"]');
   const finalHero = page.locator('#labyrinthBoard [data-current="true"]');
   await expect(goal).toHaveAttribute("data-fogged", "true");
   await expect(goal).toHaveClass(/is-goal-veiled/);
@@ -247,4 +250,13 @@ test("keeps the hard treasure hidden until the final illustrated approach", asyn
   await expect(finalHero).toHaveClass(/is-yielding-tap/);
   await goal.click();
   await expect(page.locator('[data-screen="treasure"]')).toBeVisible();
+});
+
+test("shows a recovery screen when a required map asset cannot load", async ({ page }) => {
+  await page.route("**/assets/labyrinth/storybook/forest-start-maze-v2.png", (route) => route.abort());
+  await chooseTrail(page, "hedgehog", "easy");
+
+  await expect(page.getByRole("heading", { name: "Не удалось открыть карту" })).toBeVisible();
+  await page.getByRole("button", { name: "К уровням" }).click();
+  await expect(page.locator('[data-screen="level"]')).toHaveAttribute("data-level", "easy");
 });

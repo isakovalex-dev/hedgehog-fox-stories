@@ -19,50 +19,11 @@
       description: "Смелый и любопытный. Любит идти навстречу открытиям."
     }
   };
-  const FINDING_TOTAL = 3;
   const SWIPE_MIN_DISTANCE = 24;
   const DIRECTION_BY_KEY = {
     ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right",
     w: "up", W: "up", a: "left", A: "left", s: "down", S: "down", d: "right", D: "right",
     ц: "up", ф: "left", ы: "down", в: "right"
-  };
-  /*
-   * Игровая сетка нужна движку для правил лабиринта, а эти точки — для
-   * иллюстрации. Каждая проходимая клетка положена на жёлтую тропинку
-   * соответствующей акварельной карты, а не на равномерную сетку поверх неё.
-   */
-  const TRAIL_POINTS = {
-    easy: {
-      "1:1": { x: 12, y: 88 }, "1:2": { x: 27, y: 78 }, "1:3": { x: 44, y: 60 },
-      "1:4": { x: 64, y: 39 }, "1:5": { x: 85, y: 14 }, "2:5": { x: 78, y: 19 },
-      "3:5": { x: 70, y: 28 }, "3:4": { x: 63, y: 38 }, "3:3": { x: 57, y: 47 },
-      "3:2": { x: 51, y: 55 }, "3:1": { x: 45, y: 60 }
-    },
-    medium: {
-      "1:1": { x: 12, y: 84 }, "2:1": { x: 17, y: 78 }, "3:1": { x: 22, y: 73 },
-      "4:1": { x: 29, y: 69 }, "5:1": { x: 35, y: 66 }, "5:2": { x: 41, y: 64 },
-      "5:3": { x: 47, y: 64 }, "5:4": { x: 53, y: 64 }, "5:5": { x: 59, y: 61 },
-      "5:6": { x: 62, y: 57 }, "5:7": { x: 65, y: 52 }, "4:7": { x: 67, y: 47 },
-      "3:7": { x: 69, y: 42 }, "3:6": { x: 72, y: 38 }, "3:5": { x: 75, y: 34 },
-      "3:4": { x: 79, y: 31 }, "3:3": { x: 83, y: 27 }, "2:3": { x: 86, y: 23 },
-      "1:3": { x: 90, y: 19 }, "1:4": { x: 93, y: 16 }, "1:5": { x: 91, y: 15 },
-      "1:6": { x: 89, y: 14 }, "1:7": { x: 87, y: 13 }
-    },
-    hard: {
-      "1:1": { x: 8, y: 87 }, "2:1": { x: 12, y: 83 }, "3:1": { x: 16, y: 79 },
-      "4:1": { x: 20, y: 75 }, "5:1": { x: 25, y: 71 }, "5:2": { x: 30, y: 67 },
-      "5:3": { x: 35, y: 64 }, "5:4": { x: 40, y: 62 }, "5:5": { x: 45, y: 61 },
-      "6:5": { x: 50, y: 61 }, "7:5": { x: 55, y: 61 }, "7:6": { x: 60, y: 61 },
-      "7:7": { x: 65, y: 61 }, "6:7": { x: 68, y: 59 }, "5:7": { x: 70, y: 56 },
-      "4:7": { x: 72, y: 53 }, "3:7": { x: 75, y: 50 }, "3:6": { x: 76, y: 47 },
-      "3:5": { x: 74, y: 44 }, "3:4": { x: 71, y: 42 }, "3:3": { x: 70, y: 39 },
-      "2:3": { x: 72, y: 36 }, "1:3": { x: 75, y: 34 }, "1:4": { x: 76, y: 31 },
-      "1:5": { x: 74, y: 29 }, "1:6": { x: 71, y: 28 }, "1:7": { x: 74, y: 28 },
-      "1:8": { x: 77, y: 28 }, "1:9": { x: 80, y: 28 }, "2:9": { x: 82, y: 26 },
-      "3:9": { x: 83, y: 23 }, "4:9": { x: 85, y: 20 }, "5:9": { x: 86, y: 17 },
-      "6:9": { x: 88, y: 14 }, "7:9": { x: 90, y: 12 }, "7:1": { x: 37, y: 72 },
-      "7:2": { x: 42, y: 68 }, "7:3": { x: 47, y: 65 }, "7:4": { x: 51, y: 62 }
-    }
   };
   const state = {
     phase: "hero",
@@ -77,7 +38,8 @@
     ignoreBoardClickUntil: 0,
     startedAt: 0,
     endedAt: 0,
-    stars: 0
+    stars: 0,
+    mapAssetFailed: false
   };
 
   function readProgress() {
@@ -112,12 +74,18 @@
     return { row: 0, column: 0 };
   }
 
-  function trailPoint(level, row, column) {
-    return TRAIL_POINTS[level.id]?.[`${row}:${column}`] || null;
+  function gridPoint(level, row, column) {
+    const { left, top, right, bottom } = level.gridBounds;
+    const columns = level.map[0].length - 1;
+    const rows = level.map.length - 1;
+    return {
+      x: Number((left + (column / columns) * (right - left)).toFixed(3)),
+      y: Number((top + (row / rows) * (bottom - top)).toFixed(3))
+    };
   }
 
-  function trailStyle(point) {
-    return `--path-x:${point.x};--path-y:${point.y}`;
+  function gridStyle(point) {
+    return `--grid-x:${point.x};--grid-y:${point.y}`;
   }
 
   function isBesideGoal(level, row, column) {
@@ -142,7 +110,7 @@
 
   function screenAttributes() {
     const game = state.game;
-    return `data-screen="${state.phase}" data-hero="${state.hero}" data-level="${state.levelId}" data-lives="${game?.lives ?? 3}" data-finding-count="${game?.findings.length ?? 0}"`;
+    return `data-screen="${state.phase}" data-hero="${state.hero}" data-level="${state.levelId}" data-lives="${game?.lives ?? 3}" data-hint-count="${game?.seenEncounters.length ?? 0}"`;
   }
 
   function difficultyStars(level) {
@@ -201,26 +169,26 @@
 
   function renderFog(level, game) {
     return level.map.map((line, row) => [...line].map((tile, column) => {
-      const point = trailPoint(level, row, column);
+      const point = gridPoint(level, row, column);
       const keepsTreasureHidden = tile === "G" && !game.completed;
-      if (tile === "#" || !point || (game.discovered.includes(`${row}:${column}`) && !keepsTreasureHidden)) return "";
-      return `<span class="labyrinth-fog-cell" aria-hidden="true" style="${trailStyle(point)}"></span>`;
+      if (tile === "#" || (game.discovered.includes(`${row}:${column}`) && !keepsTreasureHidden)) return "";
+      return `<span class="labyrinth-fog-cell" aria-hidden="true" style="${gridStyle(point)}"></span>`;
     }).join("")).join("");
   }
 
   function renderFootprints(level, game) {
     return level.map.map((line, row) => [...line].map((tile, column) => {
       const isHero = game.position.row === row && game.position.column === column;
-      const point = trailPoint(level, row, column);
-      if (tile === "#" || !point || isHero || !game.discovered.includes(`${row}:${column}`)) return "";
-      return `<span class="labyrinth-trail-footprint" aria-hidden="true" style="${trailStyle(point)}">•</span>`;
+      const point = gridPoint(level, row, column);
+      if (tile === "#" || isHero || !game.discovered.includes(`${row}:${column}`)) return "";
+      return `<span class="labyrinth-trail-footprint" aria-hidden="true" style="${gridStyle(point)}">•</span>`;
     }).join("")).join("");
   }
 
   function renderBoard(level, game) {
     return level.map.map((line, row) => [...line].map((tile, column) => {
-      const point = trailPoint(level, row, column);
-      if (tile === "#" || !point) return "";
+      const point = gridPoint(level, row, column);
+      if (tile === "#") return "";
       const isHero = game.position.row === row && game.position.column === column;
       const isDiscovered = game.discovered.includes(`${row}:${column}`);
       const isGoalVisible = tile === "G" && game.completed;
@@ -231,7 +199,7 @@
       const marker = isHero
         ? `<img class="labyrinth-board-hero hero-token--${hero().className}" src="${hero().portrait}" alt="" />`
         : isGoalVisible ? `<span class="goal-token" aria-hidden="true">✦</span>` : "";
-      return `<button class="${classes}" data-row="${row}" data-column="${column}" data-path-x="${point.x}" data-path-y="${point.y}" data-fogged="${String(isFogged || isGoalVeiled)}" data-current="${String(isHero)}" style="${trailStyle(point)}" type="button" tabindex="${isHero ? "0" : "-1"}" aria-label="${tileLabel(tile, row, column, isDiscovered, isGoalVisible)}">${marker}</button>`;
+      return `<button class="${classes}" data-row="${row}" data-column="${column}" data-grid-x="${point.x}" data-grid-y="${point.y}" data-fogged="${String(isFogged || isGoalVeiled)}" data-current="${String(isHero)}" style="${gridStyle(point)}" type="button" tabindex="${isHero ? "0" : "-1"}" aria-label="${tileLabel(tile, row, column, isDiscovered, isGoalVisible)}">${marker}</button>`;
     }).join("")).join("");
   }
 
@@ -244,7 +212,7 @@
     return `
       <div class="labyrinth-encounter-backdrop">
         <section class="labyrinth-encounter" role="dialog" aria-modal="true" aria-labelledby="labyrinthEncounterTitle" aria-describedby="labyrinthEncounterPrompt">
-          <div class="labyrinth-encounter__topline"><span>НАХОДКА НА ТРОПИНКЕ</span><span aria-hidden="true">${encounter.icon}</span></div>
+          <div class="labyrinth-encounter__topline"><span>ПОДСКАЗКА НА ТРОПИНКЕ</span><span aria-hidden="true">${encounter.icon}</span></div>
           <div class="labyrinth-encounter__icon" aria-hidden="true">${encounter.icon}</div>
           <h2 id="labyrinthEncounterTitle">${encounter.title}</h2>
           <p id="labyrinthEncounterPrompt">${encounter.prompt}</p>
@@ -270,11 +238,10 @@
     return `
       <div class="labyrinth-encounter-backdrop">
         <section class="labyrinth-encounter labyrinth-treasure-dialog" role="dialog" aria-modal="true" aria-labelledby="labyrinthTreasureTitle">
-          <div class="labyrinth-encounter__topline"><span>ФИНАЛЬНАЯ НАХОДКА</span><span aria-hidden="true">✦</span></div>
+          <div class="labyrinth-encounter__topline"><span>НАГРАДА В СУНДУКЕ</span><span aria-hidden="true">✦</span></div>
           <div class="labyrinth-encounter__icon" aria-hidden="true">${level.prize.icon}</div>
           <h2 id="labyrinthTreasureTitle">${level.prize.title}</h2>
           <p>${level.prize.description}</p>
-          <p class="labyrinth-treasure-count"><strong>${state.game.findings.length}/${FINDING_TOTAL}</strong> находки собраны</p>
           <button class="labyrinth-primary" data-action="treasure-next" type="button">Дальше</button>
         </section>
       </div>`;
@@ -286,21 +253,22 @@
     const encounter = activeEncounter();
     const modal = state.phase === "treasure" ? renderTreasureDialog(level) : state.pauseOpen ? renderPauseDialog() : encounter ? renderEncounter(encounter) : "";
     const start = startPosition(level);
-    const startPoint = trailPoint(level, start.row, start.column);
+    const startPoint = gridPoint(level, start.row, start.column);
     const isModalOpen = Boolean(modal);
     return `
       <section class="labyrinth-playfield" ${screenAttributes()} aria-labelledby="gameTitle" ${isModalOpen ? "inert" : ""}>
-        <div class="labyrinth-map-frame labyrinth-storybook-map" style="--level-art:url('${level.art}');--maze-columns:${level.map[0].length};--maze-rows:${level.map.length}">
+        <div class="labyrinth-map-frame labyrinth-storybook-map" style="--maze-columns:${level.map[0].length};--maze-rows:${level.map.length}">
+          <img class="labyrinth-map-art" data-map-art src="${level.art}" alt="" aria-hidden="true" />
           <header class="labyrinth-game-hud">
             <div class="labyrinth-hud-hero"><img src="${hero().portrait}" alt="" /><span>${hero().title}</span></div>
             <div class="labyrinth-heart-counter" data-lives="${game.lives}" aria-label="Сердца: ${game.lives} из ${game.maxLives}"><span class="sr-only">Сердца: ${game.lives} из ${game.maxLives}</span>${renderHearts(game)}</div>
-            <output class="labyrinth-findings-counter" data-finding-count="${game.findings.length}" aria-label="Находки: ${game.findings.length} из ${FINDING_TOTAL}"><span aria-hidden="true">★</span><strong>${game.findings.length}/${FINDING_TOTAL}</strong></output>
+            <output class="labyrinth-hints-counter" data-hint-count="${game.seenEncounters.length}" aria-label="Подсказки: ${game.seenEncounters.length} из ${level.encounters.length}"><span aria-hidden="true">✦</span><strong>${game.seenEncounters.length}/${level.encounters.length}</strong></output>
             <button class="labyrinth-pause-button" data-action="pause" type="button" aria-label="Пауза">Ⅱ</button>
           </header>
           <div class="labyrinth-map-heading"><button class="labyrinth-text-button" data-action="back-level" type="button">← К уровням</button><div><p class="labyrinth-step">КАРТА ПУТЕШЕСТВИЯ</p><h1 id="gameTitle">${level.displayTitle}</h1></div><p class="labyrinth-move-counter">Шаги <strong data-move-count>${game.moves}</strong></p></div>
           <p id="labyrinthStatus" class="labyrinth-status" aria-live="polite">${game.message}</p>
           <div id="labyrinthBoard" class="labyrinth-board labyrinth-board--storybook" data-art="${level.art}" aria-label="Лабиринт. ${game.message}" aria-describedby="labyrinthStatus">
-            ${startPoint ? `<span class="labyrinth-start-sign" aria-hidden="true" style="${trailStyle(startPoint)}">Старт</span>` : ""}
+            ${startPoint ? `<span class="labyrinth-start-sign" aria-hidden="true" style="${gridStyle(startPoint)}">Старт</span>` : ""}
             ${renderFootprints(level, game)}
             ${renderBoard(level, game)}
             ${renderFog(level, game)}
@@ -321,9 +289,21 @@
         <div class="labyrinth-complete__friends" aria-hidden="true"><img src="${hero().portrait}" alt="" /><span class="labyrinth-complete__stars" data-stars="${state.stars}">${Array.from({ length: 3 }, (_, index) => `<i class="${index < state.stars ? "is-earned" : ""}">★</i>`).join("")}</span><img src="${companion().portrait}" alt="" /></div>
         <p class="labyrinth-step">ПУТЕШЕСТВИЕ ЗАВЕРШЕНО</p>
         <h1 id="completeTitle">Уровень пройден!</h1>
-        <p class="labyrinth-complete__lead">${hero().title} дошёл до сундука и собрал все маленькие подсказки по дороге.</p>
-        <dl class="labyrinth-complete__stats"><div><dt>Время</dt><dd>${elapsedText()}</dd></div><div><dt>Шагов</dt><dd>${game.moves}</dd></div><div><dt>Находки</dt><dd data-complete-findings>${game.findings.length}/${FINDING_TOTAL}</dd></div></dl>
+        <p class="labyrinth-complete__lead">${hero().title} дошёл до сундука и нашёл награду, а подсказки помогли не свернуть с тропинки.</p>
+        <dl class="labyrinth-complete__stats"><div><dt>Время</dt><dd>${elapsedText()}</dd></div><div><dt>Шагов</dt><dd>${game.moves}</dd></div><div><dt>Награда</dt><dd data-complete-prize>${level.prize.title}</dd></div></dl>
         <div class="labyrinth-complete__actions"><button class="labyrinth-secondary" data-action="choose-level" type="button">Выбрать уровень</button><button class="labyrinth-primary" data-action="next-level" type="button">${next.displayTitle}</button></div>
+      </section>`;
+  }
+
+  function renderMapLoadFailure() {
+    return `
+      <section class="labyrinth-map-load-failure" ${screenAttributes()} aria-labelledby="mapLoadFailureTitle">
+        <div class="labyrinth-map-load-failure__card">
+          <p class="labyrinth-step">КАРТА ПУТЕШЕСТВИЯ</p>
+          <h1 id="mapLoadFailureTitle">Не удалось открыть карту</h1>
+          <p>Вернись к уровням и выбери путешествие ещё раз.</p>
+          <button class="labyrinth-secondary" data-action="back-level" type="button">К уровням</button>
+        </div>
       </section>`;
   }
 
@@ -340,7 +320,8 @@
   }
 
   function render(focusSelector) {
-    if (state.phase === "hero") app.innerHTML = renderHeroSelection();
+    if (state.mapAssetFailed) app.innerHTML = renderMapLoadFailure();
+    else if (state.phase === "hero") app.innerHTML = renderHeroSelection();
     else if (state.phase === "level") app.innerHTML = renderLevelSelection();
     else if (state.phase === "complete") app.innerHTML = renderCompletion();
     else app.innerHTML = renderPlayfield();
@@ -356,6 +337,7 @@
     state.startedAt = Date.now();
     state.endedAt = 0;
     state.stars = 0;
+    state.mapAssetFailed = false;
     render();
   }
 
@@ -429,6 +411,15 @@
     return Boolean(state.phase === "play" && state.game && !state.pauseOpen && !activeEncounter() && event.target.closest("#labyrinthBoard"));
   }
 
+  app.addEventListener("error", (event) => {
+    if (!event.target?.matches?.("[data-map-art]")) return;
+    state.mapAssetFailed = true;
+    state.phase = "map-error";
+    state.pauseOpen = false;
+    state.encounterError = "";
+    render("[data-action='back-level']");
+  }, true);
+
   app.addEventListener("pointerdown", (event) => {
     if (!canUseMapGesture(event)) return;
     state.pointerStart = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY };
@@ -455,6 +446,16 @@
       return;
     }
 
+    const action = event.target.closest("[data-action]")?.dataset.action;
+    if (state.phase === "map-error" && action === "back-level") {
+      state.game = null;
+      state.encounterError = "";
+      state.mapAssetFailed = false;
+      state.phase = "level";
+      render(`[data-level-choice="${state.levelId}"]`);
+      return;
+    }
+
     const encounter = activeEncounter();
     const answer = event.target.closest("[data-answer]");
     if (encounter) {
@@ -463,7 +464,6 @@
       return;
     }
 
-    const action = event.target.closest("[data-action]")?.dataset.action;
     if (state.phase === "treasure") {
       if (action === "treasure-next") finishTreasure();
       return;
@@ -501,6 +501,7 @@
     if (action === "back-level" && state.phase === "play") {
       state.game = null;
       state.encounterError = "";
+      state.mapAssetFailed = false;
       state.phase = "level";
       render(`[data-level-choice="${state.levelId}"]`);
       return;

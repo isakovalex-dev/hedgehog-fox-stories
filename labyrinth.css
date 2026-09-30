@@ -421,6 +421,27 @@ img { display: block; max-width: 100%; }
 /* The illustrated map is the hero: the logical grid is transparent above it. */
 .labyrinth-playfield { width: min(1040px, 100%); margin: 0 auto; }
 
+.labyrinth-map-load-failure {
+  display: grid;
+  width: min(680px, 100%);
+  min-height: 360px;
+  margin: 0 auto;
+  padding: clamp(24px, 6vw, 58px);
+  border: 1px solid rgba(104, 76, 44, .3);
+  border-radius: 23px;
+  background:
+    radial-gradient(circle at 15% 85%, rgba(146, 168, 104, .22), transparent 30%),
+    radial-gradient(circle at 88% 14%, rgba(246, 197, 103, .21), transparent 27%),
+    rgba(255, 249, 230, .88);
+  box-shadow: 0 16px 30px rgba(61, 47, 32, .14);
+  place-items: center;
+  text-align: center;
+}
+
+.labyrinth-map-load-failure__card { max-width: 410px; }
+.labyrinth-map-load-failure h1 { margin: 8px 0 10px; font-size: clamp(32px, 6vw, 52px); }
+.labyrinth-map-load-failure p:not(.labyrinth-step) { margin: 0 0 20px; line-height: 1.45; }
+
 .labyrinth-storybook-map {
   position: relative;
   width: 100%;
@@ -431,18 +452,24 @@ img { display: block; max-width: 100%; }
   border: 5px solid rgba(97, 72, 42, .3);
   border-radius: 23px;
   background-color: #b9c8b5;
-  background-image:
-    linear-gradient(180deg, rgba(255, 251, 229, .12), rgba(47, 72, 54, .08)),
-    var(--level-art),
-    linear-gradient(135deg, #a6bc98, #d8c58c);
-  background-position: center;
-  background-size: cover;
+  background-image: linear-gradient(135deg, #a6bc98, #d8c58c);
   box-shadow: 0 16px 30px rgba(61, 47, 32, .22), inset 0 0 0 2px rgba(255, 246, 214, .4);
+}
+
+.labyrinth-map-art {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  pointer-events: none;
 }
 
 .labyrinth-storybook-map::before {
   position: absolute;
-  z-index: 0;
+  z-index: 1;
   inset: 0;
   opacity: .28;
   background:
@@ -492,7 +519,7 @@ img { display: block; max-width: 100%; }
 }
 
 .labyrinth-heart-counter,
-.labyrinth-findings-counter {
+.labyrinth-hints-counter {
   display: inline-flex;
   align-items: center;
   gap: 2px;
@@ -505,8 +532,8 @@ img { display: block; max-width: 100%; }
 .labyrinth-heart { color: #d4b59d; font: 22px/1 var(--display); }
 .labyrinth-heart.is-full { color: #c75d4f; text-shadow: 0 1px rgba(103, 51, 39, .27); }
 
-.labyrinth-findings-counter { gap: 5px; margin-left: auto; color: var(--ink); font: 800 13px/1 var(--ui); }
-.labyrinth-findings-counter > span { color: var(--honey); font-size: 22px; line-height: 1; text-shadow: 0 1px #9e6e25; }
+.labyrinth-hints-counter { gap: 5px; margin-left: auto; color: var(--ink); font: 800 13px/1 var(--ui); }
+.labyrinth-hints-counter > span { color: var(--honey); font-size: 22px; line-height: 1; text-shadow: 0 1px #9e6e25; }
 
 .labyrinth-pause-button {
   display: grid;
@@ -580,8 +607,8 @@ img { display: block; max-width: 100%; }
 .labyrinth-start-sign,
 .labyrinth-trail-footprint {
   position: absolute;
-  left: calc(var(--path-x) * 1%);
-  top: calc(var(--path-y) * 1%);
+  left: calc(var(--grid-x) * 1%);
+  top: calc(var(--grid-y) * 1%);
 }
 
 .labyrinth-tile {
@@ -905,8 +932,8 @@ a:focus-visible {
   .labyrinth-hud-hero img { width: 30px; height: 30px; }
   .labyrinth-heart-counter { gap: 0; min-height: 30px; padding: 0 5px; }
   .labyrinth-heart { font-size: 18px; }
-  .labyrinth-findings-counter { min-height: 30px; padding: 0 6px; font-size: 11px; }
-  .labyrinth-findings-counter > span { font-size: 18px; }
+  .labyrinth-hints-counter { min-height: 30px; padding: 0 6px; font-size: 11px; }
+  .labyrinth-hints-counter > span { font-size: 18px; }
   .labyrinth-pause-button { flex-basis: 44px; width: 44px; height: 44px; font-size: 15px; }
 
   .labyrinth-map-heading { top: 60px; left: 8px; max-width: 160px; padding: 6px 8px; }
