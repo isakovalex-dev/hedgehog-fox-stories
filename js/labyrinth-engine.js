@@ -13,7 +13,7 @@
       label: "Лёгкий",
       difficulty: "Лёгкий",
       age: "3–5 лет",
-      art: "assets/labyrinth/storybook/forest-start-maze-v2.png",
+      art: "assets/labyrinth/storybook/forest-start-background-v3.png",
       gridBounds: { left: 10, top: 8, right: 90, bottom: 92 },
       summary: "Короткий лабиринт с понятными поворотами.",
       prize: {
@@ -67,7 +67,7 @@
       label: "Средний",
       difficulty: "Средний",
       age: "6–7 лет",
-      art: "assets/labyrinth/storybook/mystery-forest-maze-v2.png",
+      art: "assets/labyrinth/storybook/mystery-forest-background-v3.png",
       gridBounds: { left: 8, top: 8, right: 92, bottom: 92 },
       summary: "Больше ходов, ручьи и мостики.",
       prize: {
@@ -123,7 +123,7 @@
       label: "Сложный",
       difficulty: "Сложный",
       age: "8–10 лет",
-      art: "assets/labyrinth/storybook/mountain-cave-maze-v2.png",
+      art: "assets/labyrinth/storybook/mountain-cave-background-v3.png",
       gridBounds: { left: 7, top: 7, right: 93, bottom: 93 },
       summary: "Длинный путь с мостами, лестницами и тупиками.",
       prize: {

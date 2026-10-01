@@ -41,6 +41,13 @@ async function walk(page, keys) {
   for (const key of keys) await page.keyboard.press(key);
 }
 
+async function tapGridCellCenter(page, row, column) {
+  const cell = page.locator(`#labyrinthBoard [data-row="${row}"][data-column="${column}"]`);
+  const box = await cell.boundingBox();
+  expect(box).not.toBeNull();
+  await page.mouse.click((box?.x || 0) + (box?.width || 0) / 2, (box?.y || 0) + (box?.height || 0) / 2);
+}
+
 async function collectEasyTicket(page) {
   await walk(page, EASY_TO_TICKET);
   await expect(page.getByRole("dialog", { name: "Билетик развилки" })).toBeVisible();
@@ -121,6 +128,27 @@ test("uses one uniform orthogonal grid for every playable marker", async ({ page
   expect(allMarkersUseGrid).toBe(true);
 });
 
+test("renders one native sand-road link for every playable cardinal map link", async ({ page }) => {
+  for (const levelId of ["easy", "medium", "hard"]) {
+    await openTrail(page, "hedgehog", levelId);
+
+    const expectedEdges = (await page.locator("#labyrinthBoard [data-row]").evaluateAll((nodes) => {
+      const positions = new Set(nodes.map((node) => `${node.dataset.row}:${node.dataset.column}`));
+      return nodes.flatMap((node) => {
+        const row = Number(node.dataset.row);
+        const column = Number(node.dataset.column);
+        return [[row, column + 1], [row + 1, column]]
+          .filter(([nextRow, nextColumn]) => positions.has(`${nextRow}:${nextColumn}`))
+          .map(([nextRow, nextColumn]) => `${row}:${column}->${nextRow}:${nextColumn}`);
+      });
+    })).sort();
+    const actualEdges = (await page.locator("[data-route-edge]").evaluateAll((nodes) => nodes.map((node) => node.dataset.routeEdge))).sort();
+
+    expect(actualEdges).toEqual(expectedEdges);
+    await expect(page.locator("svg[data-route-grid]")).toBeVisible();
+  }
+});
+
 test("counts hints on the route but reveals the only prize in the final chest", async ({ page }) => {
   await openTrail(page, "hedgehog", "easy");
   await solveEntry(page);
@@ -179,8 +207,24 @@ test("supports a real touch swipe and suppresses the following map click", async
   });
 
   await expect(page.locator("[data-move-count]")).toHaveText("1");
-  await page.locator('#labyrinthBoard [data-row="9"][data-column="3"]').click();
+  await tapGridCellCenter(page, 9, 3);
   await expect(page.locator("[data-move-count]")).toHaveText("1");
+});
+
+test("maps a physical phone tap to the adjacent route cell instead of the hero overlay", async ({ page }) => {
+  const journeys = [
+    { levelId: "easy", answer: "1", row: 8, column: 1 },
+    { levelId: "medium", answer: "0", row: 10, column: 1 },
+    { levelId: "hard", answer: "1", row: 12, column: 1 }
+  ];
+
+  await page.setViewportSize({ width: 375, height: 812 });
+  for (const journey of journeys) {
+    await openTrail(page, "hedgehog", journey.levelId);
+    await solveEntry(page, journey.answer);
+    await tapGridCellCenter(page, journey.row, journey.column);
+    await expect(page.locator("[data-move-count]")).toHaveText("1");
+  }
 });
 
 test("keeps four sufficiently large direction buttons tappable on a phone", async ({ page }) => {
@@ -205,8 +249,8 @@ test("renders the new map art and keeps phone controls in viewport", async ({ pa
   await page.setViewportSize({ width: 375, height: 812 });
   await openTrail(page, "hedgehog", "easy");
 
-  await expect(page.locator("#labyrinthBoard")).toHaveAttribute("data-art", "assets/labyrinth/storybook/forest-start-maze-v2.png");
-  await expect(page.locator("[data-map-art]")).toHaveAttribute("src", /forest-start-maze-v2\.png/);
+  await expect(page.locator("#labyrinthBoard")).toHaveAttribute("data-art", "assets/labyrinth/storybook/forest-start-background-v3.png");
+  await expect(page.locator("[data-map-art]")).toHaveAttribute("src", /forest-start-background-v3\.png/);
   await expect(page.locator(".labyrinth-game-hud")).toBeVisible();
   await expect(page.locator(".labyrinth-heart-counter")).toHaveAttribute("data-lives", "3");
   await expect(page.locator(".labyrinth-hints-counter")).toContainText("0/2");
@@ -246,14 +290,25 @@ test("keeps the hard treasure hidden until the final orthogonal approach", async
   const finalHero = page.locator('#labyrinthBoard [data-current="true"]');
   await expect(goal).toHaveAttribute("data-fogged", "true");
   await expect(goal).toHaveClass(/is-goal-veiled/);
-  await expect(goal).toHaveCSS("pointer-events", "auto");
   await expect(finalHero).toHaveClass(/is-yielding-tap/);
-  await goal.click();
+  await tapGridCellCenter(page, 1, 13);
+  await expect(page.locator('[data-screen="treasure"]')).toBeVisible();
+});
+
+test("opens the hard treasure from a physical phone tap at the final cell", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await openTrail(page, "fox", "hard");
+  await solveEntry(page, "1");
+  await walk(page, HARD_TO_TICKET);
+  await page.getByRole("button", { name: "Запомнить подсказку" }).click();
+  await walk(page, HARD_TO_BESIDE_GOAL_AFTER_TICKET);
+
+  await tapGridCellCenter(page, 1, 13);
   await expect(page.locator('[data-screen="treasure"]')).toBeVisible();
 });
 
 test("shows a recovery screen when a required map asset cannot load", async ({ page }) => {
-  await page.route("**/assets/labyrinth/storybook/forest-start-maze-v2.png", (route) => route.abort());
+  await page.route("**/assets/labyrinth/storybook/forest-start-background-v3.png", (route) => route.abort());
   await chooseTrail(page, "hedgehog", "easy");
 
   await expect(page.getByRole("heading", { name: "Не удалось открыть карту" })).toBeVisible();

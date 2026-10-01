@@ -88,6 +88,77 @@
     return `--grid-x:${point.x};--grid-y:${point.y}`;
   }
 
+  function isTrailTile(level, row, column) {
+    const tile = level.map[row]?.[column];
+    return Boolean(tile && tile !== "#");
+  }
+
+  function getRouteEdges(level) {
+    const edges = [];
+    for (let row = 0; row < level.map.length; row += 1) {
+      for (let column = 0; column < level.map[row].length; column += 1) {
+        if (!isTrailTile(level, row, column)) continue;
+        for (const [nextRow, nextColumn] of [[row, column + 1], [row + 1, column]]) {
+          if (!isTrailTile(level, nextRow, nextColumn)) continue;
+          edges.push({
+            id: `${row}:${column}->${nextRow}:${nextColumn}`,
+            from: gridPoint(level, row, column),
+            to: gridPoint(level, nextRow, nextColumn)
+          });
+        }
+      }
+    }
+    return edges;
+  }
+
+  function routeThickness(level) {
+    const horizontal = Math.abs(gridPoint(level, 0, 1).x - gridPoint(level, 0, 0).x);
+    const vertical = Math.abs(gridPoint(level, 1, 0).y - gridPoint(level, 0, 0).y);
+    return {
+      x: Number((horizontal * 0.78).toFixed(3)),
+      y: Number((vertical * 0.78).toFixed(3))
+    };
+  }
+
+  function routeRectangle(edge, widthX, widthY) {
+    const horizontal = edge.from.y === edge.to.y;
+    if (horizontal) {
+      return {
+        x: Math.min(edge.from.x, edge.to.x) - widthX / 2,
+        y: edge.from.y - widthY / 2,
+        width: Math.abs(edge.to.x - edge.from.x) + widthX,
+        height: widthY
+      };
+    }
+    return {
+      x: edge.from.x - widthX / 2,
+      y: Math.min(edge.from.y, edge.to.y) - widthY / 2,
+      width: widthX,
+      height: Math.abs(edge.to.y - edge.from.y) + widthY
+    };
+  }
+
+  function renderRouteRectangles(edges, width, className, withData = false) {
+    return edges.map((edge) => {
+      const box = routeRectangle(edge, width.x, width.y);
+      const data = withData ? ` data-route-edge="${edge.id}"` : "";
+      return `<rect class="${className}"${data} x="${box.x.toFixed(3)}" y="${box.y.toFixed(3)}" width="${box.width.toFixed(3)}" height="${box.height.toFixed(3)}" />`;
+    }).join("");
+  }
+
+  function renderMapRoute(level) {
+    const edges = getRouteEdges(level);
+    const road = routeThickness(level);
+    const border = { x: road.x + 1.5, y: road.y + 1.5 };
+    const highlight = { x: Math.max(road.x - 1.3, 1), y: Math.max(road.y - 1.3, 1) };
+    return `
+      <svg class="labyrinth-route-art" data-route-grid="${level.id}" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <g class="labyrinth-route-art__shadow">${renderRouteRectangles(edges, border, "labyrinth-route-art__shadow-segment")}</g>
+        <g class="labyrinth-route-art__sand">${renderRouteRectangles(edges, road, "labyrinth-route-art__sand-segment", true)}</g>
+        <g class="labyrinth-route-art__highlight">${renderRouteRectangles(edges, highlight, "labyrinth-route-art__highlight-segment")}</g>
+      </svg>`;
+  }
+
   function isBesideGoal(level, row, column) {
     return [
       level.map[row - 1]?.[column],
@@ -199,7 +270,7 @@
       const marker = isHero
         ? `<img class="labyrinth-board-hero hero-token--${hero().className}" src="${hero().portrait}" alt="" />`
         : isGoalVisible ? `<span class="goal-token" aria-hidden="true">✦</span>` : "";
-      return `<button class="${classes}" data-row="${row}" data-column="${column}" data-grid-x="${point.x}" data-grid-y="${point.y}" data-fogged="${String(isFogged || isGoalVeiled)}" data-current="${String(isHero)}" style="${gridStyle(point)}" type="button" tabindex="${isHero ? "0" : "-1"}" aria-label="${tileLabel(tile, row, column, isDiscovered, isGoalVisible)}">${marker}</button>`;
+      return `<span class="${classes}" data-row="${row}" data-column="${column}" data-grid-x="${point.x}" data-grid-y="${point.y}" data-fogged="${String(isFogged || isGoalVeiled)}" data-current="${String(isHero)}" style="${gridStyle(point)}" tabindex="${isHero ? "0" : "-1"}" role="${isHero ? "img" : "presentation"}"${isHero ? ` aria-label="${tileLabel(tile, row, column, isDiscovered, isGoalVisible)}"` : " aria-hidden=\"true\""}>${marker}</span>`;
     }).join("")).join("");
   }
 
@@ -257,22 +328,27 @@
     const isModalOpen = Boolean(modal);
     return `
       <section class="labyrinth-playfield" ${screenAttributes()} aria-labelledby="gameTitle" ${isModalOpen ? "inert" : ""}>
-        <div class="labyrinth-map-frame labyrinth-storybook-map" style="--maze-columns:${level.map[0].length};--maze-rows:${level.map.length}">
-          <img class="labyrinth-map-art" data-map-art src="${level.art}" alt="" aria-hidden="true" />
-          <header class="labyrinth-game-hud">
-            <div class="labyrinth-hud-hero"><img src="${hero().portrait}" alt="" /><span>${hero().title}</span></div>
-            <div class="labyrinth-heart-counter" data-lives="${game.lives}" aria-label="Сердца: ${game.lives} из ${game.maxLives}"><span class="sr-only">Сердца: ${game.lives} из ${game.maxLives}</span>${renderHearts(game)}</div>
-            <output class="labyrinth-hints-counter" data-hint-count="${game.seenEncounters.length}" aria-label="Подсказки: ${game.seenEncounters.length} из ${level.encounters.length}"><span aria-hidden="true">✦</span><strong>${game.seenEncounters.length}/${level.encounters.length}</strong></output>
-            <button class="labyrinth-pause-button" data-action="pause" type="button" aria-label="Пауза">Ⅱ</button>
-          </header>
+        <header class="labyrinth-game-hud">
+          <div class="labyrinth-hud-hero"><img src="${hero().portrait}" alt="" /><span>${hero().title}</span></div>
+          <div class="labyrinth-heart-counter" data-lives="${game.lives}" aria-label="Сердца: ${game.lives} из ${game.maxLives}"><span class="sr-only">Сердца: ${game.lives} из ${game.maxLives}</span>${renderHearts(game)}</div>
+          <output class="labyrinth-hints-counter" data-hint-count="${game.seenEncounters.length}" aria-label="Подсказки: ${game.seenEncounters.length} из ${level.encounters.length}"><span aria-hidden="true">✦</span><strong>${game.seenEncounters.length}/${level.encounters.length}</strong></output>
+          <button class="labyrinth-pause-button" data-action="pause" type="button" aria-label="Пауза">Ⅱ</button>
+        </header>
+        <div class="labyrinth-map-summary">
           <div class="labyrinth-map-heading"><button class="labyrinth-text-button" data-action="back-level" type="button">← К уровням</button><div><p class="labyrinth-step">КАРТА ПУТЕШЕСТВИЯ</p><h1 id="gameTitle">${level.displayTitle}</h1></div><p class="labyrinth-move-counter">Шаги <strong data-move-count>${game.moves}</strong></p></div>
           <p id="labyrinthStatus" class="labyrinth-status" aria-live="polite">${game.message}</p>
+        </div>
+        <div class="labyrinth-map-frame labyrinth-storybook-map" style="--maze-columns:${level.map[0].length};--maze-rows:${level.map.length}">
+          <img class="labyrinth-map-art" data-map-art src="${level.art}" alt="" aria-hidden="true" />
+          ${renderMapRoute(level)}
           <div id="labyrinthBoard" class="labyrinth-board labyrinth-board--storybook" data-art="${level.art}" aria-label="Лабиринт. ${game.message}" aria-describedby="labyrinthStatus">
             ${startPoint ? `<span class="labyrinth-start-sign" aria-hidden="true" style="${gridStyle(startPoint)}">Старт</span>` : ""}
             ${renderFootprints(level, game)}
             ${renderBoard(level, game)}
             ${renderFog(level, game)}
           </div>
+        </div>
+        <div class="labyrinth-map-footer">
           <div class="labyrinth-map-help"><span aria-hidden="true">☝</span><p>Веди героя к цели — туман будет постепенно открываться.</p></div>
           <div class="labyrinth-controls" aria-label="Управление лабиринтом"><span></span><button data-move="up" type="button" aria-label="Идти вверх">↑</button><span></span><button data-move="left" type="button" aria-label="Идти влево">←</button><button data-move="down" type="button" aria-label="Идти вниз">↓</button><button data-move="right" type="button" aria-label="Идти вправо">→</button></div>
         </div>
@@ -411,6 +487,20 @@
     return Boolean(state.phase === "play" && state.game && !state.pauseOpen && !activeEncounter() && event.target.closest("#labyrinthBoard"));
   }
 
+  function gridCellFromPointer(board, clientX, clientY) {
+    const level = currentLevel();
+    const bounds = board.getBoundingClientRect();
+    if (!bounds.width || !bounds.height) return null;
+    const x = ((clientX - bounds.left) / bounds.width) * 100;
+    const y = ((clientY - bounds.top) / bounds.height) * 100;
+    const columns = level.map[0].length - 1;
+    const rows = level.map.length - 1;
+    const column = Math.round(((x - level.gridBounds.left) / (level.gridBounds.right - level.gridBounds.left)) * columns);
+    const row = Math.round(((y - level.gridBounds.top) / (level.gridBounds.bottom - level.gridBounds.top)) * rows);
+    if (!Number.isInteger(row) || !Number.isInteger(column) || !isTrailTile(level, row, column)) return null;
+    return { row, column };
+  }
+
   app.addEventListener("error", (event) => {
     if (!event.target?.matches?.("[data-map-art]")) return;
     state.mapAssetFailed = true;
@@ -530,8 +620,10 @@
     if (state.phase !== "play" || !state.game) return;
     const direction = event.target.closest("[data-move]")?.dataset.move;
     if (direction) { move(direction); return; }
-    const tile = event.target.closest("[data-row]");
-    if (tile) moveTo(Number(tile.dataset.row), Number(tile.dataset.column));
+    const board = event.target.closest("#labyrinthBoard");
+    if (!board) return;
+    const cell = gridCellFromPointer(board, event.clientX, event.clientY);
+    if (cell) moveTo(cell.row, cell.column);
   });
 
   document.addEventListener("keydown", (event) => {

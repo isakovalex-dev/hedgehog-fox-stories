@@ -107,9 +107,9 @@ test("keeps encounter metadata stable at the entry and a real branch", () => {
 
 test("publishes named orthogonal maps with fixed 4:3 assets and grid bounds", () => {
   const expectedLevels = [
-    ["easy", "Лесной старт", "3–5 лет", "assets/labyrinth/storybook/forest-start-maze-v2.png", 11],
-    ["medium", "Таинственный лес", "6–7 лет", "assets/labyrinth/storybook/mystery-forest-maze-v2.png", 13],
-    ["hard", "Горная пещера", "8–10 лет", "assets/labyrinth/storybook/mountain-cave-maze-v2.png", 15]
+    ["easy", "Лесной старт", "3–5 лет", "assets/labyrinth/storybook/forest-start-background-v3.png", 11],
+    ["medium", "Таинственный лес", "6–7 лет", "assets/labyrinth/storybook/mystery-forest-background-v3.png", 13],
+    ["hard", "Горная пещера", "8–10 лет", "assets/labyrinth/storybook/mountain-cave-background-v3.png", 15]
   ];
 
   for (const [id, title, age, art, size] of expectedLevels) {

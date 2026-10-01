@@ -419,7 +419,12 @@ img { display: block; max-width: 100%; }
 .labyrinth-secondary:hover { background: #fff4d8; transform: translateY(-1px); }
 
 /* The illustrated map is the hero: the logical grid is transparent above it. */
-.labyrinth-playfield { width: min(1040px, 100%); margin: 0 auto; }
+.labyrinth-playfield {
+  display: grid;
+  width: min(1040px, 100%);
+  gap: 12px;
+  margin: 0 auto;
+}
 
 .labyrinth-map-load-failure {
   display: grid;
@@ -467,6 +472,20 @@ img { display: block; max-width: 100%; }
   pointer-events: none;
 }
 
+.labyrinth-route-art {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.labyrinth-route-art__shadow-segment { fill: rgba(96, 72, 38, .44); }
+.labyrinth-route-art__sand-segment { fill: #edcb7f; }
+.labyrinth-route-art__highlight-segment { fill: rgba(255, 236, 174, .54); }
+
 .labyrinth-storybook-map::before {
   position: absolute;
   z-index: 1;
@@ -481,11 +500,6 @@ img { display: block; max-width: 100%; }
 
 .labyrinth-game-hud {
   display: flex;
-  position: absolute;
-  z-index: 9;
-  top: 14px;
-  right: 14px;
-  left: 14px;
   align-items: center;
   gap: 8px;
   min-height: 46px;
@@ -550,18 +564,14 @@ img { display: block; max-width: 100%; }
   place-items: center;
 }
 
-.labyrinth-map-heading {
-  position: absolute;
-  z-index: 8;
-  top: 69px;
-  left: 16px;
-  max-width: min(265px, calc(100% - 32px));
-  padding: 9px 12px 10px;
-  border: 1px solid rgba(100, 75, 46, .23);
-  border-radius: 12px;
-  background: rgba(255, 247, 224, .8);
-  box-shadow: 0 3px 8px rgba(48, 64, 41, .1);
+.labyrinth-map-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(210px, 330px);
+  align-items: end;
+  gap: 14px;
 }
+
+.labyrinth-map-heading { min-width: 0; }
 
 .labyrinth-map-heading .labyrinth-text-button { margin-bottom: 5px; font-size: 10px; }
 .labyrinth-map-heading .labyrinth-step { color: var(--moss); font-size: 8px; }
@@ -579,11 +589,6 @@ img { display: block; max-width: 100%; }
 .labyrinth-move-counter strong { color: var(--ink); font: 500 22px/1 var(--display); }
 
 .labyrinth-status {
-  position: absolute;
-  z-index: 8;
-  top: 147px;
-  left: 16px;
-  max-width: min(260px, calc(100% - 32px));
   margin: 0;
   padding: 7px 9px;
   border-radius: 8px;
@@ -594,7 +599,7 @@ img { display: block; max-width: 100%; }
 
 .labyrinth-board {
   position: absolute;
-  z-index: 2;
+  z-index: 3;
   inset: 0;
   overflow: hidden;
   touch-action: none;
@@ -619,7 +624,7 @@ img { display: block; max-width: 100%; }
   padding: 0;
   border: 0;
   background: transparent;
-  cursor: pointer;
+  pointer-events: none;
   transform: translate(-50%, -50%);
   place-items: center;
 }
@@ -706,11 +711,14 @@ img { display: block; max-width: 100%; }
   place-items: center;
 }
 
+.labyrinth-map-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
 .labyrinth-map-help {
-  position: absolute;
-  z-index: 8;
-  bottom: 15px;
-  left: 15px;
   display: flex;
   align-items: center;
   gap: 7px;
@@ -728,10 +736,6 @@ img { display: block; max-width: 100%; }
 
 .labyrinth-controls {
   display: grid;
-  position: absolute;
-  z-index: 9;
-  right: 15px;
-  bottom: 14px;
   grid-template-columns: repeat(3, 46px);
   gap: 5px;
 }
@@ -927,7 +931,8 @@ a:focus-visible {
   .labyrinth-level-ready .labyrinth-primary { flex: 0 0 auto; }
 
   .labyrinth-storybook-map { min-height: 0; border-width: 4px; border-radius: 17px; }
-  .labyrinth-game-hud { top: 8px; right: 8px; left: 8px; gap: 4px; min-height: 39px; padding: 2px; }
+  .labyrinth-playfield { gap: 8px; }
+  .labyrinth-game-hud { gap: 4px; min-height: 39px; padding: 2px; }
   .labyrinth-hud-hero { gap: 3px; padding-right: 3px; font-size: 10px; }
   .labyrinth-hud-hero img { width: 30px; height: 30px; }
   .labyrinth-heart-counter { gap: 0; min-height: 30px; padding: 0 5px; }
@@ -936,18 +941,20 @@ a:focus-visible {
   .labyrinth-hints-counter > span { font-size: 18px; }
   .labyrinth-pause-button { flex-basis: 44px; width: 44px; height: 44px; font-size: 15px; }
 
-  .labyrinth-map-heading { top: 60px; left: 8px; max-width: 160px; padding: 6px 8px; }
+  .labyrinth-map-summary { grid-template-columns: 1fr; gap: 4px; }
+  .labyrinth-map-heading { max-width: none; }
   .labyrinth-map-heading .labyrinth-text-button { margin-bottom: 3px; font-size: 8px; }
   .labyrinth-map-heading .labyrinth-step { font-size: 6px; }
   .labyrinth-map-heading h1 { font-size: 18px; }
   .labyrinth-move-counter { margin-top: 3px; font-size: 8px; }
   .labyrinth-move-counter strong { font-size: 17px; }
-  .labyrinth-status { top: 119px; left: 8px; max-width: 164px; padding: 5px 6px; font-size: 8px; }
+  .labyrinth-status { max-width: none; padding: 5px 6px; font-size: 8px; }
 
-  .labyrinth-map-help { top: 60px; right: 8px; bottom: auto; left: auto; max-width: 124px; padding: 5px 6px; }
+  .labyrinth-map-footer { align-items: flex-end; gap: 8px; }
+  .labyrinth-map-help { max-width: 124px; padding: 5px 6px; }
   .labyrinth-map-help span { font-size: 16px; }
   .labyrinth-map-help p { font-size: 8px; }
-  .labyrinth-controls { right: 8px; bottom: 8px; grid-template-columns: repeat(3, 44px); gap: 4px; }
+  .labyrinth-controls { grid-template-columns: repeat(3, 44px); gap: 4px; }
   .labyrinth-controls button { width: 44px; height: 44px; font-size: 23px; }
   .labyrinth-start-sign { padding: 3px 5px; font-size: 8px; }
   .labyrinth-board-hero { width: clamp(29px, 10vw, 44px); height: clamp(29px, 10vw, 44px); }
