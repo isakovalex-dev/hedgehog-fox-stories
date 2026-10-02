@@ -1058,7 +1058,7 @@ a:focus-visible {
 
   .level-choice-grid--storybook { grid-template-columns: 1fr; gap: 12px; }
   .level-choice { grid-template-columns: 128px 1fr; min-height: 124px; padding: 8px; }
-  .level-choice__art { grid-row: 1; align-self: stretch; }
+  .level-choice__art { grid-row: 1; align-self: center; }
   .level-choice__copy { align-content: center; padding: 4px 6px; }
   .level-choice__copy strong { font-size: 23px; }
   .level-choice__copy em { min-height: 0; }
@@ -1083,8 +1083,8 @@ a:focus-visible {
   .labyrinth-endless-choice__compass { right: 6px; bottom: 6px; width: 30px; height: 30px; font-size: 17px; }
   .labyrinth-map-chapter { margin: 1px 0; font-size: 8px; }
   .labyrinth-map-chapter strong { font-size: 15px; }
-  .labyrinth-level-ready { gap: 10px; margin-top: 16px; padding: 11px; }
-  .labyrinth-level-ready .labyrinth-primary { flex: 0 0 auto; }
+  .labyrinth-level-ready { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; margin-top: 16px; padding: 11px; }
+  .labyrinth-level-ready .labyrinth-primary { grid-column: 1 / -1; width: 100%; }
 
   .labyrinth-storybook-map { min-height: 0; border-width: 4px; border-radius: 17px; }
   .labyrinth-playfield { gap: 8px; }

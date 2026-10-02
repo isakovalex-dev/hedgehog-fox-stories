@@ -437,6 +437,34 @@ test("recovers from corrupted endless progress without changing classic progress
   await expect(page.evaluate(() => window.localStorage.getItem("hedgehogFoxLabyrinthProgress"))).resolves.toBe(JSON.stringify(["easy"]));
 });
 
+test("keeps classic level artwork out of the mobile text column", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/labyrinth.html", { waitUntil: "networkidle" });
+  await page.locator('[data-hero-choice="hedgehog"]').click();
+
+  for (const card of await page.locator(".level-choice").all()) {
+    const art = await card.locator(".level-choice__art").boundingBox();
+    const copy = await card.locator(".level-choice__copy").boundingBox();
+    expect(art).not.toBeNull();
+    expect(copy).not.toBeNull();
+    expect((art?.x || 0) + (art?.width || 0)).toBeLessThanOrEqual((copy?.x || 0) + 1);
+  }
+});
+
+test("gives the endless chapter label room on 375px", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.addInitScript(() => {
+    window.localStorage.setItem("hedgehogFoxLabyrinthEndlessProgress", JSON.stringify({ highestChapter: 1 }));
+  });
+  await page.goto("/labyrinth.html", { waitUntil: "networkidle" });
+  await page.locator('[data-hero-choice="hedgehog"]').click();
+  await page.locator("[data-endless-choice]").click();
+
+  const label = await page.locator(".labyrinth-level-ready p").boundingBox();
+  expect(label).not.toBeNull();
+  expect(label?.width || 0).toBeGreaterThanOrEqual(120);
+});
+
 test("keeps endless card and physical phone controls usable on 375px", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.addInitScript(() => {
