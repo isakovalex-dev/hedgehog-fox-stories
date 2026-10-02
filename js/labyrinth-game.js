@@ -663,6 +663,7 @@
     if (state.phase === "level" && endlessButton) {
       selectEndlessJourney();
       render("[data-endless-choice]");
+      app.querySelector("[data-action='start']")?.scrollIntoView({ block: "center" });
       return;
     }
     const levelButton = event.target.closest("[data-level-choice]");

@@ -439,8 +439,34 @@ test("recovers from corrupted endless progress without changing classic progress
 
 test("keeps endless card and physical phone controls usable on 375px", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
-  await chooseEndlessTrail(page);
-  const level = await solveEndlessEntry(page, 1);
+  await page.addInitScript(() => {
+    window.localStorage.setItem("hedgehogFoxLabyrinthEndlessProgress", JSON.stringify({ highestChapter: 1 }));
+  });
+  await page.goto("/labyrinth.html", { waitUntil: "networkidle" });
+  await page.locator('[data-hero-choice="hedgehog"]').click();
+
+  const endlessCard = page.locator("[data-endless-choice]");
+  const continueButton = page.getByRole("button", { name: "Продолжить с главы 2" });
+  await expect(endlessCard).toBeVisible();
+  await expect(endlessCard).toBeInViewport();
+  await expect(page.locator("[data-endless-best]")).toHaveText("Открыта глава 1");
+  await endlessCard.click();
+  await expect(continueButton).toBeVisible();
+
+  const viewport = page.viewportSize();
+  for (const control of [endlessCard, continueButton]) {
+    const box = await control.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box?.width).toBeGreaterThanOrEqual(44);
+    expect(box?.height).toBeGreaterThanOrEqual(44);
+    expect(box?.x).toBeGreaterThanOrEqual(0);
+    expect((box?.x || 0) + (box?.width || 0)).toBeLessThanOrEqual(viewport.width);
+    expect(box?.y).toBeGreaterThanOrEqual(0);
+    expect((box?.y || 0) + (box?.height || 0)).toBeLessThanOrEqual(viewport.height);
+  }
+
+  await continueButton.click();
+  const level = await solveEndlessEntry(page, 2);
   const directions = endlessRoute(level);
   const firstPosition = routePosition(level, directions, 1);
 
