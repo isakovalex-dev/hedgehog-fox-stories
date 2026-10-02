@@ -176,6 +176,60 @@
     }
   ];
 
+  const ENDLESS_THEMES = [
+    {
+      title: "Лесная тропинка",
+      label: "Лёгкий",
+      difficulty: "Лёгкий",
+      age: "3–5 лет",
+      art: "assets/labyrinth/storybook/forest-start-background-v3.png",
+      gridBounds: { left: 10, top: 8, right: 90, bottom: 92 },
+      summary: "Новая лесная глава с прямыми тропинками и тихими развилками.",
+      prizeTitle: "Лесной сюрприз"
+    },
+    {
+      title: "Таинственная поляна",
+      label: "Средний",
+      difficulty: "Средний",
+      age: "6–7 лет",
+      art: "assets/labyrinth/storybook/mystery-forest-background-v3.png",
+      gridBounds: { left: 8, top: 8, right: 92, bottom: 92 },
+      summary: "Тропинки становятся длиннее, а вокруг слышно журчание ручьёв.",
+      prizeTitle: "Находка таинственной поляны"
+    },
+    {
+      title: "Горный маршрут",
+      label: "Сложный",
+      difficulty: "Сложный",
+      age: "8–10 лет",
+      art: "assets/labyrinth/storybook/mountain-cave-background-v3.png",
+      gridBounds: { left: 7, top: 7, right: 93, bottom: 93 },
+      summary: "Длинная горная глава с множеством честных развилок.",
+      prizeTitle: "Горная находка"
+    }
+  ];
+
+  const ENDLESS_PUZZLES = [
+    {
+      prompt: "У Ёжика две шишки и один желудь. Сколько находок в корзинке?",
+      answers: ["2", "3", "4"],
+      correctAnswer: 1,
+      success: "Верно! Первая тропинка ведёт дальше."
+    },
+    {
+      prompt: "У Лисёнка четыре ягодки. Две он оставил для друга. Сколько ягодок осталось?",
+      answers: ["1", "2", "3"],
+      correctAnswer: 1,
+      success: "Верно! Добрая подсказка открыла путь."
+    },
+    {
+      prompt: "На пеньке сидят три светлячка, а потом прилетел ещё один. Сколько их стало?",
+      answers: ["3", "4", "5"],
+      correctAnswer: 1,
+      success: "Верно! Светлячки подсветили первую развилку."
+    }
+  ];
+
   const STEPS = {
     up: { row: -1, column: 0 },
     down: { row: 1, column: 0 },
@@ -221,28 +275,196 @@
     throw new Error(`Labyrinth map is missing ${marker}`);
   }
 
-  function getLevel(levelId) {
-    const level = LEVELS.find((item) => item.id === levelId);
-    if (!level) throw new Error(`Unknown labyrinth level: ${levelId}`);
-    return level;
+  function normalizeEndlessChapter(chapter) {
+    const normalized = Math.max(1, Math.floor(Number(chapter) || 1));
+    return Number.isFinite(normalized) ? normalized : 1;
   }
 
-  function getEncounter(levelId, encounterId) {
-    const encounter = getLevel(levelId).encounters.find((item) => item.id === encounterId);
+  function createSeededRandom(seed) {
+    let value = seed >>> 0;
+    return function random() {
+      value += 0x6D2B79F5;
+      let mixed = value;
+      mixed = Math.imul(mixed ^ (mixed >>> 15), mixed | 1);
+      mixed ^= mixed + Math.imul(mixed ^ (mixed >>> 7), mixed | 61);
+      return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function buildPerfectMaze(roomColumns, roomRows, random) {
+    const columnCount = roomColumns * 2 + 1;
+    const rowCount = roomRows * 2 + 1;
+    const maze = Array.from({ length: rowCount }, () => Array.from({ length: columnCount }, () => "#"));
+    const start = { row: rowCount - 2, column: 1 };
+    const visited = new Set([positionKey(start)]);
+    const stack = [start];
+    maze[start.row][start.column] = ".";
+
+    while (stack.length) {
+      const current = stack.at(-1);
+      const candidates = [];
+      for (const step of Object.values(STEPS)) {
+        const next = { row: current.row + step.row * 2, column: current.column + step.column * 2 };
+        const withinRooms = next.row > 0 && next.row < rowCount - 1 && next.column > 0 && next.column < columnCount - 1;
+        if (withinRooms && !visited.has(positionKey(next))) candidates.push({ next, step });
+      }
+
+      if (!candidates.length) {
+        stack.pop();
+        continue;
+      }
+
+      const choice = candidates[Math.floor(random() * candidates.length)];
+      const between = { row: current.row + choice.step.row, column: current.column + choice.step.column };
+      maze[between.row][between.column] = ".";
+      maze[choice.next.row][choice.next.column] = ".";
+      visited.add(positionKey(choice.next));
+      stack.push(choice.next);
+    }
+
+    return maze.map((row) => row.join(""));
+  }
+
+  function routeBetween(map, start, goal) {
+    const queue = [start];
+    const previous = new Map([[positionKey(start), null]]);
+
+    for (let index = 0; index < queue.length; index += 1) {
+      const current = queue[index];
+      if (current.row === goal.row && current.column === goal.column) break;
+
+      for (const step of Object.values(STEPS)) {
+        const next = { row: current.row + step.row, column: current.column + step.column };
+        const key = positionKey(next);
+        const tile = map[next.row]?.[next.column];
+        if (!tile || tile === "#" || previous.has(key)) continue;
+        previous.set(key, current);
+        queue.push(next);
+      }
+    }
+
+    const route = [];
+    let current = goal;
+    while (current) {
+      route.push(current);
+      current = previous.get(positionKey(current));
+    }
+    return route.reverse();
+  }
+
+  function endlessChapterSetup(chapter) {
+    const themeIndex = (chapter - 1) % ENDLESS_THEMES.length;
+    if (chapter === 1) return { themeIndex, roomColumns: 5, roomRows: 4, difficulty: "Лёгкий", age: "3–5 лет" };
+    if (chapter === 2) return { themeIndex, roomColumns: 6, roomRows: 5, difficulty: "Средний", age: "6–7 лет" };
+    if (chapter === 3) return { themeIndex, roomColumns: 7, roomRows: 6, difficulty: "Сложный", age: "8–10 лет" };
+    return themeIndex === 0
+      ? { themeIndex, roomColumns: 6, roomRows: 5, difficulty: "Средний", age: "6–7 лет" }
+      : { themeIndex, roomColumns: 7, roomRows: 6, difficulty: "Сложный", age: "8–10 лет" };
+  }
+
+  function createEndlessLevel(chapter) {
+    const normalizedChapter = normalizeEndlessChapter(chapter);
+    const setup = endlessChapterSetup(normalizedChapter);
+    const theme = ENDLESS_THEMES[setup.themeIndex];
+    const start = { row: setup.roomRows * 2 - 1, column: 1 };
+    const goal = { row: 1, column: setup.roomColumns * 2 - 1 };
+    const minimumRouteLength = setup.roomRows + setup.roomColumns + 4;
+    let selected = null;
+
+    for (let variant = 0; variant < 24; variant += 1) {
+      const seed = (Math.imul(normalizedChapter, 0x9E3779B1) + Math.imul(variant + 1, 0x85EBCA77)) >>> 0;
+      const map = buildPerfectMaze(setup.roomColumns, setup.roomRows, createSeededRandom(seed));
+      const route = routeBetween(map, start, goal);
+      const candidate = { map, route };
+      if (!selected || candidate.route.length > selected.route.length) selected = candidate;
+      if (route.length - 1 >= minimumRouteLength) {
+        selected = candidate;
+        break;
+      }
+    }
+
+    const map = selected.map.map((line) => line.split(""));
+    map[start.row][start.column] = "S";
+    map[goal.row][goal.column] = "G";
+    const ticketPosition = selected.route[Math.max(1, Math.min(selected.route.length - 2, Math.floor(selected.route.length / 2)))];
+    const puzzle = ENDLESS_PUZZLES[(normalizedChapter - 1) % ENDLESS_PUZZLES.length];
+    const levelId = `endless-${normalizedChapter}`;
+
+    return {
+      id: levelId,
+      chapter: normalizedChapter,
+      title: `Глава ${normalizedChapter}: ${theme.title}`,
+      displayTitle: `Бесконечная глава ${normalizedChapter}`,
+      label: setup.difficulty,
+      difficulty: setup.difficulty,
+      age: setup.age,
+      art: theme.art,
+      gridBounds: theme.gridBounds,
+      summary: theme.summary,
+      prize: {
+        icon: setup.difficulty === "Сложный" ? "✧" : "✦",
+        title: `${theme.prizeTitle} — глава ${normalizedChapter}`,
+        description: "Находка ждала в сундуке в самом конце лабиринта. Её можно взять с собой в следующую главу."
+      },
+      encounters: [
+        {
+          id: `${levelId}-entry-puzzle`,
+          row: start.row,
+          column: start.column,
+          kind: "puzzle",
+          title: "Записка у входа",
+          icon: "❦",
+          prompt: puzzle.prompt,
+          answers: [...puzzle.answers],
+          correctAnswer: puzzle.correctAnswer,
+          success: puzzle.success
+        },
+        {
+          id: `${levelId}-route-ticket`,
+          row: ticketPosition.row,
+          column: ticketPosition.column,
+          kind: "ticket",
+          title: "Билетик развилки",
+          icon: "✦",
+          prompt: "На билетике нарисована стрелка. Она подскажет, куда посмотреть у следующей развилки.",
+          buttonLabel: "Взять билетик",
+          success: "Билетик запомнил путь. А главная находка всё ещё ждёт в сундуке."
+        }
+      ],
+      map: map.map((row) => row.join(""))
+    };
+  }
+
+  function resolveLevel(levelRef) {
+    if (levelRef && typeof levelRef === "object" && Array.isArray(levelRef.map) && Array.isArray(levelRef.encounters)) return levelRef;
+    return getLevel(levelRef);
+  }
+
+  function getLevel(levelId) {
+    const level = LEVELS.find((item) => item.id === levelId);
+    if (level) return level;
+    const endlessMatch = typeof levelId === "string" ? /^endless-(\d+)$/.exec(levelId) : null;
+    if (endlessMatch) return createEndlessLevel(Number(endlessMatch[1]));
+    throw new Error(`Unknown labyrinth level: ${levelId}`);
+  }
+
+  function getEncounter(levelRef, encounterId) {
+    const encounter = resolveLevel(levelRef).encounters.find((item) => item.id === encounterId);
     if (!encounter) throw new Error(`Unknown labyrinth encounter: ${encounterId}`);
     return encounter;
   }
 
-  function getEncounterAt(levelId, position) {
-    return getLevel(levelId).encounters.find((item) => item.row === position.row && item.column === position.column) || null;
+  function getEncounterAt(levelRef, position) {
+    return resolveLevel(levelRef).encounters.find((item) => item.row === position.row && item.column === position.column) || null;
   }
 
-  function createState(levelId, hero) {
-    const level = getLevel(levelId);
+  function createState(levelRef, hero) {
+    const level = resolveLevel(levelRef);
     const position = findMarker(level.map, "S");
-    const entryEncounter = getEncounterAt(levelId, position);
+    const entryEncounter = getEncounterAt(level, position);
     return {
-      levelId,
+      levelId: level.id,
+      level,
       hero: hero === "fox" ? "fox" : "hedgehog",
       position,
       goal: findMarker(level.map, "G"),
@@ -285,7 +507,7 @@
       return { ...state, moved: false, message: "Сначала посмотри на записку у тропинки." };
     }
 
-    const level = getLevel(state.levelId);
+    const level = state.level || resolveLevel(state.levelId);
     const position = { row: state.position.row + step.row, column: state.position.column + step.column };
     const tile = level.map[position.row]?.[position.column];
 
@@ -294,7 +516,7 @@
     }
 
     const completed = tile === "G";
-    const encounter = getEncounterAt(state.levelId, position);
+    const encounter = getEncounterAt(level, position);
     const pendingEncounter = encounter && !state.seenEncounters.includes(encounter.id) ? encounter.id : null;
     return {
       ...state,
@@ -309,5 +531,5 @@
     };
   }
 
-  return { LEVELS, completeEncounter, createState, getEncounter, getEncounterAt, getLevel, move, positionKey, registerMistake };
+  return { LEVELS, completeEncounter, createEndlessLevel, createState, getEncounter, getEncounterAt, getLevel, move, positionKey, registerMistake };
 });

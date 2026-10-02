@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { LEVELS, completeEncounter, createState, getEncounter, getEncounterAt, move, registerMistake } = require("../js/labyrinth-engine.js");
+const { LEVELS, completeEncounter, createEndlessLevel, createState, getEncounter, getEncounterAt, move, registerMistake } = require("../js/labyrinth-engine.js");
 
 const STEPS = {
   up: { row: -1, column: 0 },
@@ -41,6 +41,33 @@ function routeToGoal(level) {
   }
 
   return null;
+}
+
+function assertEndlessLevel(level) {
+  assert.equal(new Set(level.map.map((line) => line.length)).size, 1, "endless map must be rectangular");
+  assert.equal(markerCount(level.map, "S"), 1, "endless map must have one start");
+  assert.equal(markerCount(level.map, "G"), 1, "endless map must have one goal");
+
+  const directions = routeToGoal(level);
+  assert.ok(directions?.length, "endless map must have a cardinal route to the chest");
+  assert.equal(level.encounters.length, 2, "endless map must have an entry puzzle and one ticket");
+
+  const start = markerPosition(level.map, "S");
+  const entry = level.encounters.find((encounter) => encounter.kind === "puzzle");
+  const ticket = level.encounters.find((encounter) => encounter.kind === "ticket");
+  assert.deepEqual({ row: entry.row, column: entry.column }, start, "entry puzzle must sit at S");
+  assert.ok(ticket, "endless map must have a ticket");
+
+  let position = start;
+  const routePositions = [position];
+  for (const direction of directions) {
+    const step = STEPS[direction];
+    position = { row: position.row + step.row, column: position.column + step.column };
+    assert.notEqual(level.map[position.row][position.column], "#", "endless route cannot cross a wall");
+    routePositions.push(position);
+  }
+  assert.deepEqual(position, markerPosition(level.map, "G"));
+  assert.ok(routePositions.some((item) => item.row === ticket.row && item.column === ticket.column), "ticket must sit on the S-to-G route");
 }
 
 function settleEncounter(state) {
@@ -211,4 +238,43 @@ test("completes every orthogonal route with the chest as its only prize", () => 
     assert.equal(state.message, "Сундук найден!");
     assert.equal(Object.hasOwn(state, "findings"), false);
   }
+});
+
+test("creates deterministic, reachable orthogonal endless chapters", () => {
+  const first = createEndlessLevel(12);
+  const next = createEndlessLevel(13);
+
+  assert.deepEqual(createEndlessLevel(12), first);
+  assert.notEqual(next.id, first.id);
+  assert.notDeepEqual(next.map, first.map);
+  assert.match(first.id, /^endless-12$/);
+  assertEndlessLevel(first);
+
+  let state = settleEncounter(createState(first, "fox"));
+  const directions = routeToGoal(first);
+  for (const direction of directions.slice(0, -1)) state = settleEncounter(move(state, direction));
+
+  assert.equal(state.completed, false);
+  assert.equal(state.prize, null, "tickets must not create a prize before G");
+
+  state = settleEncounter(move(state, directions.at(-1)));
+  assert.equal(state.completed, true);
+  assert.deepEqual(state.prize, first.prize);
+});
+
+test("normalizes unsafe endless chapter numbers and runs dynamic encounters", () => {
+  const level = createEndlessLevel(-3.8);
+  const entry = level.encounters.find((encounter) => encounter.kind === "puzzle");
+  let state = createState(level, "fox");
+
+  assert.equal(level.id, "endless-1");
+  assert.equal(createEndlessLevel("not-a-number").id, "endless-1");
+  assert.equal(getEncounter(level, state.pendingEncounter).row, state.position.row);
+  assert.equal(getEncounter(level, entry.id).column, state.position.column);
+
+  state = completeEncounter(state, state.pendingEncounter);
+  state = move(state, routeToGoal(level)[0]);
+
+  assert.equal(state.level, level);
+  assert.equal(state.hero, "fox");
 });
