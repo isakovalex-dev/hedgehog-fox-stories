@@ -1,4 +1,15 @@
 import { expect, test } from "@playwright/test";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+const engine = require("../js/labyrinth-engine.js");
+
+const GRID_STEPS = {
+  up: { row: -1, column: 0, key: "ArrowUp" },
+  down: { row: 1, column: 0, key: "ArrowDown" },
+  left: { row: 0, column: -1, key: "ArrowLeft" },
+  right: { row: 0, column: 1, key: "ArrowRight" }
+};
 
 const EASY_TO_TICKET = [
   "ArrowUp", "ArrowUp",
@@ -52,6 +63,83 @@ async function collectEasyTicket(page) {
   await walk(page, EASY_TO_TICKET);
   await expect(page.getByRole("dialog", { name: "Билетик развилки" })).toBeVisible();
   await page.getByRole("button", { name: "Взять билетик" }).click();
+}
+
+function markerPosition(map, marker) {
+  for (let row = 0; row < map.length; row += 1) {
+    const column = map[row].indexOf(marker);
+    if (column !== -1) return { row, column };
+  }
+  throw new Error(`Missing ${marker}`);
+}
+
+function endlessRoute(level) {
+  const start = markerPosition(level.map, "S");
+  const goal = markerPosition(level.map, "G");
+  const queue = [{ position: start, directions: [] }];
+  const seen = new Set([`${start.row}:${start.column}`]);
+
+  while (queue.length) {
+    const current = queue.shift();
+    if (current.position.row === goal.row && current.position.column === goal.column) return current.directions;
+
+    for (const [direction, step] of Object.entries(GRID_STEPS)) {
+      const position = { row: current.position.row + step.row, column: current.position.column + step.column };
+      const key = `${position.row}:${position.column}`;
+      const tile = level.map[position.row]?.[position.column];
+      if (!tile || tile === "#" || seen.has(key)) continue;
+      seen.add(key);
+      queue.push({ position, directions: [...current.directions, direction] });
+    }
+  }
+
+  throw new Error(`No route through ${level.id}`);
+}
+
+function routePosition(level, directions, stepCount) {
+  let position = markerPosition(level.map, "S");
+  for (const direction of directions.slice(0, stepCount)) {
+    const step = GRID_STEPS[direction];
+    position = { row: position.row + step.row, column: position.column + step.column };
+  }
+  return position;
+}
+
+async function chooseEndlessTrail(page, heroId = "hedgehog") {
+  await page.goto("/labyrinth.html", { waitUntil: "networkidle" });
+  await page.locator(`button[data-hero-choice="${heroId}"]`).click();
+  await page.locator("[data-endless-choice]").click();
+  await expect(page.locator("[data-endless-choice]")).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Начать путешествие" }).click();
+}
+
+async function solveEndlessEntry(page, chapter) {
+  const level = engine.createEndlessLevel(chapter);
+  const entry = level.encounters.find((encounter) => encounter.kind === "puzzle");
+  await expect(page.getByRole("dialog", { name: "Записка у входа" })).toBeVisible();
+  await page.locator(`[data-answer="${entry.correctAnswer}"]`).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  return level;
+}
+
+async function completeEndlessChapter(page, chapter) {
+  await chooseEndlessTrail(page);
+  const level = await solveEndlessEntry(page, chapter);
+  const directions = endlessRoute(level);
+  const ticket = level.encounters.find((encounter) => encounter.kind === "ticket");
+
+  for (let index = 0; index < directions.length; index += 1) {
+    await page.keyboard.press(GRID_STEPS[directions[index]].key);
+    const position = routePosition(level, directions, index + 1);
+    if (position.row === ticket.row && position.column === ticket.column) {
+      await expect(page.getByRole("dialog", { name: "Билетик развилки" })).toBeVisible();
+      await page.locator("[data-encounter-continue]").click();
+    }
+  }
+
+  await expect(page.locator('[data-screen="treasure"]')).toBeVisible();
+  await page.getByRole("button", { name: "Дальше" }).click();
+  await expect(page.locator('[data-screen="complete"]')).toBeVisible();
 }
 
 test("selects either hero and opens each named orthogonal labyrinth", async ({ page }) => {
@@ -314,4 +402,79 @@ test("shows a recovery screen when a required map asset cannot load", async ({ p
   await expect(page.getByRole("heading", { name: "Не удалось открыть карту" })).toBeVisible();
   await page.getByRole("button", { name: "К уровням" }).click();
   await expect(page.locator('[data-screen="level"]')).toHaveAttribute("data-level", "easy");
+});
+
+test("starts the endless journey from a book-style fourth choice", async ({ page }) => {
+  await chooseEndlessTrail(page);
+
+  await expect(page.locator('[data-screen="play"]')).toHaveAttribute("data-mode", "endless");
+  await expect(page.locator('[data-endless-chapter]')).toHaveText("1");
+  await expect(page.locator("svg[data-route-grid='endless-1']")).toBeVisible();
+});
+
+test("continues from an endless treasure into the next generated chapter", async ({ page }) => {
+  await completeEndlessChapter(page, 1);
+
+  await expect(page.getByRole("heading", { name: "Глава 1 пройдена!" })).toBeVisible();
+  await page.getByRole("button", { name: "Следующая глава" }).click();
+  await expect(page.locator('[data-screen="play"]')).toHaveAttribute("data-level", "endless-2");
+  await expect(page.locator('[data-screen="play"]')).toHaveAttribute("data-mode", "endless");
+  await expect(page.locator('[data-endless-chapter]')).toHaveText("2");
+});
+
+test("recovers from corrupted endless progress without changing classic progress", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("hedgehogFoxLabyrinthProgress", JSON.stringify(["easy"]));
+    window.localStorage.setItem("hedgehogFoxLabyrinthEndlessProgress", "{this is not json");
+  });
+  await page.goto("/labyrinth.html", { waitUntil: "networkidle" });
+  await page.locator('[data-hero-choice="hedgehog"]').click();
+
+  await expect(page.locator('[data-level-choice="easy"] .level-choice__done')).toHaveText("Пройден");
+  await expect(page.locator("[data-endless-best]")).toBeVisible();
+  await page.locator("[data-endless-choice]").click();
+  await expect(page.getByRole("button", { name: "Начать путешествие" })).toBeVisible();
+  await expect(page.evaluate(() => window.localStorage.getItem("hedgehogFoxLabyrinthProgress"))).resolves.toBe(JSON.stringify(["easy"]));
+});
+
+test("keeps endless card and physical phone controls usable on 375px", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await chooseEndlessTrail(page);
+  const level = await solveEndlessEntry(page, 1);
+  const directions = endlessRoute(level);
+  const firstPosition = routePosition(level, directions, 1);
+
+  await tapGridCellCenter(page, firstPosition.row, firstPosition.column);
+  await expect(page.locator("[data-move-count]")).toHaveText("1");
+
+  const heroCell = page.locator('#labyrinthBoard [data-current="true"]');
+  const box = await heroCell.boundingBox();
+  const startX = (box?.x || 0) + (box?.width || 0) / 2;
+  const startY = (box?.y || 0) + (box?.height || 0) / 2;
+  const nextStep = GRID_STEPS[directions[1]];
+  const client = await page.context().newCDPSession(page);
+  await client.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [{ x: startX, y: startY, id: 1, radiusX: 1, radiusY: 1, force: 1 }]
+  });
+  await client.send("Input.dispatchTouchEvent", {
+    type: "touchMove",
+    touchPoints: [{ x: startX + nextStep.column * 90, y: startY + nextStep.row * 90, id: 1, radiusX: 1, radiusY: 1, force: 1 }]
+  });
+  await client.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+
+  await expect(page.locator("[data-move-count]")).toHaveText("2");
+});
+
+test("returns to a classic level without retaining the endless dynamic map", async ({ page }) => {
+  await page.goto("/labyrinth.html", { waitUntil: "networkidle" });
+  await page.locator('[data-hero-choice="fox"]').click();
+  await page.locator("[data-endless-choice]").click();
+  await page.locator('[data-level-choice="easy"]').click();
+  await page.getByRole("button", { name: "Начать путь" }).click();
+
+  await expect(page.locator('[data-screen="play"]')).toHaveAttribute("data-mode", "classic");
+  await expect(page.locator('[data-screen="play"]')).toHaveAttribute("data-level", "easy");
+  await expect(page.locator("svg[data-route-grid='easy']")).toBeVisible();
+  await expect(page.locator("svg[data-route-grid='endless-1']")).toHaveCount(0);
 });

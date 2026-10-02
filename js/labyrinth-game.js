@@ -29,8 +29,12 @@
     phase: "hero",
     hero: "hedgehog",
     levelId: "easy",
+    mode: "classic",
+    endlessChapter: 1,
+    activeLevel: null,
     game: null,
     completed: readProgress(),
+    endlessProgress: readEndlessProgress(),
     encounterError: "",
     pauseOpen: false,
     modalReturnFocus: ".labyrinth-tile.is-hero",
@@ -59,11 +63,33 @@
     }
   }
 
-  function currentLevel() { return engine.getLevel(state.levelId); }
+  function readEndlessProgress() {
+    try {
+      const stored = JSON.parse(window.localStorage.getItem("hedgehogFoxLabyrinthEndlessProgress") || "{}");
+      const highestChapter = Math.max(0, Math.floor(Number(stored?.highestChapter) || 0));
+      return { highestChapter: Number.isFinite(highestChapter) ? highestChapter : 0 };
+    } catch (error) {
+      return { highestChapter: 0 };
+    }
+  }
+
+  function saveEndlessProgress() {
+    try {
+      window.localStorage.setItem("hedgehogFoxLabyrinthEndlessProgress", JSON.stringify({
+        highestChapter: state.endlessProgress.highestChapter
+      }));
+    } catch (error) {
+      // Играть можно и без сохранения прогресса.
+    }
+  }
+
+  function currentLevel() {
+    return state.mode === "endless" && state.activeLevel ? state.activeLevel : engine.getLevel(state.levelId);
+  }
   function hero() { return HEROES[state.hero]; }
   function companion() { return HEROES[state.hero === "hedgehog" ? "fox" : "hedgehog"]; }
   function activeEncounter() {
-    return state.game?.pendingEncounter ? engine.getEncounter(state.levelId, state.game.pendingEncounter) : null;
+    return state.game?.pendingEncounter ? engine.getEncounter(currentLevel(), state.game.pendingEncounter) : null;
   }
 
   function startPosition(level) {
@@ -173,6 +199,14 @@
     return engine.LEVELS[(currentIndex + 1) % engine.LEVELS.length];
   }
 
+  function nextEndlessChapter() {
+    return Math.max(1, state.endlessProgress.highestChapter + 1);
+  }
+
+  function levelSelectionFocusSelector() {
+    return state.mode === "endless" ? "[data-endless-choice]" : `[data-level-choice="${state.levelId}"]`;
+  }
+
   function elapsedText() {
     if (!state.startedAt) return "00:00";
     const seconds = Math.max(1, Math.floor(((state.endedAt || Date.now()) - state.startedAt) / 1000));
@@ -181,7 +215,7 @@
 
   function screenAttributes() {
     const game = state.game;
-    return `data-screen="${state.phase}" data-hero="${state.hero}" data-level="${state.levelId}" data-lives="${game?.lives ?? 3}" data-hint-count="${game?.seenEncounters.length ?? 0}"`;
+    return `data-screen="${state.phase}" data-hero="${state.hero}" data-level="${state.levelId}" data-mode="${state.mode}" data-lives="${game?.lives ?? 3}" data-hint-count="${game?.seenEncounters.length ?? 0}"`;
   }
 
   function difficultyStars(level) {
@@ -212,6 +246,13 @@
 
   function renderLevelSelection() {
     const selected = currentLevel();
+    const endlessIsSelected = state.mode === "endless";
+    const nextChapter = nextEndlessChapter();
+    const endlessButtonLabel = state.endlessProgress.highestChapter > 0 ? `Продолжить с главы ${nextChapter}` : "Начать путешествие";
+    const readyTitle = endlessIsSelected ? `Глава ${state.endlessChapter}` : selected.displayTitle;
+    const readyDetails = endlessIsSelected
+      ? `${selected.difficulty} маршрут · новая карта после каждого сундука`
+      : `${selected.difficulty} уровень · ${selected.age}`;
     return `
       <section class="labyrinth-level-screen" ${screenAttributes()} aria-labelledby="levelChoiceTitle">
         <div class="labyrinth-screen-topline"><button class="labyrinth-round-back" data-action="back-hero" type="button" aria-label="Вернуться к выбору героя">←</button><p class="labyrinth-step">2. Выбор уровня сложности</p></div>
@@ -224,8 +265,13 @@
               <span class="level-choice__copy"><strong>${level.displayTitle}</strong><small>${level.age}</small><span class="level-choice__stars" aria-label="${level.difficulty} уровень">${difficultyStars(level)}</span><em>${level.summary}</em></span>
               ${state.completed.includes(level.id) ? '<span class="level-choice__done">Пройден</span>' : ""}
             </button>`).join("")}
+          <button class="labyrinth-endless-choice ${endlessIsSelected ? "is-selected" : ""}" data-endless-choice type="button" aria-pressed="${endlessIsSelected}">
+            <span class="labyrinth-endless-choice__art" aria-hidden="true"><img src="assets/labyrinth/storybook/forest-start-background-v3.png" alt="" /><span class="labyrinth-endless-choice__route"><i></i><i></i><i></i></span><span class="labyrinth-endless-choice__compass">✦</span></span>
+            <span class="labyrinth-endless-choice__copy"><strong>Бесконечное путешествие</strong><em>Новая карта после каждого сундука</em><small>Каждая глава — честный лабиринт с прямыми тропинками.</small></span>
+            <span class="labyrinth-endless-choice__stamp" data-endless-best>${state.endlessProgress.highestChapter > 0 ? `Открыта глава ${state.endlessProgress.highestChapter}` : "Первая глава ждёт"}</span>
+          </button>
         </div>
-        <div class="labyrinth-level-ready"><span class="hero-token hero-token--${hero().className}" aria-hidden="true"><img src="${hero().portrait}" alt="" /></span><p><strong>${selected.displayTitle}</strong><br /><span>${selected.difficulty} уровень · ${selected.age}</span></p><button class="labyrinth-primary" data-action="start" type="button">Начать путь</button></div>
+        <div class="labyrinth-level-ready"><span class="hero-token hero-token--${hero().className}" aria-hidden="true"><img src="${hero().portrait}" alt="" /></span><p><strong>${readyTitle}</strong><br /><span>${readyDetails}</span></p><button class="labyrinth-primary" data-action="start" type="button">${endlessIsSelected ? endlessButtonLabel : "Начать путь"}</button></div>
       </section>`;
   }
 
@@ -322,20 +368,21 @@
     const level = currentLevel();
     const game = state.game;
     const encounter = activeEncounter();
+    const chapterLabel = state.mode === "endless" ? `<p class="labyrinth-map-chapter">Глава <strong data-endless-chapter>${state.endlessChapter}</strong></p>` : "";
     const modal = state.phase === "treasure" ? renderTreasureDialog(level) : state.pauseOpen ? renderPauseDialog() : encounter ? renderEncounter(encounter) : "";
     const start = startPosition(level);
     const startPoint = gridPoint(level, start.row, start.column);
     const isModalOpen = Boolean(modal);
     return `
       <section class="labyrinth-playfield" ${screenAttributes()} aria-labelledby="gameTitle" ${isModalOpen ? "inert" : ""}>
-        <header class="labyrinth-game-hud">
+        <header class="labyrinth-game-hud" data-mode="${state.mode}">
           <div class="labyrinth-hud-hero"><img src="${hero().portrait}" alt="" /><span>${hero().title}</span></div>
           <div class="labyrinth-heart-counter" data-lives="${game.lives}" aria-label="Сердца: ${game.lives} из ${game.maxLives}"><span class="sr-only">Сердца: ${game.lives} из ${game.maxLives}</span>${renderHearts(game)}</div>
           <output class="labyrinth-hints-counter" data-hint-count="${game.seenEncounters.length}" aria-label="Подсказки: ${game.seenEncounters.length} из ${level.encounters.length}"><span aria-hidden="true">✦</span><strong>${game.seenEncounters.length}/${level.encounters.length}</strong></output>
           <button class="labyrinth-pause-button" data-action="pause" type="button" aria-label="Пауза">Ⅱ</button>
         </header>
         <div class="labyrinth-map-summary">
-          <div class="labyrinth-map-heading"><button class="labyrinth-text-button" data-action="back-level" type="button">← К уровням</button><div><p class="labyrinth-step">КАРТА ПУТЕШЕСТВИЯ</p><h1 id="gameTitle">${level.displayTitle}</h1></div><p class="labyrinth-move-counter">Шаги <strong data-move-count>${game.moves}</strong></p></div>
+          <div class="labyrinth-map-heading"><button class="labyrinth-text-button" data-action="back-level" type="button">← К уровням</button><div><p class="labyrinth-step">КАРТА ПУТЕШЕСТВИЯ</p>${chapterLabel}<h1 id="gameTitle">${level.displayTitle}</h1></div><p class="labyrinth-move-counter">Шаги <strong data-move-count>${game.moves}</strong></p></div>
           <p id="labyrinthStatus" class="labyrinth-status" aria-live="polite">${game.message}</p>
         </div>
         <div class="labyrinth-map-frame labyrinth-storybook-map" style="--maze-columns:${level.map[0].length};--maze-rows:${level.map.length}">
@@ -359,15 +406,20 @@
   function renderCompletion() {
     const level = currentLevel();
     const game = state.game;
-    const next = nextLevel();
+    const isEndless = state.mode === "endless";
+    const next = isEndless ? null : nextLevel();
+    const heading = isEndless ? `Глава ${state.endlessChapter} пройдена!` : "Уровень пройден!";
+    const primaryAction = isEndless
+      ? '<button class="labyrinth-primary" data-action="next-endless" type="button">Следующая глава</button>'
+      : `<button class="labyrinth-primary" data-action="next-level" type="button">${next.displayTitle}</button>`;
     return `
       <section class="labyrinth-complete" ${screenAttributes()} aria-labelledby="completeTitle">
         <div class="labyrinth-complete__friends" aria-hidden="true"><img src="${hero().portrait}" alt="" /><span class="labyrinth-complete__stars" data-stars="${state.stars}">${Array.from({ length: 3 }, (_, index) => `<i class="${index < state.stars ? "is-earned" : ""}">★</i>`).join("")}</span><img src="${companion().portrait}" alt="" /></div>
         <p class="labyrinth-step">ПУТЕШЕСТВИЕ ЗАВЕРШЕНО</p>
-        <h1 id="completeTitle">Уровень пройден!</h1>
+        <h1 id="completeTitle">${heading}</h1>
         <p class="labyrinth-complete__lead">${hero().title} дошёл до сундука и нашёл награду, а подсказки помогли не свернуть с тропинки.</p>
         <dl class="labyrinth-complete__stats"><div><dt>Время</dt><dd>${elapsedText()}</dd></div><div><dt>Шагов</dt><dd>${game.moves}</dd></div><div><dt>Награда</dt><dd data-complete-prize>${level.prize.title}</dd></div></dl>
-        <div class="labyrinth-complete__actions"><button class="labyrinth-secondary" data-action="choose-level" type="button">Выбрать уровень</button><button class="labyrinth-primary" data-action="next-level" type="button">${next.displayTitle}</button></div>
+        <div class="labyrinth-complete__actions"><button class="labyrinth-secondary" data-action="choose-level" type="button">Выбрать уровень</button>${primaryAction}</div>
       </section>`;
   }
 
@@ -404,8 +456,33 @@
     focusAfterRender(focusSelector);
   }
 
+  function selectClassicLevel(levelId) {
+    state.mode = "classic";
+    state.activeLevel = null;
+    state.levelId = levelId;
+    state.game = null;
+  }
+
+  function selectEndlessJourney() {
+    const level = engine.createEndlessLevel(nextEndlessChapter());
+    state.mode = "endless";
+    state.activeLevel = level;
+    state.endlessChapter = level.chapter;
+    state.levelId = level.id;
+    state.game = null;
+  }
+
+  function beginEndlessChapter(chapter) {
+    const level = engine.createEndlessLevel(chapter);
+    state.mode = "endless";
+    state.activeLevel = level;
+    state.endlessChapter = level.chapter;
+    state.levelId = level.id;
+    start();
+  }
+
   function start() {
-    state.game = engine.createState(state.levelId, state.hero);
+    state.game = engine.createState(currentLevel(), state.hero);
     state.phase = "play";
     state.encounterError = "";
     state.pauseOpen = false;
@@ -415,6 +492,7 @@
     state.stars = 0;
     state.mapAssetFailed = false;
     render();
+    window.scrollTo(0, 0);
   }
 
   function focusSelectorForActiveElement() {
@@ -469,13 +547,19 @@
 
   function finishTreasure() {
     if (state.phase !== "treasure" || !state.game) return;
-    if (!state.completed.includes(state.levelId)) {
+    if (state.mode === "endless") {
+      const highestChapter = Math.max(state.endlessProgress.highestChapter, state.endlessChapter);
+      if (highestChapter !== state.endlessProgress.highestChapter) {
+        state.endlessProgress = { highestChapter };
+        saveEndlessProgress();
+      }
+    } else if (!state.completed.includes(state.levelId)) {
       state.completed = [...state.completed, state.levelId];
       saveProgress();
     }
     state.stars = Math.max(1, state.game.lives);
     state.phase = "complete";
-    render("[data-action='next-level']");
+    render(state.mode === "endless" ? "[data-action='next-endless']" : "[data-action='next-level']");
   }
 
   function directionFromSwipe(deltaX, deltaY) {
@@ -542,7 +626,7 @@
       state.encounterError = "";
       state.mapAssetFailed = false;
       state.phase = "level";
-      render(`[data-level-choice="${state.levelId}"]`);
+      render(levelSelectionFocusSelector());
       return;
     }
 
@@ -572,13 +656,19 @@
     if (state.phase === "hero" && heroButton) {
       state.hero = heroButton.dataset.heroChoice;
       state.phase = "level";
-      render(`[data-level-choice="${state.levelId}"]`);
+      render(levelSelectionFocusSelector());
+      return;
+    }
+    const endlessButton = event.target.closest("[data-endless-choice]");
+    if (state.phase === "level" && endlessButton) {
+      selectEndlessJourney();
+      render("[data-endless-choice]");
       return;
     }
     const levelButton = event.target.closest("[data-level-choice]");
     if (state.phase === "level" && levelButton) {
-      state.levelId = levelButton.dataset.levelChoice;
-      render(`[data-level-choice="${state.levelId}"]`);
+      selectClassicLevel(levelButton.dataset.levelChoice);
+      render(levelSelectionFocusSelector());
       return;
     }
 
@@ -587,13 +677,17 @@
       render(`[data-hero-choice="${state.hero}"]`);
       return;
     }
-    if (action === "start" && state.phase === "level") { start(); return; }
+    if (action === "start" && state.phase === "level") {
+      if (state.mode === "endless") beginEndlessChapter(state.endlessChapter);
+      else start();
+      return;
+    }
     if (action === "back-level" && state.phase === "play") {
       state.game = null;
       state.encounterError = "";
       state.mapAssetFailed = false;
       state.phase = "level";
-      render(`[data-level-choice="${state.levelId}"]`);
+      render(levelSelectionFocusSelector());
       return;
     }
     if (action === "pause" && state.phase === "play" && state.game) {
@@ -604,15 +698,20 @@
     }
     if (action === "choose-level" && state.phase === "complete") {
       state.game = null;
+      if (state.mode === "endless") selectEndlessJourney();
       state.phase = "level";
-      render(`[data-level-choice="${state.levelId}"]`);
+      render(levelSelectionFocusSelector());
       return;
     }
     if (action === "next-level" && state.phase === "complete") {
-      state.levelId = nextLevel().id;
-      state.game = null;
+      selectClassicLevel(nextLevel().id);
       state.phase = "level";
-      render(`[data-level-choice="${state.levelId}"]`);
+      render(levelSelectionFocusSelector());
+      return;
+    }
+    if (action === "next-endless" && state.phase === "complete") {
+      state.game = null;
+      beginEndlessChapter(state.endlessChapter + 1);
       return;
     }
     if (action === "again" && state.phase === "complete") { start(); return; }
