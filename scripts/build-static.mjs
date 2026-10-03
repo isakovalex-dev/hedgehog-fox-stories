@@ -6,7 +6,7 @@ import { buildBrowserRuntimeConfig, renderBrowserRuntimeConfig } from "./browser
 const projectRoot = process.cwd();
 const outputDirectory = join(projectRoot, "dist");
 
-const publicDirectories = ["assets", "js", "public", "src"];
+const publicDirectories = ["assets", "js", "src"];
 const publicRootFiles = [
   "CNAME",
   "manifest.webmanifest",
@@ -26,9 +26,15 @@ for (const directory of publicDirectories) {
   });
 }
 
-await cp(join(projectRoot, "public", "assets"), join(outputDirectory, "assets"), {
-  recursive: true,
-});
+const publicEntries = await readdir(join(projectRoot, "public"), { withFileTypes: true });
+
+for (const entry of publicEntries) {
+  if (!entry.isDirectory() && !entry.isFile()) continue;
+
+  await cp(join(projectRoot, "public", entry.name), join(outputDirectory, entry.name), {
+    recursive: entry.isDirectory(),
+  });
+}
 
 for (const file of publicRootFiles) {
   await cp(join(projectRoot, file), join(outputDirectory, file));

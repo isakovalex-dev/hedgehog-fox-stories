@@ -36,6 +36,34 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
+test("create bootstrap marks the initial route before the application script runs", async ({ page }) => {
+  let releaseApplication;
+  let applicationScriptRequested;
+  const applicationScriptIsRequested = new Promise((resolve) => {
+    applicationScriptRequested = resolve;
+  });
+
+  await page.route("**/js/app.js*", async (route) => {
+    applicationScriptRequested();
+    await new Promise((resolve) => {
+      releaseApplication = resolve;
+    });
+    await route.continue();
+  });
+
+  const navigation = page.goto("/create", { waitUntil: "commit" });
+  await navigation;
+  await applicationScriptIsRequested;
+
+  try {
+    await expect(page.locator("html")).toHaveAttribute("data-initial-route", "create");
+  } finally {
+    releaseApplication?.();
+  }
+
+  await page.waitForLoadState("domcontentloaded");
+});
+
 test("create form sends selected values and opens the ready story", async ({ page }) => {
   await page.route(new RegExp(`${TEST_SUPABASE_URL}/rest/v1/stories\\?.*`), async (route) => {
     if (route.request().method() !== "GET") return route.fallback();
@@ -230,6 +258,9 @@ test("generation task hitboxes match the visible answer order on the artwork", a
 
   await expect(overlay).toBeVisible();
   await expect(taskImage).toHaveAttribute("src", /\/images\/generation-tasks\/5-6\/task-06\.webp$/);
+  await expect
+    .poll(() => taskImage.evaluate((image) => image.complete && image.naturalWidth > 0))
+    .toBe(true);
   await taskStage.scrollIntoViewIfNeeded();
 
   const clickStagePoint = async (xRatio, yRatio) => {
