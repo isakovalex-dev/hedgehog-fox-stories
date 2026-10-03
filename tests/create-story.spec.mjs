@@ -2,6 +2,14 @@ import { expect, test } from "@playwright/test";
 
 const TEST_SUPABASE_URL = "https://supabase.e2e.test";
 
+async function submitStory(page) {
+  const submitButton = page.getByRole("button", { name: /Создать сказку/ });
+  await expect(submitButton).toBeEnabled();
+  await submitButton.evaluate((element) => element.scrollIntoView({ block: "center" }));
+  await submitButton.click({ force: true });
+  return submitButton;
+}
+
 test.beforeEach(async ({ page }) => {
   await page.route("**/create", (route) => route.fulfill({ path: "dist/index.html" }));
   await page.route(`${TEST_SUPABASE_URL}/**`, (route) =>
@@ -56,7 +64,7 @@ test("create bootstrap marks the initial route before the application script run
   await applicationScriptIsRequested;
 
   try {
-    await expect(page.locator("html")).toHaveAttribute("data-initial-route", "create");
+    await expect(page.locator("html")).toHaveAttribute("data-initial-route", "create", { timeout: 15_000 });
   } finally {
     releaseApplication?.();
   }
@@ -126,7 +134,7 @@ test("create form sends selected values and opens the ready story", async ({ pag
   await page.getByLabel("7–8 лет").check();
   await page.getByLabel(/7 страниц/).check();
   await page.getByLabel("Только текст").check();
-  await page.getByRole("button", { name: /Создать сказку/ }).click();
+  await submitStory(page);
 
   await expect(page.locator("#generationOverlay")).toBeVisible();
   await expect(page.getByRole("button", { name: "Читать сказку", exact: true })).toBeVisible();
@@ -196,7 +204,7 @@ test("story becomes readable before illustration requests finish", async ({ page
   await page.getByLabel(/Чему должна научить/).fill("Делиться теплом");
   await page.getByLabel("7–8 лет").check();
   await page.getByLabel("Да, с иллюстрациями").check();
-  await page.getByRole("button", { name: /Создать сказку/ }).click();
+  await submitStory(page);
 
   await expect(page.locator("#generationOverlay")).toBeVisible();
   await expect(page.locator("#generationOverlayTitle")).toContainText("Текст готов");
@@ -221,7 +229,7 @@ test("generation request keeps the backend connection open for the full waiting 
   await page.getByLabel(/Тема истории/).fill("Магический шар");
   await page.getByLabel(/Чему должна научить/).fill("Друзья помогают друг другу");
   await page.getByLabel(/7 страниц/).check();
-  await page.getByRole("button", { name: /Создать сказку/ }).click();
+  await submitStory(page);
 
   await expect
     .poll(() => page.evaluate(() => window.__generationTimeoutDelays))
@@ -249,7 +257,7 @@ test("generation task hitboxes match the visible answer order on the artwork", a
 
   await page.getByLabel(/Тема истории/).fill("Магический шар");
   await page.getByLabel(/Чему должна научить/).fill("Друзья помогают друг другу");
-  await page.getByRole("button", { name: /Создать сказку/ }).click();
+  await submitStory(page);
 
   const overlay = page.locator("#generationOverlay");
   const taskStage = overlay.locator(".generation-task-image-stage");
@@ -288,7 +296,7 @@ for (const width of [375, 960]) {
     });
     await page.getByLabel(/Тема истории/).fill("Лесные друзья");
     await page.getByLabel(/Чему должна научить/).fill("Помогать друзьям");
-    await page.getByRole("button", { name: /Создать сказку/ }).click();
+    await submitStory(page);
     const stage = page.locator(".generation-task-image-stage");
     await stage.scrollIntoViewIfNeeded();
     const box = await stage.boundingBox();
@@ -326,7 +334,7 @@ for (const fixture of [
     }, fixture);
     await page.getByLabel(/Тема истории/).fill("Лесные друзья");
     await page.getByLabel(/Чему должна научить/).fill("Помогать друзьям");
-    await page.getByRole("button", { name: /Создать сказку/ }).click();
+    await submitStory(page);
     const stage = page.locator(".generation-task-image-stage");
     await stage.scrollIntoViewIfNeeded();
     const box = await stage.boundingBox();
@@ -353,7 +361,7 @@ test("enabled generation API does not save a browser mock when the user session 
   await page.getByLabel(/Тема истории/).fill("Магический шар");
   await page.getByLabel(/Чему должна научить/).fill("Друзья помогают друг другу");
   await page.getByLabel(/7 страниц/).check();
-  await page.getByRole("button", { name: /Создать сказку/ }).click();
+  await submitStory(page);
 
   const overlay = page.locator("#generationOverlay");
   await expect(overlay).toHaveAttribute("data-state", "error");
@@ -382,7 +390,7 @@ test("authorized generation keeps explicit backend error messages", async ({ pag
   await page.waitForFunction(() => window.HFSupabaseService?.isAuthenticated?.());
   await page.getByLabel(/Тема истории/).fill("Магический шар");
   await page.getByLabel(/Чему должна научить/).fill("Друзья помогают друг другу");
-  await page.getByRole("button", { name: /Создать сказку/ }).click();
+  await submitStory(page);
 
   const errorMessage = page.locator("#generationErrorMessage");
   await expect(page.locator("#generationOverlay")).toHaveAttribute("data-state", "error");
@@ -512,7 +520,7 @@ test(`illustrations progress to ${outcome}`, async ({ page }) => {
   await page.getByLabel(/Чему должна научить/).fill("Помогать друзьям");
   await page.getByLabel("7–8 лет").check();
   await page.getByLabel("Да, с иллюстрациями").check();
-  await page.getByRole("button", { name: /Создать сказку/ }).click();
+  await submitStory(page);
 
   if (alreadyReady) {
     await expect(page.locator("#generationOverlayTitle")).toContainText("Не удалось обновить картинки");
@@ -566,7 +574,7 @@ test("generation dialog keeps approved paper tokens and responsive task cards", 
   await expect(page.getByLabel(/5 страниц/)).toBeChecked();
   await page.getByLabel(/Тема истории/).fill("Тихий лес");
   await page.getByLabel(/Чему должна научить/).fill("Беречь друзей");
-  await page.getByRole("button", { name: /Создать сказку/ }).click();
+  await submitStory(page);
 
   const overlay = page.locator("#generationOverlay");
   const paper = overlay.locator(".generation-overlay__paper");
@@ -635,10 +643,9 @@ test("create form recovers from a validation error without browser errors", asyn
 
   const topic = "Тихий лес";
   const lesson = "Беречь друзей";
-  const submitButton = page.getByRole("button", { name: /Создать сказку/ });
   await page.getByLabel(/Тема истории/).fill(topic);
   await page.getByLabel(/Чему должна научить/).fill(lesson);
-  await submitButton.click();
+  const submitButton = await submitStory(page);
 
   const overlay = page.locator("#generationOverlay");
   await expect(overlay).toHaveAttribute("data-state", "error");

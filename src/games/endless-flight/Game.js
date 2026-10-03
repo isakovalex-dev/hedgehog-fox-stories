@@ -41,6 +41,14 @@ export class Game {
     requestAnimationFrame((time) => this.frame(time));
   }
 
+  setAssets(assets) {
+    this.assets = assets;
+    this.background.image = assets.background;
+    this.plane.image = assets.plane;
+    this.collectibles.image = assets.star;
+    this.obstacles.images = assets;
+  }
+
   bindLifecycle() {
     window.addEventListener("resize", () => this.resize());
     document.addEventListener("visibilitychange", () => {

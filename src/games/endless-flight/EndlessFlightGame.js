@@ -35,8 +35,15 @@ async function loadAssets() {
   return loaded;
 }
 
+function createFallbackAssets() {
+  return Object.fromEntries(
+    Object.keys(CONFIG.assets).map((name) => [name, fallbackImage(name)])
+  );
+}
+
+const game = new Game(canvas, createFallbackAssets());
+document.getElementById("loadingScreen").classList.add("hidden");
+
 loadAssets().then((assets) => {
-  const loadingScreen = document.getElementById("loadingScreen");
-  setTimeout(() => loadingScreen.classList.add("hidden"), 320);
-  new Game(canvas, assets);
+  game.setAssets(assets);
 });
