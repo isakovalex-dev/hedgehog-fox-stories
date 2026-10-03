@@ -41,7 +41,7 @@
           kind: "ticket",
           title: "Билетик развилки",
           icon: "✦",
-          prompt: "На билетике нарисована стрелка: после поворота посмотри в сторону сундука.",
+          prompt: "На билетике спрятана стрелка. Она покажется на следующем повороте.",
           buttonLabel: "Взять билетик",
           success: "Билетик подскажет дорогу, а приз ждёт только в сундуке."
         }
@@ -95,7 +95,7 @@
           kind: "ticket",
           title: "Билетик мостика",
           icon: "✧",
-          prompt: "На билетике горит фонарик. Он советует не спешить у следующей развилки.",
+          prompt: "На билетике горит фонарик. Его стрелка покажется на следующем повороте.",
           buttonLabel: "Взять билетик",
           success: "Тёплый свет подсказал, куда смотреть дальше."
         }
@@ -151,7 +151,7 @@
           kind: "ticket",
           title: "Билетик с компасом",
           icon: "✦",
-          prompt: "Стрелка маленького компаса не любит тупики и показывает к свободной тропинке справа.",
+          prompt: "Стрелка маленького компаса не любит тупики и покажется на следующем повороте.",
           buttonLabel: "Запомнить подсказку",
           success: "Компас тихо звякнул: путь открыт."
         }
@@ -352,6 +352,37 @@
     return route.reverse();
   }
 
+  function directionBetween(from, to) {
+    for (const [direction, step] of Object.entries(STEPS)) {
+      if (from.row + step.row === to.row && from.column + step.column === to.column) return direction;
+    }
+    return null;
+  }
+
+  function trailDegree(map, position) {
+    return Object.values(STEPS).filter((step) => {
+      const tile = map[position.row + step.row]?.[position.column + step.column];
+      return tile && tile !== "#";
+    }).length;
+  }
+
+  function getTicketHint(levelRef, ticket) {
+    if (!ticket || ticket.kind !== "ticket") return null;
+    const level = resolveLevel(levelRef);
+    const route = routeBetween(level.map, { row: ticket.row, column: ticket.column }, findMarker(level.map, "G"));
+
+    for (let index = 1; index < route.length - 1; index += 1) {
+      const position = route[index];
+      const incoming = directionBetween(route[index - 1], position);
+      const outgoing = directionBetween(position, route[index + 1]);
+      if (incoming && outgoing && (incoming !== outgoing || trailDegree(level.map, position) >= 3)) {
+        return { ticketId: ticket.id, row: position.row, column: position.column, direction: outgoing };
+      }
+    }
+
+    return null;
+  }
+
   function endlessChapterSetup(chapter) {
     const themeIndex = (chapter - 1) % ENDLESS_THEMES.length;
     if (chapter === 1) return { themeIndex, roomColumns: 5, roomRows: 4, difficulty: "Лёгкий", age: "3–5 лет" };
@@ -426,7 +457,7 @@
           kind: "ticket",
           title: "Билетик развилки",
           icon: "✦",
-          prompt: "На билетике нарисована стрелка. Она подскажет, куда посмотреть у следующей развилки.",
+          prompt: "На билетике нарисована стрелка. Она покажется на следующем повороте.",
           buttonLabel: "Взять билетик",
           success: "Билетик запомнил путь. А главная находка всё ещё ждёт в сундуке."
         }
@@ -477,17 +508,32 @@
       discovered: revealNearby(level, position),
       seenEncounters: [],
       pendingEncounter: entryEncounter?.id || null,
+      ticketHint: null,
+      pendingTicketHint: null,
       message: entryEncounter ? "У входа лежит записка." : "Выбери первую тропинку."
     };
   }
 
   function completeEncounter(state, encounterId) {
     if (!encounterId || state.pendingEncounter !== encounterId) return state;
+    const encounter = getEncounter(state.level || state.levelId, encounterId);
+    const ticketHint = encounter.kind === "ticket" ? getTicketHint(state.level || state.levelId, encounter) : state.ticketHint;
     return {
       ...state,
       pendingEncounter: null,
       seenEncounters: [...state.seenEncounters, encounterId],
-      message: "Подсказка запомнилась. Можно идти дальше."
+      ticketHint,
+      message: ticketHint ? "Билетик спрятал стрелку до следующего поворота." : "Подсказка запомнилась. Можно идти дальше."
+    };
+  }
+
+  function completeTicketHint(state) {
+    if (!state.pendingTicketHint) return state;
+    return {
+      ...state,
+      ticketHint: null,
+      pendingTicketHint: null,
+      message: "Стрелка билетика подсказала верный поворот."
     };
   }
 
@@ -506,6 +552,9 @@
     if (state.pendingEncounter) {
       return { ...state, moved: false, message: "Сначала посмотри на записку у тропинки." };
     }
+    if (state.pendingTicketHint) {
+      return { ...state, moved: false, message: "Сначала посмотри на стрелку билетика." };
+    }
 
     const level = state.level || resolveLevel(state.levelId);
     const position = { row: state.position.row + step.row, column: state.position.column + step.column };
@@ -518,6 +567,9 @@
     const completed = tile === "G";
     const encounter = getEncounterAt(level, position);
     const pendingEncounter = encounter && !state.seenEncounters.includes(encounter.id) ? encounter.id : null;
+    const pendingTicketHint = state.ticketHint && state.ticketHint.row === position.row && state.ticketHint.column === position.column
+      ? state.ticketHint
+      : null;
     return {
       ...state,
       position,
@@ -527,9 +579,11 @@
       prize: completed ? level.prize : state.prize,
       discovered: revealNearby(level, position, state.discovered),
       pendingEncounter,
-      message: completed ? "Сундук найден!" : pendingEncounter ? "На тропинке ждёт маленькая подсказка." : "Тропинка ведёт дальше."
+      ticketHint: pendingTicketHint ? null : state.ticketHint,
+      pendingTicketHint,
+      message: completed ? "Сундук найден!" : pendingEncounter ? "На тропинке ждёт маленькая подсказка." : pendingTicketHint ? "Билетик приготовил стрелку." : "Тропинка ведёт дальше."
     };
   }
 
-  return { LEVELS, completeEncounter, createEndlessLevel, createState, getEncounter, getEncounterAt, getLevel, move, positionKey, registerMistake };
+  return { LEVELS, completeEncounter, completeTicketHint, createEndlessLevel, createState, getEncounter, getEncounterAt, getLevel, move, positionKey, registerMistake };
 });

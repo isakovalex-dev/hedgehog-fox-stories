@@ -25,6 +25,12 @@
     w: "up", W: "up", a: "left", A: "left", s: "down", S: "down", d: "right", D: "right",
     ц: "up", ф: "left", ы: "down", в: "right"
   };
+  const TICKET_DIRECTIONS = {
+    up: { arrow: "↑", label: "вверх" },
+    down: { arrow: "↓", label: "вниз" },
+    left: { arrow: "←", label: "налево" },
+    right: { arrow: "→", label: "направо" }
+  };
   const state = {
     phase: "hero",
     hero: "hedgehog",
@@ -91,6 +97,7 @@
   function activeEncounter() {
     return state.game?.pendingEncounter ? engine.getEncounter(currentLevel(), state.game.pendingEncounter) : null;
   }
+  function activeTicketHint() { return state.game?.pendingTicketHint || null; }
 
   function startPosition(level) {
     for (let row = 0; row < level.map.length; row += 1) {
@@ -339,6 +346,20 @@
       </div>`;
   }
 
+  function renderTicketHint(ticketHint) {
+    const direction = TICKET_DIRECTIONS[ticketHint.direction] || TICKET_DIRECTIONS.up;
+    return `
+      <div class="labyrinth-encounter-backdrop">
+        <section class="labyrinth-encounter" role="dialog" aria-modal="true" aria-labelledby="labyrinthTicketHintTitle" aria-describedby="labyrinthTicketHintPrompt">
+          <div class="labyrinth-encounter__topline"><span>СТРЕЛКА БИЛЕТИКА</span><span aria-hidden="true">✦</span></div>
+          <div class="labyrinth-encounter__icon" aria-hidden="true">${direction.arrow}</div>
+          <h2 id="labyrinthTicketHintTitle">Стрелка билетика</h2>
+          <p id="labyrinthTicketHintPrompt">На следующем повороте билетик советует идти ${direction.label}.</p>
+          <button class="labyrinth-primary labyrinth-encounter__continue" data-ticket-hint-continue type="button">Понятно</button>
+        </section>
+      </div>`;
+  }
+
   function renderPauseDialog() {
     return `
       <div class="labyrinth-encounter-backdrop">
@@ -368,8 +389,9 @@
     const level = currentLevel();
     const game = state.game;
     const encounter = activeEncounter();
+    const ticketHint = activeTicketHint();
     const chapterLabel = state.mode === "endless" ? `<p class="labyrinth-map-chapter">Глава <strong data-endless-chapter>${state.endlessChapter}</strong></p>` : "";
-    const modal = state.phase === "treasure" ? renderTreasureDialog(level) : state.pauseOpen ? renderPauseDialog() : encounter ? renderEncounter(encounter) : "";
+    const modal = state.phase === "treasure" ? renderTreasureDialog(level) : state.pauseOpen ? renderPauseDialog() : encounter ? renderEncounter(encounter) : ticketHint ? renderTicketHint(ticketHint) : "";
     const start = startPosition(level);
     const startPoint = gridPoint(level, start.row, start.column);
     const isModalOpen = Boolean(modal);
@@ -503,9 +525,9 @@
   }
 
   function move(direction, focusSelector = focusSelectorForActiveElement()) {
-    if (state.phase !== "play" || !state.game || activeEncounter() || state.pauseOpen) return;
+    if (state.phase !== "play" || !state.game || activeEncounter() || activeTicketHint() || state.pauseOpen) return;
     state.game = engine.move(state.game, direction);
-    if (state.game.pendingEncounter) state.modalReturnFocus = focusSelector;
+    if (state.game.pendingEncounter || state.game.pendingTicketHint) state.modalReturnFocus = focusSelector;
     if (state.game.completed) {
       state.phase = "treasure";
       state.endedAt = Date.now();
@@ -514,7 +536,7 @@
   }
 
   function moveTo(row, column) {
-    if (state.phase !== "play" || !state.game || activeEncounter() || state.pauseOpen) return;
+    if (state.phase !== "play" || !state.game || activeEncounter() || activeTicketHint() || state.pauseOpen) return;
     const focusSelector = `[data-row="${row}"][data-column="${column}"]`;
     const distance = Math.abs(state.game.position.row - row) + Math.abs(state.game.position.column - column);
     if (distance !== 1) {
@@ -545,6 +567,14 @@
     render(focusSelector);
   }
 
+  function completeTicketHint() {
+    if (!activeTicketHint()) return;
+    state.game = engine.completeTicketHint(state.game);
+    const focusSelector = state.modalReturnFocus;
+    state.modalReturnFocus = ".labyrinth-tile.is-hero";
+    render(focusSelector);
+  }
+
   function finishTreasure() {
     if (state.phase !== "treasure" || !state.game) return;
     if (state.mode === "endless") {
@@ -568,7 +598,7 @@
   }
 
   function canUseMapGesture(event) {
-    return Boolean(state.phase === "play" && state.game && !state.pauseOpen && !activeEncounter() && event.target.closest("#labyrinthBoard"));
+    return Boolean(state.phase === "play" && state.game && !state.pauseOpen && !activeEncounter() && !activeTicketHint() && event.target.closest("#labyrinthBoard"));
   }
 
   function gridCellFromPointer(board, clientX, clientY) {
@@ -603,7 +633,7 @@
   app.addEventListener("pointerup", (event) => {
     const pointerStart = state.pointerStart;
     state.pointerStart = null;
-    if (!pointerStart || pointerStart.pointerId !== event.pointerId || state.phase !== "play" || !state.game || state.pauseOpen || activeEncounter()) return;
+    if (!pointerStart || pointerStart.pointerId !== event.pointerId || state.phase !== "play" || !state.game || state.pauseOpen || activeEncounter() || activeTicketHint()) return;
     const deltaX = event.clientX - pointerStart.clientX;
     const deltaY = event.clientY - pointerStart.clientY;
     if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) < SWIPE_MIN_DISTANCE) return;
@@ -635,6 +665,11 @@
     if (encounter) {
       if (answer) completeEncounter(answer.dataset.answer);
       else if (event.target.closest("[data-encounter-continue]")) completeEncounter();
+      return;
+    }
+
+    if (activeTicketHint()) {
+      if (event.target.closest("[data-ticket-hint-continue]")) completeTicketHint();
       return;
     }
 
@@ -743,7 +778,7 @@
       render(state.modalReturnFocus);
       return;
     }
-    if (state.phase !== "play" || !state.game || state.pauseOpen || activeEncounter() || !DIRECTION_BY_KEY[event.key]) return;
+    if (state.phase !== "play" || !state.game || state.pauseOpen || activeEncounter() || activeTicketHint() || !DIRECTION_BY_KEY[event.key]) return;
     event.preventDefault();
     move(DIRECTION_BY_KEY[event.key]);
   });

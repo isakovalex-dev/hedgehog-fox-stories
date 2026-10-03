@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { LEVELS, completeEncounter, createEndlessLevel, createState, getEncounter, getEncounterAt, move, registerMistake } = require("../js/labyrinth-engine.js");
+const { LEVELS, completeEncounter, completeTicketHint, createEndlessLevel, createState, getEncounter, getEncounterAt, move, registerMistake } = require("../js/labyrinth-engine.js");
 
 const STEPS = {
   up: { row: -1, column: 0 },
@@ -71,7 +71,8 @@ function assertEndlessLevel(level) {
 }
 
 function settleEncounter(state) {
-  return state.pendingEncounter ? completeEncounter(state, state.pendingEncounter) : state;
+  if (state.pendingEncounter) return completeEncounter(state, state.pendingEncounter);
+  return state.pendingTicketHint ? completeTicketHint(state) : state;
 }
 
 function completeRoute(levelId, hero = "hedgehog") {
@@ -212,6 +213,30 @@ test("records a hint only once when its popup completion is repeated", () => {
   assert.deepEqual(settled.seenEncounters, [entry.id]);
   assert.deepEqual(repeated.seenEncounters, [entry.id]);
   assert.equal(settled.prize, null);
+});
+
+test("reveals a ticket arrow at the next turn and only once", () => {
+  let state = settleEncounter(createState("easy", "hedgehog"));
+  for (const direction of ["up", "up", "right", "right", "right", "right", "right", "right", "up", "up", "left", "left", "left", "left", "up", "up", "right", "right", "right", "right"]) {
+    state = move(state, direction);
+  }
+  state = completeEncounter(state, state.pendingEncounter);
+
+  assert.deepEqual(state.ticketHint, { ticketId: "easy-sun-ticket", row: 3, column: 9, direction: "up" });
+
+  state = move(state, "right");
+  assert.equal(state.pendingTicketHint, null);
+  state = move(state, "right");
+  assert.deepEqual(state.pendingTicketHint, { ticketId: "easy-sun-ticket", row: 3, column: 9, direction: "up" });
+
+  const paused = move(state, "up");
+  assert.deepEqual(paused.position, { row: 3, column: 9 });
+  state = completeTicketHint(state);
+  assert.equal(state.pendingTicketHint, null);
+  assert.equal(state.ticketHint, null);
+
+  state = move(state, "up");
+  assert.deepEqual(state.position, { row: 2, column: 9 });
 });
 
 test("takes one heart for a wall or a gentle mistake without moving below zero hearts", () => {

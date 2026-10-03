@@ -52,6 +52,23 @@ async function walk(page, keys) {
   for (const key of keys) await page.keyboard.press(key);
 }
 
+async function dismissTicketArrowIfShown(page) {
+  const ticketHint = page.getByRole("dialog", { name: "Стрелка билетика" });
+  if (!await ticketHint.isVisible()) return false;
+  await expect(ticketHint).toContainText(/вверх|вниз|налево|направо/);
+  await page.getByRole("button", { name: "Понятно" }).click();
+  return true;
+}
+
+async function walkFollowingTicketArrow(page, keys) {
+  let sawTicketArrow = false;
+  for (const key of keys) {
+    await page.keyboard.press(key);
+    sawTicketArrow = await dismissTicketArrowIfShown(page) || sawTicketArrow;
+  }
+  return sawTicketArrow;
+}
+
 async function tapGridCellCenter(page, row, column) {
   const cell = page.locator(`#labyrinthBoard [data-row="${row}"][data-column="${column}"]`);
   const box = await cell.boundingBox();
@@ -127,6 +144,7 @@ async function completeEndlessChapter(page, chapter) {
   const level = await solveEndlessEntry(page, chapter);
   const directions = endlessRoute(level);
   const ticket = level.encounters.find((encounter) => encounter.kind === "ticket");
+  let sawTicketArrow = false;
 
   for (let index = 0; index < directions.length; index += 1) {
     await page.keyboard.press(GRID_STEPS[directions[index]].key);
@@ -135,8 +153,10 @@ async function completeEndlessChapter(page, chapter) {
       await expect(page.getByRole("dialog", { name: "Билетик развилки" })).toBeVisible();
       await page.locator("[data-encounter-continue]").click();
     }
+    sawTicketArrow = await dismissTicketArrowIfShown(page) || sawTicketArrow;
   }
 
+  expect(sawTicketArrow).toBe(true);
   await expect(page.locator('[data-screen="treasure"]')).toBeVisible();
   await page.getByRole("button", { name: "Дальше" }).click();
   await expect(page.locator('[data-screen="complete"]')).toBeVisible();
@@ -247,7 +267,7 @@ test("counts hints on the route but reveals the only prize in the final chest", 
   await expect(page.locator('[data-screen="play"]')).toHaveAttribute("data-hint-count", "2");
   await expect(page.locator(".labyrinth-treasure-count")).toHaveCount(0);
 
-  await walk(page, EASY_TO_GOAL_AFTER_TICKET);
+  await expect(await walkFollowingTicketArrow(page, EASY_TO_GOAL_AFTER_TICKET)).toBe(true);
   await expect(page.locator('[data-screen="treasure"]')).toHaveAttribute("data-hint-count", "2");
   await expect(page.getByRole("dialog", { name: "Сундучок лесных секретов" })).toBeVisible();
   await expect(page.locator(".labyrinth-treasure-count")).toHaveCount(0);
@@ -256,6 +276,25 @@ test("counts hints on the route but reveals the only prize in the final chest", 
   await expect(page.locator('[data-screen="complete"]')).toBeVisible();
   await expect(page.locator('[data-stars="3"]')).toBeVisible();
   await expect(page.locator("[data-complete-prize]")).toHaveText("Сундучок лесных секретов");
+});
+
+test("shows the ticket arrow at the next turn", async ({ page }) => {
+  await openTrail(page, "hedgehog", "easy");
+  await solveEntry(page);
+  await collectEasyTicket(page);
+
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.keyboard.press("ArrowRight");
+
+  const ticketHint = page.getByRole("dialog", { name: "Стрелка билетика" });
+  await expect(ticketHint).toBeVisible();
+  await expect(ticketHint).toContainText("вверх");
+  await page.getByRole("button", { name: "Понятно" }).click();
+  await expect(ticketHint).toHaveCount(0);
+
+  await page.keyboard.press("ArrowUp");
+  await expect(page.locator("[data-move-count]")).toHaveText(String(EASY_TO_TICKET.length + 3));
 });
 
 test("shows a pause guide without resetting the journey", async ({ page }) => {
@@ -372,7 +411,7 @@ test("keeps the hard treasure hidden until the final orthogonal approach", async
   await walk(page, HARD_TO_TICKET);
   await expect(page.getByRole("dialog", { name: "Билетик с компасом" })).toBeVisible();
   await page.getByRole("button", { name: "Запомнить подсказку" }).click();
-  await walk(page, HARD_TO_BESIDE_GOAL_AFTER_TICKET);
+  await expect(await walkFollowingTicketArrow(page, HARD_TO_BESIDE_GOAL_AFTER_TICKET)).toBe(true);
 
   const goal = page.locator('#labyrinthBoard [data-row="1"][data-column="13"]');
   const finalHero = page.locator('#labyrinthBoard [data-current="true"]');
@@ -389,7 +428,7 @@ test("opens the hard treasure from a physical phone tap at the final cell", asyn
   await solveEntry(page, "1");
   await walk(page, HARD_TO_TICKET);
   await page.getByRole("button", { name: "Запомнить подсказку" }).click();
-  await walk(page, HARD_TO_BESIDE_GOAL_AFTER_TICKET);
+  await expect(await walkFollowingTicketArrow(page, HARD_TO_BESIDE_GOAL_AFTER_TICKET)).toBe(true);
 
   await tapGridCellCenter(page, 1, 13);
   await expect(page.locator('[data-screen="treasure"]')).toBeVisible();
