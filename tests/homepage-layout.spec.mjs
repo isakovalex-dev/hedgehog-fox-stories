@@ -110,7 +110,7 @@ test("homepage does not preload media in the hidden generation dialog", async ({
     .locator("#generationOverlay img")
     .evaluateAll((images) => images.map((image) => image.getAttribute("loading")));
 
-  expect(loadingModes).toEqual(["lazy", "lazy"]);
+  expect(loadingModes).toEqual(["lazy", "lazy", "lazy"]);
 });
 
 test("journey map and games use the illustrated reference presentation", async ({ page }) => {
@@ -130,9 +130,10 @@ test("journey map and games use the illustrated reference presentation", async (
   expect(await gamesArtwork.evaluate((image) => image.currentSrc)).toMatch(
     /assets\/optimized\/games-clearing-fox-plane-1200\.jpg$/
   );
-  await expect(games.locator(".game-pass")).toHaveCount(2);
+  await expect(games.locator(".game-pass")).toHaveCount(3);
   await expect(games.getByRole("link", { name: /Мемори/ })).toHaveAttribute("href", "/games/memory");
   await expect(games.getByRole("link", { name: /Бесконечный полёт/ })).toHaveAttribute("href", "/endless-flight.html");
+  await expect(games.getByRole("link", { name: /Лабиринт добрых тропинок/ })).toHaveAttribute("href", "/labyrinth.html");
 
   const gamesPresentation = await games.evaluate((section) => {
     const bounds = section.getBoundingClientRect();
