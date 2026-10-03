@@ -24,7 +24,7 @@ async function loadAssets() {
     const image = new Image();
     image.onload = () => { loaded[name] = image; complete += 1; loadingBar.style.width = `${complete / entries.length * 100}%`; resolve(); };
     image.onerror = () => {
-      // Replace the matching file in /public/assets/endless-flight/ with a final transparent PNG or WebP.
+      // Replace the matching file in /assets/endless-flight/ with a final transparent PNG or WebP.
       loaded[name] = fallbackImage(name);
       complete += 1;
       loadingBar.style.width = `${complete / entries.length * 100}%`;

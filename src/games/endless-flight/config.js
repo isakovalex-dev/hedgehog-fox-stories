@@ -18,12 +18,12 @@ export const CONFIG = Object.freeze({
   storageKey: "ezhik-endless-flight-v1",
   maxDelta: 0.033,
   assets: {
-    background: "/public/assets/endless-flight/background-watercolor.png",
-    plane: "/public/assets/endless-flight/plane-heroes.png",
-    star: "/public/assets/endless-flight/collectible-star.png",
-    bird: "/public/assets/endless-flight/obstacle-bird.png",
-    balloon: "/public/assets/endless-flight/obstacle-balloon.png",
-    cloud: "/public/assets/endless-flight/obstacle-cloud.png"
+    background: "/assets/endless-flight/background-watercolor.png",
+    plane: "/assets/endless-flight/plane-heroes.png",
+    star: "/assets/endless-flight/collectible-star.png",
+    bird: "/assets/endless-flight/obstacle-bird.png",
+    balloon: "/assets/endless-flight/obstacle-balloon.png",
+    cloud: "/assets/endless-flight/obstacle-cloud.png"
   }
 });
 

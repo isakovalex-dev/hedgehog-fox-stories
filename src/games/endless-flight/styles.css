@@ -56,7 +56,7 @@ button:focus-visible, a:focus-visible { outline: 4px solid #fff; outline-offset:
 .loading-plane {
   width: 140px;
   height: 78px;
-  background: url("/public/assets/endless-flight/plane-heroes.png") center / contain no-repeat;
+  background: url("/assets/endless-flight/plane-heroes.png") center / contain no-repeat;
   animation: float 1.4s ease-in-out infinite;
 }
 .loading-track { width: min(250px, 70vw); height: 8px; overflow: hidden; border-radius: 999px; background: rgba(94, 82, 55, .14); }
@@ -164,7 +164,7 @@ h2 { font-size: clamp(38px, 6vw, 62px); line-height: 1; }
 }
 .distance-card { margin-left: auto; }
 .pause-button { pointer-events: auto; }
-.star-icon { width: 27px; height: 27px; display: block; background: url("/public/assets/endless-flight/collectible-star.png") center / contain no-repeat; }
+.star-icon { width: 27px; height: 27px; display: block; background: url("/assets/endless-flight/collectible-star.png") center / contain no-repeat; }
 .score-card.pulse { animation: scorePulse .28s ease-out; }
 
 .control-hint {
