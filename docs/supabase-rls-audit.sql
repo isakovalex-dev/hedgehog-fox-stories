@@ -113,6 +113,7 @@ with expected_functions(function_name, authenticated_execute, service_role_execu
     ('release_ai_usage', false, true),
     ('enforce_api_rate_limit', false, true),
     ('create_story_from_reservation', false, true),
+    ('create_story_from_reservation_with_illustration_state', false, true),
     ('get_current_usage', true, false),
     ('apply_yookassa_payment', false, true),
     ('create_generated_story_with_usage', false, false),

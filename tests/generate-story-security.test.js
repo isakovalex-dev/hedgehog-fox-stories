@@ -45,7 +45,7 @@ function providerResponse() {
   });
 }
 
-async function runRequest(fetchHandler) {
+async function runRequest(fetchHandler, requestBody = {}) {
   const originalFetch = global.fetch;
   const headers = {};
   let output = "";
@@ -57,7 +57,14 @@ async function runRequest(fetchHandler) {
       authorization: "Bearer caller-token",
       "x-idempotency-key": IDEMPOTENCY_KEY
     },
-    body: { topic: "прогулка", lesson: "друзья помогают друг другу", ageGroup: "5-6", mood: "bedtime", pageCount: 1 }
+    body: {
+      topic: "прогулка",
+      lesson: "друзья помогают друг другу",
+      ageGroup: "5-6",
+      mood: "bedtime",
+      pageCount: 1,
+      ...requestBody
+    }
   };
   const res = {
     statusCode: 0,
@@ -82,7 +89,7 @@ function reservation(url) {
 }
 
 function finalizer(url) {
-  return String(url) === "https://supabase.example.test/rest/v1/rpc/create_story_from_reservation";
+  return String(url) === "https://supabase.example.test/rest/v1/rpc/create_story_from_reservation_with_illustration_state";
 }
 
 function release(url) {
@@ -132,28 +139,32 @@ test("one accepted request calls the provider once then creates the story from i
             scene_tag: "cozy_house",
             image_url: "",
             image_prompt: "Ежонок и Лисёнок идут по тёплой тропинке возле уютного дома вечером."
-          }]
+          }],
+          p_illustrations_enabled: false
         });
         return json({
-          story: { id: "story-1", title: "Добрая прогулка", age_group: "5-6", mood: "перед сном", lesson: "друзья помогают друг другу" },
-          pages: [{ page_number: 1, text: "Ежонок и Лисёнок вместе нашли тёплую тропинку у дома.", scene_tag: "cozy_house", image_url: "", image_prompt: "Ежонок и Лисёнок идут по тёплой тропинке возле уютного дома вечером." }],
+          story: { id: "story-1", title: "Добрая прогулка", age_group: "5-6", mood: "перед сном", lesson: "друзья помогают друг другу", illustrations_enabled: false },
+          pages: [{ page_number: 1, text: "Ежонок и Лисёнок вместе нашли тёплую тропинку у дома.", scene_tag: "cozy_house", image_url: "", image_prompt: "Ежонок и Лисёнок идут по тёплой тропинке возле уютного дома вечером.", image_status: "skipped" }],
           subscription: { status: "free" },
           usage: { generations_used: 1, generation_limit: 3 }
         });
       }
     }
     throw new Error(`Unexpected URL: ${url}`);
-  });
+  }, { illustrationsEnabled: false });
 
   assert.equal(result.statusCode, 200);
   assert.equal(providerCalls, 1);
-  assert.deepEqual(rpcCalls, ["reserve_ai_usage", "create_story_from_reservation"]);
+  assert.deepEqual(rpcCalls, ["reserve_ai_usage", "create_story_from_reservation_with_illustration_state"]);
   assert.equal(result.body.meta.authChecked, true);
   assert.equal(result.body.meta.usageReserved, true);
   assert.equal(result.body.meta.usageIncremented, true);
   assert.equal(result.body.meta.aiProvider, "openai-compatible");
   assert.deepEqual(result.body.meta.subscription, { status: "free" });
   assert.deepEqual(result.body.meta.usage, { generations_used: 1, generation_limit: 3 });
+  assert.equal(result.body.story.useIllustrations, false);
+  assert.equal(result.body.story.illustrationsEnabled, false);
+  assert.equal(result.body.story.pages[0].imageStatus, "skipped");
 });
 
 test("provider failure releases the reserved story credit", async () => {

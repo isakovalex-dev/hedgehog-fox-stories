@@ -39,7 +39,7 @@ Current scaffold:
 - current mode: mock by default, optional OpenAI-compatible adapter behind `AI_GENERATION_ENABLED=true`;
 - current persistence: validates the Supabase JWT, reserves usage with the
   service-role-only `reserve_ai_usage` RPC, then saves `stories` and
-  `story_pages` through `create_story_from_reservation`;
+  `story_pages` through `create_story_from_reservation_with_illustration_state`;
 - failure handling: a provider or persistence failure releases the reservation;
   the old direct RPC and REST usage-write fallback are retired;
 - current fallback: if AI is enabled but the provider fails or returns invalid JSON, backend saves a mock story and returns `meta.aiFallbackReason`;

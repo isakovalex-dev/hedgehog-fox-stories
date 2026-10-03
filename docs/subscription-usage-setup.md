@@ -167,7 +167,7 @@ That endpoint should:
 Current security-remediation flow:
 
 - backend validates auth and reserves a server-side credit before a provider call;
-- backend saves `stories` and `story_pages` with `create_story_from_reservation`;
+- backend saves `stories` and `story_pages` with `create_story_from_reservation_with_illustration_state`;
 - completing that same reservation increments durable usage exactly once;
 - failures release the reservation, and expiry recovers a crashed request;
 - the browser uses `get_current_usage` only for presentation and never makes a

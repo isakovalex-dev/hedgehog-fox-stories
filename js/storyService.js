@@ -307,6 +307,28 @@
     return getUserStories();
   }
 
+  async function refreshUserStory(storyId) {
+    if (!storyId || !canUseSupabaseStories()) return null;
+
+    const refreshedStory = await supabaseService.fetchUserStory(storyId);
+    if (!refreshedStory) {
+      remoteUserStories = remoteUserStories.filter((story) => story.id !== storyId);
+      return null;
+    }
+
+    const storyToSave = normalizeStory(
+      { ...applyRemoteStoryMeta(refreshedStory), storage: "supabase" },
+      "user"
+    );
+    remoteUserStories = [
+      storyToSave,
+      ...remoteUserStories.filter((story) => story.id !== storyId)
+    ];
+    storageMode = "supabase";
+    lastStorageError = "";
+    return normalizeStory(cloneStory(storyToSave), "user");
+  }
+
   function getUserStories() {
     if (storageMode === "supabase") {
       return remoteUserStories.map((story) => normalizeStory(cloneStory(story), "user"));
@@ -422,6 +444,7 @@
         const page = normalizedStory.pages[index] || {};
         const sceneTag = page.sceneTag || normalizedStory.sceneTag || DEFAULT_SCENE_TAG;
         const pageImageUrl = page.imageUrl || (isBuiltInStory ? getSlideImageUrl(normalizedStory.id, index) : "");
+        const imageStatus = String(page.illustrationState || page.imageStatus || "").trim();
 
         return {
           pageNumber: index + 1,
@@ -429,11 +452,14 @@
           sceneTag,
           imagePrompt: page.imagePrompt || "",
           imageUrl: pageImageUrl,
+          imageStatus,
+          illustrationState: imageStatus,
           illustrationUnavailable: Boolean(page.illustrationUnavailable),
           fallbackImageUrl: isBuiltInStory
             ? getSlideFallbackImageUrl(normalizedStory.id, index)
             : "",
-          useSceneIllustration: !pageImageUrl && !page.illustrationUnavailable && !isBuiltInStory
+          useSceneIllustration: normalizedStory.useIllustrations !== false &&
+            !imageStatus && !pageImageUrl && !page.illustrationUnavailable && !isBuiltInStory
         };
       })
     };
@@ -445,6 +471,7 @@
     getAllStories,
     getStoryById,
     initializeUserStories,
+    refreshUserStory,
     saveUserStory,
     deleteUserStory,
     getUserStoriesStorageState,

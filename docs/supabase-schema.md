@@ -28,6 +28,7 @@ Fields:
 - `mood`
 - `lesson`
 - `visibility`
+- `illustrations_enabled`
 - `created_at`
 - `updated_at`
 
@@ -49,11 +50,15 @@ Fields:
 - `scene_tag`
 - `image_url`
 - `image_prompt`
+- `image_status`
 
 Notes:
 
 - `page_number` should be unique per `story_id`.
 - `scene_tag` maps generated text to a prepared illustration scene.
+- `image_status` is one of `pending`, `generating`, `ready`, `failed`, or
+  `skipped`; it lets the reader show an honest state while an illustration is
+  still being created.
 
 ## story_likes
 
@@ -158,7 +163,7 @@ applied. The security-remediation migration revokes execution of this direct
 finalizer from browser roles and service role. The supported path is:
 
 1. service role calls `reserve_ai_usage` before any paid provider request;
-2. service role calls `create_story_from_reservation` to save the story and
+2. service role calls `create_story_from_reservation_with_illustration_state` to save the story and
    consume the completed reservation atomically;
 3. `get_current_usage` is the only audited usage RPC executable by an
    authenticated browser user.

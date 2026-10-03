@@ -88,6 +88,43 @@ test("image finalization calls the atomic service RPC with its complete contract
   });
 });
 
+test("story finalization sends the explicit illustration setting to the service RPC", async () => {
+  const requests = [];
+  global.fetch = async (url, options) => {
+    requests.push({ url, options });
+    return jsonResponse({ story: { id: "story-1" }, pages: [] });
+  };
+  const aiUsage = loadAiUsage();
+
+  const result = await aiUsage.finalizeStoryReservation({
+    reservationId: IDEMPOTENCY_KEY,
+    title: "Только текст",
+    ageGroup: "7-8",
+    mood: "bedtime",
+    lesson: "Делиться теплом",
+    visibility: "private",
+    pages: [],
+    illustrationsEnabled: false
+  });
+
+  assert.equal(result.story.id, "story-1");
+  assert.equal(requests.length, 1);
+  assert.equal(
+    requests[0].url,
+    "https://example.supabase.co/rest/v1/rpc/create_story_from_reservation_with_illustration_state"
+  );
+  assert.deepEqual(JSON.parse(requests[0].options.body), {
+    p_reservation_id: IDEMPOTENCY_KEY,
+    p_title: "Только текст",
+    p_age_group: "7-8",
+    p_mood: "bedtime",
+    p_lesson: "Делиться теплом",
+    p_visibility: "private",
+    p_pages: [],
+    p_illustrations_enabled: false
+  });
+});
+
 test("image finalization rejects a non-null non-string expected image URL before fetch", async () => {
   let fetchCalls = 0;
   global.fetch = async () => {
@@ -262,7 +299,7 @@ test("non-2xx auth and RPC bodies are redacted from public errors", async () => 
 
 test("expired finalization is never returned as a created story", async () => {
   global.fetch = async (url) => {
-    if (url.endsWith("/rest/v1/rpc/create_story_from_reservation")) {
+    if (url.endsWith("/rest/v1/rpc/create_story_from_reservation_with_illustration_state")) {
       return jsonResponse({ created: false, code: "reservation_expired" });
     }
     throw new Error(`unexpected network request: ${url}`);

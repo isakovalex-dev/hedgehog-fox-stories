@@ -91,6 +91,7 @@ function logGenerationEvent(event, fields = {}) {
 
 function getSavedStoryFromRows(storyRow, pageRows) {
   const sortedPages = [...pageRows].sort((a, b) => Number(a.page_number) - Number(b.page_number));
+  const useIllustrations = storyRow.illustrations_enabled !== false;
 
   return {
     id: storyRow.id,
@@ -103,8 +104,11 @@ function getSavedStoryFromRows(storyRow, pageRows) {
       text: pageRow.text || "",
       sceneTag: pageRow.scene_tag || "forest_day",
       imageUrl: pageRow.image_url || "",
-      imagePrompt: pageRow.image_prompt || ""
+      imagePrompt: pageRow.image_prompt || "",
+      imageStatus: pageRow.image_status || (pageRow.image_url ? "ready" : useIllustrations ? "pending" : "skipped")
     })),
+    useIllustrations,
+    illustrationsEnabled: useIllustrations,
     createdAt: storyRow.created_at || "",
     updatedAt: storyRow.updated_at || ""
   };
@@ -117,7 +121,7 @@ function getSavedStoryFromRpcPayload(payload) {
   return getSavedStoryFromRows(story, pages);
 }
 
-function getStoryFinalizerInput(reservationId, story) {
+function getStoryFinalizerInput(reservationId, story, illustrationsEnabled) {
   return {
     reservationId,
     title: story.title,
@@ -131,7 +135,8 @@ function getStoryFinalizerInput(reservationId, story) {
       scene_tag: page.sceneTag || "forest_day",
       image_url: page.imageUrl || "",
       image_prompt: page.imagePrompt || ""
-    }))
+    })),
+    illustrationsEnabled: illustrationsEnabled !== false
   };
 }
 
@@ -275,6 +280,7 @@ function validateGenerationRequest(body) {
   const ageGroup = normalizeAgeGroup(body.ageGroup);
   const mood = getMood(body.mood);
   const pageCount = normalizePageCount(body.pageCount);
+  const illustrationsEnabled = body.illustrationsEnabled !== false;
 
   if (containsUnsafeContent(`${topic} ${lesson}`)) {
     errors.push("Тема или урок истории не подходят для детской сказки.");
@@ -287,7 +293,8 @@ function validateGenerationRequest(body) {
       lesson,
       ageGroup,
       mood,
-      pageCount
+      pageCount,
+      illustrationsEnabled
     }
   };
 }
@@ -656,7 +663,9 @@ async function handler(req, res) {
       throw error;
     }
 
-    const finalized = await finalizeStoryReservation(getStoryFinalizerInput(reservationId, story));
+    const finalized = await finalizeStoryReservation(
+      getStoryFinalizerInput(reservationId, story, requestValidation.value.illustrationsEnabled)
+    );
     storyFinalized = true;
     const persistenceResult = {
       story: getSavedStoryFromRpcPayload(finalized),

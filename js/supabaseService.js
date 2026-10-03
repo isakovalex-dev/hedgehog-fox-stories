@@ -475,10 +475,13 @@
 
   async function getClientStoryFromRows(storyRow, pageRows) {
     const sortedPages = [...pageRows].sort((a, b) => Number(a.page_number) - Number(b.page_number));
+    const useIllustrations = storyRow.illustrations_enabled !== false;
     const pages = await Promise.all(
       sortedPages.map(async (pageRow, index) => {
         const imageReference = pageRow.image_url || "";
         const imageUrl = await resolveStoryImageUrl(imageReference, storyRow.id);
+        const imageStatus = String(pageRow.image_status || "").trim()
+          || (imageReference ? "ready" : useIllustrations ? "pending" : "skipped");
 
         return {
           pageNumber: Number(pageRow.page_number || index + 1),
@@ -487,7 +490,8 @@
           imageReference,
           imageUrl,
           illustrationUnavailable: Boolean(imageReference) && !imageUrl,
-          imagePrompt: pageRow.image_prompt || ""
+          imagePrompt: pageRow.image_prompt || "",
+          imageStatus
         };
       })
     );
@@ -510,7 +514,8 @@
         : "Пользовательская история про Ежонка и Лисёнка.",
       pages,
       slides: pages.map((page) => page.text),
-      useIllustrations: true,
+      useIllustrations,
+      illustrationsEnabled: useIllustrations,
       createdAt: storyRow.created_at || "",
       updatedAt: storyRow.updated_at || "",
       source: "user",
@@ -609,6 +614,20 @@
     return Promise.all(
       storyRows.map((storyRow) => getClientStoryFromRows(storyRow, pagesMap.get(storyRow.id) || []))
     );
+  }
+
+  async function fetchUserStory(storyId) {
+    if (!storyId) return null;
+
+    const storyRows = await rest(
+      `/rest/v1/stories?select=*&id=eq.${encodeURIComponent(storyId)}&limit=1`,
+      { method: "GET" }
+    );
+    const storyRow = Array.isArray(storyRows) ? storyRows[0] : null;
+    if (!storyRow) return null;
+
+    const pageRows = await fetchStoryPages(storyRow.id);
+    return getClientStoryFromRows(storyRow, pageRows);
   }
 
   async function insertStoryRow(story, userId) {
@@ -750,6 +769,7 @@
     clearAuthParamsFromUrl,
     signOut,
     fetchUserStories,
+    fetchUserStory,
     saveUserStory,
     deleteUserStory,
     fetchLikedStoryIds,

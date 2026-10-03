@@ -195,14 +195,15 @@ async function releaseAiUsage(reservationId) {
 }
 
 async function finalizeStoryReservation(input) {
-  const result = await callServiceRpc("create_story_from_reservation", {
+  const result = await callServiceRpc("create_story_from_reservation_with_illustration_state", {
     p_reservation_id: assertUuid(input?.reservationId),
     p_title: String(input?.title || ""),
     p_age_group: String(input?.ageGroup || ""),
     p_mood: String(input?.mood || ""),
     p_lesson: String(input?.lesson || ""),
     p_visibility: String(input?.visibility || "private"),
-    p_pages: Array.isArray(input?.pages) ? input.pages : null
+    p_pages: Array.isArray(input?.pages) ? input.pages : null,
+    p_illustrations_enabled: input?.illustrationsEnabled !== false
   });
   if (!result || typeof result !== "object" || !result.story || !Array.isArray(result.pages)) {
     throw createError("internal_error");
