@@ -33,7 +33,9 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=25" />
+    <link rel="preload" href="styles.css?v=38" as="style" />
+    <script src="js/routeBootstrap.js?v=1"></script>
+    <link rel="stylesheet" href="styles.css?v=38" />
   </head>
   <body>
     <a class="skip-link" href="#mainContent">Перейти к содержанию</a>
@@ -44,7 +46,7 @@
     <header class="home-header">
       <nav class="site-nav" aria-label="Навигация сайта">
         <a class="nav-brand" id="navTopButton" href="/" aria-label="На главную">
-          <img src="assets/logo-mark.png" alt="" width="82" height="52" />
+          <img src="assets/logo-mark-transparent-400.png" alt="" width="82" height="52" />
           <span>Ёжик и Лисёнок</span>
         </a>
         <button
@@ -74,6 +76,7 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.7"></circle><circle cx="12" cy="9.2" r="2.5"></circle><path d="M7.6 18.3c.7-2.3 2.3-3.6 4.4-3.6s3.7 1.3 4.4 3.6"></path></svg>
             </button>
             <button class="nav-action nav-subscribe" id="navGeneratorButton" type="button">Создать историю</button>
+            <a class="nav-action nav-admin-link hidden" id="navAdminAnalyticsButton" href="/admin/analytics">Аналитика</a>
             <a class="nav-action nav-library-link" id="navLibraryButton" href="/library">Библиотека</a>
           </div>
         </div>
@@ -104,11 +107,13 @@
         <div class="hero-friends">
           <img
             class="hero-illustration"
-            src="assets/hero-seaside-bench.png"
+            src="assets/optimized/hero-seaside-bench-1200.jpg"
+            srcset="assets/optimized/hero-seaside-bench-768.jpg 768w, assets/optimized/hero-seaside-bench-1200.jpg 1200w"
+            sizes="(max-width: 720px) 122vw, (max-width: 1100px) 80vw, 65vw"
             alt="Ёжик и Лисёнок сидят на скамейке у моря и смотрят на маяк"
-            width="1627"
-            height="967"
-            fetchpriority="high"
+            width="1200"
+            height="713"
+            loading="lazy"
             decoding="async"
           />
         </div>
@@ -137,6 +142,7 @@
         </div>
 
         <div class="story-list home-story-list" id="storyList" aria-live="polite"></div>
+
       </section>
 
       <section class="travel-map journey-map journey-map--reference" id="travel-map" aria-labelledby="travelMapTitle">
@@ -163,12 +169,21 @@
 
       <section class="memory-promo games-clearing" id="memoryPromo" aria-labelledby="memoryPromoTitle">
         <div class="memory-promo__art">
-          <img src="assets/journey/reference/games-clearing-fox-plane.png" alt="Ежонок раскладывает карточки мемори, а Лисёнок запускает бумажный самолётик" width="1672" height="941" loading="lazy" decoding="async" />
+          <img
+            src="assets/optimized/games-clearing-fox-plane-1200.jpg"
+            srcset="assets/optimized/games-clearing-fox-plane-768.jpg 768w, assets/optimized/games-clearing-fox-plane-1200.jpg 1200w"
+            sizes="(max-width: 720px) 100vw, 1200px"
+            alt="Ежонок раскладывает карточки мемори, а Лисёнок запускает бумажный самолётик"
+            width="1200"
+            height="675"
+            loading="lazy"
+            decoding="async"
+          />
         </div>
         <div class="memory-promo__copy">
           <p class="journey-meta">Игровая полянка</p>
           <h2 id="memoryPromoTitle">Поиграем с Лисёнком?</h2>
-          <p>Две небольшие игры для перерыва между историями.</p>
+          <p>Три небольшие игры для перерыва между историями.</p>
           <div class="games-clearing__grid">
             <a class="game-pass game-pass--memory" data-open-memory href="/games/memory">
               <span class="game-pass__number">Игра 01</span>
@@ -181,6 +196,12 @@
               <strong>Бесконечный полёт</strong>
               <span>Лети на биплане над облаками вместе с друзьями.</span>
               <span class="game-pass__action">Взлететь →</span>
+            </a>
+            <a class="game-pass game-pass--maze" href="/labyrinth.html">
+              <span class="game-pass__number">Игра 03</span>
+              <strong>Лабиринт добрых тропинок</strong>
+              <span>Проведи Ежика или Лисёнка к маленькой находке.</span>
+              <span class="game-pass__action">Выбрать тропинку →</span>
             </a>
           </div>
         </div>
@@ -239,15 +260,38 @@
         <p class="pricing-note">Бесплатный режим включает 1 новую историю за 30 дней.</p>
       </section>
 
-      <section class="generator-section" id="generator">
-        <div class="section-heading">
-          <p class="eyebrow">Создать историю</p>
-          <h2>Новая сказка для вечера</h2>
+      <section class="generator-section create-story-section" id="generator" aria-labelledby="createStoryTitle">
+        <img
+          class="create-page-background"
+          src="assets/create/create-page-background.png"
+          width="1440"
+          height="810"
+          alt=""
+          aria-hidden="true"
+          loading="lazy"
+          decoding="async"
+        />
+
+        <div class="create-hero" id="createHero">
+          <div class="create-hero__copy">
+            <p class="eyebrow">Создать историю</p>
+            <h2 id="createStoryTitle">Новая сказка для вечера</h2>
+            <p>Расскажите, о чём мечтается сегодня, — и Ежонок с Лисёнком помогут собрать добрую книжку.</p>
+          </div>
+          <img
+            class="create-hero__illustration"
+            src="assets/create/create-hero.png"
+            width="960"
+            height="640"
+            alt="Ежонок и Лисёнок придумывают сказку у раскрытой книги"
+            loading="lazy"
+            decoding="async"
+          />
         </div>
 
-        <div class="generator-shell">
-          <form class="generator-form" id="generatorForm" novalidate>
-            <label class="field">
+        <div class="generator-shell create-generator-shell">
+          <form class="generator-form create-story-form" id="generatorForm" novalidate>
+            <label class="field create-field" for="storyTopic">
               <span>Тема истории</span>
               <input
                 id="storyTopic"
@@ -259,23 +303,42 @@
               />
             </label>
 
-            <fieldset class="field-group">
-              <legend>Возраст</legend>
-              <label><input type="radio" name="ageGroup" value="5-7" checked /> 5–7</label>
-              <label><input type="radio" name="ageGroup" value="8-10" /> 8–10</label>
+            <fieldset class="field-group create-options" id="ageGroupOptions">
+              <legend>Возраст ребёнка</legend>
+              <div class="create-choice-grid">
+                <label class="create-choice create-age-choice">
+                  <input type="radio" name="ageGroup" value="5-6" checked />
+                  <span class="create-choice__check" aria-hidden="true">✓</span>
+                  <span class="create-choice__copy"><strong>5–6 лет</strong><span>Простые слова, короткие предложения и увлекательные приключения</span></span>
+                  <img src="assets/create/create-hedgehog.png" width="160" height="180" alt="" loading="lazy" decoding="async" />
+                </label>
+                <label class="create-choice create-age-choice">
+                  <input type="radio" name="ageGroup" value="7-8" />
+                  <span class="create-choice__check" aria-hidden="true">✓</span>
+                  <span class="create-choice__copy"><strong>7–8 лет</strong><span>Больше загадок, дружбы и смелых открытий в каждом путешествии</span></span>
+                  <img src="assets/create/create-fox-lantern.png" width="160" height="180" alt="" loading="lazy" decoding="async" />
+                </label>
+                <label class="create-choice create-age-choice">
+                  <input type="radio" name="ageGroup" value="9-10" />
+                  <span class="create-choice__check" aria-hidden="true">✓</span>
+                  <span class="create-choice__copy"><strong>9–10 лет</strong><span>Неожиданные повороты, важные решения и герои, которым хочется верить</span></span>
+                  <img src="assets/create/create-hero.png" width="160" height="180" alt="" loading="lazy" decoding="async" />
+                </label>
+              </div>
             </fieldset>
 
-            <label class="field">
+            <label class="field create-field" for="storyMood">
               <span>Настроение</span>
-              <select id="storyMood" name="mood">
+              <select id="storyMood" name="mood" aria-describedby="storyMoodHelp">
                 <option value="bedtime">Перед сном</option>
                 <option value="adventure">Приключение</option>
                 <option value="friendship">Про дружбу</option>
                 <option value="bravery">Про смелость</option>
               </select>
+              <span class="create-field-help" id="storyMoodHelp" aria-live="polite">Тёплая и спокойная история для завершения дня.</span>
             </label>
 
-            <label class="field">
+            <label class="field create-field" for="storyLesson">
               <span>Чему должна научить история</span>
               <textarea
                 id="storyLesson"
@@ -287,17 +350,22 @@
               ></textarea>
             </label>
 
-            <fieldset class="field-group">
+            <fieldset class="field-group create-options" id="pageCountOptions" aria-describedby="pageCountHelp">
               <legend>Количество страниц</legend>
-              <label><input type="radio" name="pageCount" value="3" checked /> 3</label>
-              <label><input type="radio" name="pageCount" value="4" /> 4</label>
-              <label><input type="radio" name="pageCount" value="5" /> 5</label>
+              <div class="create-page-counts">
+                <label class="create-choice create-page-choice"><input type="radio" name="pageCount" value="3" /><span>3 страницы</span></label>
+                <label class="create-choice create-page-choice"><input type="radio" name="pageCount" value="5" checked /><span>5 страниц</span></label>
+                <label class="create-choice create-page-choice"><input type="radio" name="pageCount" value="7" /><span>7 страниц</span></label>
+              </div>
+              <p class="create-field-help" id="pageCountHelp" aria-live="polite">5 страниц — рекомендуемый размер для уютной сказки перед сном.</p>
             </fieldset>
 
-            <fieldset class="field-group">
+            <fieldset class="field-group create-options">
               <legend>Иллюстрации</legend>
-              <label><input type="radio" name="illustrations" value="yes" checked /> Да</label>
-              <label><input type="radio" name="illustrations" value="no" /> Нет</label>
+              <div class="create-illustration-options">
+                <label class="create-choice"><input type="radio" name="illustrations" value="yes" checked /><span>Да, с иллюстрациями</span></label>
+                <label class="create-choice"><input type="radio" name="illustrations" value="no" /><span>Только текст</span></label>
+              </div>
             </fieldset>
 
             <div class="ai-notice" role="note">
@@ -309,30 +377,7 @@
             </div>
 
             <div class="generator-actions">
-              <button class="button primary" type="submit">Создать историю</button>
-              <p class="generation-status" id="generationStatus" aria-live="polite"></p>
-            </div>
-
-            <div class="generation-wait-panel hidden" id="generationWaitPanel" aria-live="polite">
-              <div class="generation-wait-heading">
-                <p class="eyebrow">Пока история создаётся</p>
-                <h3 id="generationWaitTitle">Ежонок собирает слова...</h3>
-              </div>
-              <div class="generation-task">
-                <p id="generationTaskText">Решите маленькую задачку.</p>
-                <div class="generation-task-answer">
-                  <input
-                    id="generationTaskAnswer"
-                    type="text"
-                    inputmode="text"
-                    autocomplete="off"
-                    placeholder="Ответ"
-                  />
-                  <button class="button secondary" id="checkGenerationTaskButton" type="button">Проверить</button>
-                  <button class="button quiet" id="nextGenerationTaskButton" type="button">Другая задачка</button>
-                </div>
-                <p class="generation-task-feedback" id="generationTaskFeedback"></p>
-              </div>
+              <button class="button primary" type="submit">Создать сказку</button>
             </div>
           </form>
 
@@ -576,6 +621,8 @@
               alt="Авторский акварельный скетч Ежонка и Лисёнка"
               width="1448"
               height="1086"
+              loading="lazy"
+              decoding="async"
             />
             <p>А давай они будут друзьями?</p>
             <span class="paperclip" aria-hidden="true"></span>
@@ -838,37 +885,87 @@
 
     </main>
 
-    <div class="generation-experience hidden" id="generationExperience" role="dialog" aria-modal="true" aria-labelledby="generationExperienceTitle">
-      <div class="generation-experience__paper">
-        <header class="generation-experience__header">
-          <div>
-            <p class="eyebrow">Новая книжка уже в пути</p>
-            <h2 id="generationExperienceTitle">Мы создаём вашу историю…</h2>
-            <p>Ежик придумывает сюжет, а Лисенок готовит иллюстрации. Это может занять несколько минут.</p>
+    <div
+      class="generation-overlay"
+      id="generationOverlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="generationOverlayTitle"
+      tabindex="-1"
+      hidden
+    >
+      <div class="generation-overlay__paper">
+        <img
+          class="generation-overlay__background"
+          src="assets/create/generation-modal-background.png"
+          width="1200"
+          height="800"
+          alt=""
+          aria-hidden="true"
+          loading="lazy"
+          decoding="async"
+        />
+        <button class="button quiet generation-overlay__close" id="generationClose" type="button">Закрыть</button>
+        <header class="generation-overlay__header">
+          <img
+            class="generation-overlay__hero"
+            src="assets/create/generation-hero.png"
+            width="960"
+            height="640"
+            alt="Ежонок и Лисёнок вместе рисуют новую историю"
+            loading="lazy"
+            decoding="async"
+          />
+          <div class="generation-overlay__copy">
+            <p class="eyebrow">Это займёт 2–3 минуты</p>
+            <h2 id="generationOverlayTitle">Мы создаём вашу историю…</h2>
+            <p>Ежонок и Лисёнок раскрыли волшебную книгу. Пока страницы наполняются приключениями, можно решить маленькую задачку.</p>
           </div>
-          <button class="sound-toggle" id="gameSoundToggle" type="button" aria-pressed="false">Звук выключен</button>
         </header>
-        <ol class="generation-steps" id="generationSteps" aria-label="Этапы создания истории">
-          <li class="active">Придумываем сюжет</li><li>Пишем историю</li><li>Готовим иллюстрации</li><li>Собираем книжку</li>
+
+        <ol class="generation-progress" id="generationProgress" aria-label="Этапы создания истории">
+          <li class="is-active" data-generation-phase>Придумываем героев</li>
+          <li data-generation-phase>Собираем сюжет</li>
+          <li data-generation-phase>Пишем историю</li>
+          <li data-generation-phase>Рисуем иллюстрации</li>
+          <li data-generation-phase>Собираем книжку</li>
         </ol>
-        <div class="story-ready-notice hidden" id="storyReadyNotice" role="status">
-          <strong id="storyReadyText">История готова!</strong>
-          <div><button class="button primary" id="openReadyStoryButton" type="button">Открыть историю</button><button class="button secondary" id="finishRoundButton" type="button">Закончить раунд</button></div>
-        </div>
-        <div class="generation-error-notice hidden" id="generationErrorNotice" role="alert">
-          <strong>Историю пока не удалось создать.</strong><span> Игру можно продолжить — прогресс сохранён.</span>
-          <button class="button secondary" id="retryGenerationButton" type="button">Попробовать ещё раз</button>
-        </div>
-        <section id="gameSelector" class="game-selector" aria-labelledby="gameSelectorTitle">
-          <h3 id="gameSelectorTitle">Пока история создаётся, выбери маленькую игру</h3>
-          <div class="game-card-grid" id="gameCardGrid"></div>
-          <button class="wait-link" id="justWaitButton" type="button">Можно просто подождать</button>
+
+        <p class="generation-status" id="generationStatus" aria-live="polite"></p>
+        <p class="generation-illustration-progress" id="generationIllustrationProgress" role="status"></p>
+
+        <section class="generation-tasks-panel" id="generationTasksPanel" aria-labelledby="generationTaskTitle">
+          <h3 id="generationTaskTitle">А пока реши маленькую задачку</h3>
+          <div class="generation-task-cards" id="generationTaskCards">
+            <article class="generation-task-card generation-task-card--active" id="generationTaskCard">
+              <div class="generation-task-image-stage">
+                <img
+                  class="generation-task-image"
+                  id="generationTaskImage"
+                  width="640"
+                  height="640"
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                />
+                <div class="generation-task-options" id="generationTaskOptions" aria-label="Варианты ответа"></div>
+              </div>
+              <p class="generation-task-selection" id="generationTaskSelection" aria-live="polite"></p>
+              <p class="generation-task-feedback" id="generationTaskFeedback" aria-live="assertive"></p>
+              <p class="generation-task-hint" id="generationTaskHint" hidden></p>
+            </article>
+          </div>
+          <div class="generation-task-actions">
+            <button class="button quiet" id="generationTaskSkip" type="button">Пропустить</button>
+            <button class="button primary" id="generationTaskNext" type="button">Другая задачка</button>
+          </div>
         </section>
-        <section class="mini-game-shell hidden" id="miniGameShell" aria-live="polite">
-          <div class="mini-game-toolbar"><button class="button quiet" id="backToGamesButton" type="button">← Другие игры</button><button class="button quiet" id="difficultyButton" type="button">Сложность: 7–8 лет</button></div>
-          <div id="miniGameContent"></div>
-        </section>
-        <aside class="reward-collection" aria-label="Коллекция наград"><strong>Моя коллекция</strong><div id="rewardCollection"></div></aside>
+
+        <p class="generation-error-message" id="generationErrorMessage"></p>
+        <div class="generation-overlay__actions">
+          <button class="button secondary" id="generationRetry" type="button" hidden>Попробовать ещё раз</button>
+          <button class="button primary" id="generationOpenStoryButton" type="button" hidden>Открыть сказку</button>
+        </div>
       </div>
     </div>
 
@@ -886,23 +983,21 @@
       <small>© Ежонок и Лисёнок, 2026</small>
     </footer>
 
-    <script src="js/config.js?v=16"></script>
-    <script src="js/storageService.js?v=12"></script>
-    <script src="js/supabaseService.js?v=17"></script>
-    <script src="js/storyService.js?v=13"></script>
-    <script src="js/likeService.js?v=12"></script>
-    <script src="js/subscriptionService.js?v=12"></script>
-    <script src="js/analyticsService.js?v=14"></script>
-    <script src="js/miniGamesData.js?v=1"></script>
-    <script src="js/miniGames.js?v=1"></script>
-    <script src="js/memoryGame.js?v=2"></script>
-    <script src="js/introSplash.js?v=1"></script>
-    <script src="js/app.js?v=27"></script>
-    <script>
-      window.va = window.va || function () {
-        (window.vaq = window.vaq || []).push(arguments);
-      };
-    </script>
+    <script defer src="js/config.js?v=16"></script>
+    <script defer src="js/storageService.js?v=12"></script>
+    <script defer src="js/supabaseService.js?v=19"></script>
+    <script defer src="js/storyService.js?v=14"></script>
+    <script defer src="js/generationTasks.js?v=6"></script>
+    <script defer src="js/createStoryFlow.js?v=9"></script>
+    <script defer src="js/likeService.js?v=12"></script>
+    <script defer src="js/subscriptionService.js?v=12"></script>
+    <script defer src="js/analyticsService.js?v=15"></script>
+    <script defer src="js/miniGamesData.js?v=1"></script>
+    <script defer src="js/miniGames.js?v=1"></script>
+    <script defer src="js/memoryGame.js?v=2"></script>
+    <script defer src="js/introSplash.js?v=1"></script>
+    <script defer src="js/app.js?v=40"></script>
+    <script defer src="js/vercel-analytics.js?v=1"></script>
     <script defer src="/_vercel/insights/script.js"></script>
   </body>
 </html>

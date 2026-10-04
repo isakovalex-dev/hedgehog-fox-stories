@@ -1,16 +1,16 @@
 "use strict";
 
+const { assertPreviewSupabaseUrl } = require("./_preview-environment.js");
+
 const DEFAULT_ORIGIN = "https://ezhik-i-lisenok.ru";
-const SUPABASE_URL = process.env.SUPABASE_URL || "https://ynidvdesfolavhngubqv.supabase.co";
-const SUPABASE_ANON_KEY =
-  process.env.SUPABASE_ANON_KEY ||
-  "sb_publishable_nQg--YaINF8OoBd4wceHkA_yo76Z5hy";
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || "";
 const SUPABASE_SECRET_KEY =
   process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const IMAGE_BUCKET = "story-illustrations";
 const STORAGE_REFERENCE_PREFIX = `storage://${IMAGE_BUCKET}/`;
 const SIGNED_URL_TTL_SECONDS = 60 * 60;
 const LOCAL_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/;
+const ILLUSTRATION_FILENAME_PATTERN = /^page-[1-5](?:-\d+|-[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-4[0-9A-Fa-f]{3}-[89AaBb][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12})?\.webp$/;
 
 function getAllowedOrigin(origin) {
   if (!origin) return DEFAULT_ORIGIN;
@@ -20,6 +20,7 @@ function getAllowedOrigin(origin) {
 
 function setCorsHeaders(req, res) {
   res.setHeader("Access-Control-Allow-Origin", getAllowedOrigin(req.headers?.origin || ""));
+  res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.setHeader("Access-Control-Max-Age", "86400");
@@ -36,6 +37,12 @@ function createHttpError(statusCode, message) {
   const error = new Error(message);
   error.statusCode = statusCode;
   return error;
+}
+
+function getPublicError(error) {
+  if (error?.statusCode === 401) return { statusCode: 401, error: "unauthorized", message: "Требуется авторизация." };
+  if (error?.statusCode >= 400 && error?.statusCode < 500) return { statusCode: error.statusCode, error: "invalid_request", message: "Некорректный запрос." };
+  return { statusCode: 500, error: "illustration_unavailable", message: "Иллюстрация временно недоступна." };
 }
 
 function logSigningEvent(event, details = {}) {
@@ -92,9 +99,14 @@ async function getRequestBody(req) {
 }
 
 async function getAuthenticatedUser(accessToken) {
+  const supabaseUrl = assertPreviewSupabaseUrl();
+  if (!supabaseUrl || !SUPABASE_ANON_KEY) {
+    throw createHttpError(500, "Supabase backend config is missing");
+  }
+
   if (!accessToken) throw createHttpError(401, "Authorization token is required");
 
-  const response = await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/auth/v1/user`, {
+  const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
     method: "GET",
     headers: {
       apikey: SUPABASE_ANON_KEY,
@@ -127,7 +139,7 @@ function getOwnedObjectPath(imageReference, userId, storyId) {
     parts.length !== 3 ||
     parts[0] !== userId ||
     parts[1] !== normalizedStoryId ||
-    !/^page-[1-5](?:-\d+)?\.webp$/.test(filename)
+    !ILLUSTRATION_FILENAME_PATTERN.test(filename)
   ) {
     throw createHttpError(403, "Illustration is not available for this account");
   }
@@ -136,8 +148,9 @@ function getOwnedObjectPath(imageReference, userId, storyId) {
 }
 
 async function verifyStoryOwnership(storyId, accessToken) {
+  const supabaseUrl = assertPreviewSupabaseUrl();
   const response = await fetch(
-    `${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/stories?select=id&id=eq.${encodeURIComponent(storyId)}&limit=1`,
+    `${supabaseUrl}/rest/v1/stories?select=id&id=eq.${encodeURIComponent(storyId)}&limit=1`,
     {
       method: "GET",
       headers: {
@@ -154,12 +167,13 @@ async function verifyStoryOwnership(storyId, accessToken) {
 }
 
 async function createSignedUrl(objectPath) {
+  const supabaseUrl = assertPreviewSupabaseUrl();
   if (!SUPABASE_SECRET_KEY) {
     throw createHttpError(500, "Supabase secret key config is missing");
   }
 
   const response = await fetch(
-    `${SUPABASE_URL.replace(/\/$/, "")}/storage/v1/object/sign/${IMAGE_BUCKET}/${encodeStoragePath(objectPath)}`,
+    `${supabaseUrl}/storage/v1/object/sign/${IMAGE_BUCKET}/${encodeStoragePath(objectPath)}`,
     {
       method: "POST",
       headers: {
@@ -176,7 +190,7 @@ async function createSignedUrl(objectPath) {
   if (!signedPath) throw createHttpError(502, "Signed illustration URL is missing");
   if (/^https?:\/\//i.test(signedPath)) return signedPath;
 
-  return `${SUPABASE_URL.replace(/\/$/, "")}/storage/v1${
+  return `${supabaseUrl}/storage/v1${
     signedPath.startsWith("/") ? signedPath : `/${signedPath}`
   }`;
 }
@@ -196,6 +210,8 @@ async function handler(req, res) {
   }
 
   try {
+    assertPreviewSupabaseUrl();
+
     const accessToken = getBearerToken(req);
     const user = await getAuthenticatedUser(accessToken);
     const body = await getRequestBody(req);
@@ -207,13 +223,10 @@ async function handler(req, res) {
     sendJson(req, res, 200, { signedUrl, expiresIn: SIGNED_URL_TTL_SECONDS });
   } catch (error) {
     logSigningEvent("signed_url_failed", {
-      statusCode: error.statusCode || 500,
-      message: error.message || "Unknown error"
+      statusCode: error.statusCode || 500
     });
-    sendJson(req, res, error.statusCode || 500, {
-      error: "Illustration URL request failed",
-      message: error.message || "Unknown error"
-    });
+    const publicError = getPublicError(error);
+    sendJson(req, res, publicError.statusCode, { error: publicError.error, message: publicError.message });
   }
 }
 

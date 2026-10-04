@@ -4,20 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Переход к истории — Ежонок и Лисёнок</title>
-    <script>
-      (function () {
-        var requestedPath = window.location.pathname + window.location.search + window.location.hash;
-        window.location.replace("/?route=" + encodeURIComponent(requestedPath));
-      })();
-    </script>
+    <script src="/js/notFoundRedirect.js"></script>
   </head>
   <body>
     <p>Переходим к странице…</p>
-    <script>
-      window.va = window.va || function () {
-        (window.vaq = window.vaq || []).push(arguments);
-      };
-    </script>
+    <script src="/js/vercelAnalytics.js"></script>
     <script defer src="/_vercel/insights/script.js"></script>
   </body>
 </html>

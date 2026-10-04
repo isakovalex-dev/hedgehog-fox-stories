@@ -5,6 +5,14 @@
   const REMOTE_STORY_META_KEY = "hedgehogFoxSupabaseStoryMeta";
   const DEFAULT_COLORS = ["#cfeaf1", "#f8e9be", "#9fca84"];
   const DEFAULT_SCENE_TAG = "forest_day";
+  const SUPPORTED_AGE_GROUPS = new Set(["5-6", "7-8", "9-10", "5-7", "8-10"]);
+  const AGE_GROUP_LABELS = {
+    "5-6": "5–6 лет",
+    "7-8": "7–8 лет",
+    "9-10": "9–10 лет",
+    "5-7": "5–7 лет",
+    "8-10": "8–10 лет"
+  };
   const supabaseService = window.HFSupabaseService;
 
   // Built-in stories have curated art. User stories never borrow it: a borrowed
@@ -158,9 +166,13 @@
     return JSON.parse(JSON.stringify(story));
   }
 
-  function toAgeTag(ageValue) {
-    const normalizedAge = String(ageValue || "5-7").replace("–", "-");
-    return normalizedAge.includes("8-10") ? "8-10" : "5-7";
+  function normalizeAgeGroup(value) {
+    const ageGroup = String(value || "").replace("–", "-");
+    return SUPPORTED_AGE_GROUPS.has(ageGroup) ? ageGroup : "5-6";
+  }
+
+  function getAgeGroupLabel(value) {
+    return AGE_GROUP_LABELS[normalizeAgeGroup(value)];
   }
 
   function getLessonTags(story) {
@@ -179,7 +191,7 @@
     const slides = Array.isArray(story.slides)
       ? story.slides
       : pages.map((page) => page.text).filter(Boolean);
-    const ageGroup = toAgeTag(story.ageGroup || story.age);
+    const ageGroup = normalizeAgeGroup(story.ageGroup || story.age);
     const tags = Array.from(
       new Set([ageGroup, ...(Array.isArray(story.tags) ? story.tags : []), ...getLessonTags(story)])
     );
@@ -188,7 +200,7 @@
       ...story,
       id: story.id || `user-story-${Date.now()}`,
       title: story.title || "Новая история",
-      age: story.age || ageGroup.replace("-", "–"),
+      age: story.age || getAgeGroupLabel(ageGroup),
       ageGroup,
       time: story.time || `${Math.max(3, slides.length || 1)} минут`,
       tags,
@@ -293,6 +305,28 @@
     }
 
     return getUserStories();
+  }
+
+  async function refreshUserStory(storyId) {
+    if (!storyId || !canUseSupabaseStories()) return null;
+
+    const refreshedStory = await supabaseService.fetchUserStory(storyId);
+    if (!refreshedStory) {
+      remoteUserStories = remoteUserStories.filter((story) => story.id !== storyId);
+      return null;
+    }
+
+    const storyToSave = normalizeStory(
+      { ...applyRemoteStoryMeta(refreshedStory), storage: "supabase" },
+      "user"
+    );
+    remoteUserStories = [
+      storyToSave,
+      ...remoteUserStories.filter((story) => story.id !== storyId)
+    ];
+    storageMode = "supabase";
+    lastStorageError = "";
+    return normalizeStory(cloneStory(storyToSave), "user");
   }
 
   function getUserStories() {
@@ -410,6 +444,7 @@
         const page = normalizedStory.pages[index] || {};
         const sceneTag = page.sceneTag || normalizedStory.sceneTag || DEFAULT_SCENE_TAG;
         const pageImageUrl = page.imageUrl || (isBuiltInStory ? getSlideImageUrl(normalizedStory.id, index) : "");
+        const imageStatus = String(page.illustrationState || page.imageStatus || "").trim();
 
         return {
           pageNumber: index + 1,
@@ -417,11 +452,14 @@
           sceneTag,
           imagePrompt: page.imagePrompt || "",
           imageUrl: pageImageUrl,
+          imageStatus,
+          illustrationState: imageStatus,
           illustrationUnavailable: Boolean(page.illustrationUnavailable),
           fallbackImageUrl: isBuiltInStory
             ? getSlideFallbackImageUrl(normalizedStory.id, index)
             : "",
-          useSceneIllustration: !pageImageUrl && !page.illustrationUnavailable && !isBuiltInStory
+          useSceneIllustration: normalizedStory.useIllustrations !== false &&
+            !imageStatus && !pageImageUrl && !page.illustrationUnavailable && !isBuiltInStory
         };
       })
     };
@@ -433,10 +471,13 @@
     getAllStories,
     getStoryById,
     initializeUserStories,
+    refreshUserStory,
     saveUserStory,
     deleteUserStory,
     getUserStoriesStorageState,
     getSceneIllustrationUrls,
-    prepareStoryForReader
+    prepareStoryForReader,
+    normalizeAgeGroup,
+    getAgeGroupLabel
   };
 })(window);

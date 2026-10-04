@@ -1,12 +1,12 @@
 "use strict";
 
 const { randomUUID } = require("crypto");
+const { assertPreviewSupabaseUrl, isPaidFeatureEnabled, isPreview } = require("./_preview-environment.js");
 
 const DEFAULT_ORIGIN = "https://ezhik-i-lisenok.ru";
-const SUPABASE_URL = process.env.SUPABASE_URL || "https://ynidvdesfolavhngubqv.supabase.co";
-const SUPABASE_ANON_KEY =
-  process.env.SUPABASE_ANON_KEY || "sb_publishable_nQg--YaINF8OoBd4wceHkA_yo76Z5hy";
-const PAYMENTS_ENABLED = process.env.PAYMENTS_ENABLED === "true";
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || "";
+const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const PAYMENTS_ENABLED = isPaidFeatureEnabled("PAYMENTS_ENABLED");
 const PAYMENT_PROVIDER = process.env.PAYMENT_PROVIDER || "";
 const PAYMENT_CHECKOUT_URL = process.env.PAYMENT_CHECKOUT_URL || "";
 const YOOKASSA_SHOP_ID = process.env.YOOKASSA_SHOP_ID || "";
@@ -17,9 +17,6 @@ const FAMILY_PLAN = "family";
 const FAMILY_PRICE_RUB = "299.00";
 const FAMILY_ACCESS_DAYS = 30;
 const FAMILY_GENERATION_LIMIT = 20;
-const CHECKOUT_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
-const CHECKOUT_RATE_LIMIT_MAX_REQUESTS = 5;
-const checkoutRequestTimes = new Map();
 const LOCAL_ORIGINS = new Set([
   "http://localhost:8000",
   "http://localhost:8001",
@@ -43,8 +40,9 @@ function setCorsHeaders(req, res) {
   const allowedOrigin = getAllowedOrigin(req.headers?.origin || "");
 
   res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+  res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Idempotency-Key");
   res.setHeader("Access-Control-Max-Age", "86400");
 }
 
@@ -88,7 +86,8 @@ async function parseResponse(response) {
 }
 
 async function getAuthenticatedUser(accessToken) {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  const supabaseUrl = assertPreviewSupabaseUrl();
+  if (!supabaseUrl || !SUPABASE_ANON_KEY) {
     throw createHttpError(500, "Supabase backend config is missing");
   }
 
@@ -96,7 +95,7 @@ async function getAuthenticatedUser(accessToken) {
     throw createHttpError(401, "Authorization token is required");
   }
 
-  const response = await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/auth/v1/user`, {
+  const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
     method: "GET",
     headers: {
       apikey: SUPABASE_ANON_KEY,
@@ -114,9 +113,10 @@ async function getAuthenticatedUser(accessToken) {
 }
 
 async function hasActiveFamilySubscription(user, accessToken) {
+  const supabaseUrl = assertPreviewSupabaseUrl();
   const currentTime = encodeURIComponent(new Date().toISOString());
   const response = await fetch(
-    `${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/subscriptions?select=id&user_id=eq.${encodeURIComponent(
+    `${supabaseUrl}/rest/v1/subscriptions?select=id&user_id=eq.${encodeURIComponent(
       user.id
     )}&status=eq.active&current_period_end=gt.${currentTime}&limit=1`,
     {
@@ -140,25 +140,43 @@ function getYooKassaAuthHeader() {
   return `Basic ${Buffer.from(`${YOOKASSA_SHOP_ID}:${YOOKASSA_SECRET_KEY}`).toString("base64")}`;
 }
 
-function enforceCheckoutRateLimit(userId) {
-  const now = Date.now();
-  const requestTimes = (checkoutRequestTimes.get(userId) || []).filter(
-    (time) => now - time < CHECKOUT_RATE_LIMIT_WINDOW_MS
-  );
+async function enforceCheckoutRateLimit(userId) {
+  const supabaseUrl = assertPreviewSupabaseUrl();
+  if (!SUPABASE_SECRET_KEY) throw createHttpError(500, "Supabase service key is missing");
 
-  if (requestTimes.length >= CHECKOUT_RATE_LIMIT_MAX_REQUESTS) {
-    const retryAfterSeconds = Math.max(
-      1,
-      Math.ceil((CHECKOUT_RATE_LIMIT_WINDOW_MS - (now - requestTimes[0])) / 1000)
-    );
-    throw createHttpError(
-      429,
-      `Слишком много попыток начать оплату. Повторите через ${retryAfterSeconds} сек.`
-    );
+  const response = await fetch(`${supabaseUrl}/rest/v1/rpc/enforce_api_rate_limit`, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_SECRET_KEY,
+      Authorization: `Bearer ${SUPABASE_SECRET_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ p_user_id: userId, p_action: "checkout", p_limit: 5 })
+  });
+  const result = await parseResponse(response);
+  const rateLimit = Array.isArray(result) ? result[0] : result;
+
+  if (rateLimit?.allowed !== true || rateLimit?.code !== "allowed") {
+    const error = createHttpError(429, "Checkout rate limit exceeded");
+    error.code = "rate_limited";
+    throw error;
   }
+}
 
-  requestTimes.push(now);
-  checkoutRequestTimes.set(userId, requestTimes);
+function getPublicCheckoutError(error) {
+  if (error?.code === "rate_limited" || error?.statusCode === 429) {
+    return { statusCode: 429, error: "rate_limited", message: "Слишком много запросов. Попробуйте позже." };
+  }
+  if (error?.statusCode === 401) {
+    return { statusCode: 401, error: "unauthorized", message: "Требуется авторизация." };
+  }
+  if (error?.statusCode === 409) {
+    return { statusCode: 409, error: "checkout_unavailable", message: "Оплата сейчас недоступна." };
+  }
+  if (error?.statusCode === 501) {
+    return { statusCode: 501, error: "checkout_unavailable", message: "Оплата сейчас недоступна." };
+  }
+  return { statusCode: error?.statusCode >= 400 && error?.statusCode < 500 ? 400 : 500, error: "checkout_unavailable", message: "Оплата сейчас недоступна." };
 }
 
 async function createYooKassaPayment(user) {
@@ -258,6 +276,9 @@ async function handler(req, res) {
   }
 
   try {
+    assertPreviewSupabaseUrl();
+    if (isPreview()) throw createHttpError(501, "Payments are disabled");
+
     const accessToken = getBearerToken(req);
     const user = await getAuthenticatedUser(accessToken);
 
@@ -265,7 +286,7 @@ async function handler(req, res) {
       throw createHttpError(409, "Семейный тариф уже активен для этого аккаунта.");
     }
 
-    enforceCheckoutRateLimit(user.id);
+    await enforceCheckoutRateLimit(user.id);
     const checkout = await getCheckoutPayload(user);
 
     sendJson(req, res, 200, {
@@ -277,11 +298,8 @@ async function handler(req, res) {
       }
     });
   } catch (error) {
-    sendJson(req, res, error.statusCode || 500, {
-      error: "Checkout creation failed",
-      message: error.message || "Unknown error",
-      details: null
-    });
+    const publicError = getPublicCheckoutError(error);
+    sendJson(req, res, publicError.statusCode, { error: publicError.error, message: publicError.message });
   }
 }
 

@@ -4,15 +4,23 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const BUNDLED_STYLE_PROFILE = require("../assets/illustration-style-profile.json");
+const {
+  authenticateRequest,
+  readIdempotencyKey,
+  reserveAiUsage,
+  finalizeImageUsage,
+  releaseAiUsage,
+  createFeatureDisabledError,
+  toPublicError
+} = require("./_ai-usage.js");
+const { assertPreviewSupabaseUrl, isPaidFeatureEnabled, isPreview } = require("./_preview-environment.js");
 
 const DEFAULT_ORIGIN = "https://ezhik-i-lisenok.ru";
-const SUPABASE_URL = process.env.SUPABASE_URL || "https://ynidvdesfolavhngubqv.supabase.co";
-const SUPABASE_ANON_KEY =
-  process.env.SUPABASE_ANON_KEY ||
-  "sb_publishable_nQg--YaINF8OoBd4wceHkA_yo76Z5hy";
+const SUPABASE_URL = process.env.SUPABASE_URL || "";
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || "";
 const SUPABASE_SECRET_KEY =
   process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-const IMAGE_GENERATION_ENABLED = process.env.IMAGE_GENERATION_ENABLED === "true";
+const IMAGE_GENERATION_ENABLED = isPaidFeatureEnabled("IMAGE_GENERATION_ENABLED");
 const OPENAI_IMAGE_API_KEY = process.env.OPENAI_IMAGE_API_KEY || "";
 const IMAGE_MODEL = process.env.IMAGE_MODEL || "";
 const IMAGE_SIZE = process.env.IMAGE_SIZE || "";
@@ -24,10 +32,6 @@ const MAX_EXPLICIT_REFERENCES = 2;
 const MAX_REFERENCE_BYTES = 5 * 1024 * 1024;
 const GENERATION_MODES = new Set(["style_only", "with_references", "iteration"]);
 const LOCAL_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/;
-const ILLUSTRATION_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
-const ILLUSTRATION_RATE_LIMIT_MAX_REQUESTS = 12;
-const illustrationRequestTimes = new Map();
-
 function createHttpError(statusCode, message, details = null) {
   const error = new Error(message);
   error.statusCode = statusCode;
@@ -35,12 +39,10 @@ function createHttpError(statusCode, message, details = null) {
   return error;
 }
 
-function getSafeLogError(error) {
-  return {
-    statusCode: Number(error?.statusCode) || 500,
-    name: String(error?.name || "Error").slice(0, 80),
-    message: String(error?.message || "Unknown error").slice(0, 180)
-  };
+function createInvalidRequestError(message, statusCode = 400) {
+  const error = createHttpError(statusCode, message);
+  error.code = "invalid_request";
+  return error;
 }
 
 function logIllustrationEvent(event, fields = {}) {
@@ -55,8 +57,9 @@ function getAllowedOrigin(origin) {
 
 function setCorsHeaders(req, res) {
   res.setHeader("Access-Control-Allow-Origin", getAllowedOrigin(req.headers?.origin || ""));
+  res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Idempotency-Key");
   res.setHeader("Access-Control-Max-Age", "86400");
 }
 
@@ -80,7 +83,7 @@ function readStreamBody(req) {
     req.on("data", (chunk) => {
       rawBody += chunk;
       if (rawBody.length > 8 * 1024) {
-        reject(createHttpError(413, "Illustration request body is too large"));
+        reject(createInvalidRequestError("Illustration request body is too large", 413));
       }
     });
 
@@ -98,7 +101,7 @@ async function getRequestBody(req) {
   try {
     return JSON.parse(rawBody);
   } catch (error) {
-    throw createHttpError(400, "Illustration request body must be valid JSON");
+    throw createInvalidRequestError("Illustration request body must be valid JSON");
   }
 }
 
@@ -121,7 +124,7 @@ async function parseJsonResponse(response, fallbackMessage) {
 }
 
 async function supabaseRequest(path, options = {}, accessToken) {
-  const response = await fetch(SUPABASE_URL.replace(/\/$/, "") + path, {
+  const response = await fetch(assertPreviewSupabaseUrl().replace(/\/$/, "") + path, {
     ...options,
     headers: {
       apikey: SUPABASE_ANON_KEY,
@@ -134,25 +137,11 @@ async function supabaseRequest(path, options = {}, accessToken) {
   return parseJsonResponse(response, "Supabase request failed");
 }
 
-async function getAuthenticatedUser(req) {
-  const accessToken = getBearerToken(req);
-  if (!accessToken) {
-    throw createHttpError(401, "Authorization token is required");
-  }
-
-  const user = await supabaseRequest("/auth/v1/user", { method: "GET" }, accessToken);
-  if (!user?.id) {
-    throw createHttpError(401, "Authorization token is invalid");
-  }
-
-  return { user, accessToken };
-}
-
 function validateStoryId(storyId) {
   const normalized = String(storyId || "").trim();
 
   if (!/^[a-zA-Z0-9-]{1,80}$/.test(normalized) || normalized.length > MAX_STORY_ID_LENGTH) {
-    throw createHttpError(400, "Story id is invalid");
+    throw createInvalidRequestError("Story id is invalid");
   }
 
   return normalized;
@@ -220,7 +209,7 @@ function validatePageNumber(pageNumber) {
   const normalized = Number(pageNumber || 1);
 
   if (!Number.isInteger(normalized) || normalized < 1 || normalized > 5) {
-    throw createHttpError(400, "Page number must be between 1 and 5");
+    throw createInvalidRequestError("Page number must be between 1 and 5");
   }
 
   return normalized;
@@ -317,23 +306,23 @@ function getGenerationOptions(body, styleProfile) {
     : [];
 
   if (!GENERATION_MODES.has(mode)) {
-    throw createHttpError(400, "Illustration generation mode is invalid");
+    throw createInvalidRequestError("Illustration generation mode is invalid");
   }
 
   if (referenceIds.length > MAX_EXPLICIT_REFERENCES) {
-    throw createHttpError(400, `Choose at most ${MAX_EXPLICIT_REFERENCES} illustration references`);
+    throw createInvalidRequestError(`Choose at most ${MAX_EXPLICIT_REFERENCES} illustration references`);
   }
 
   if (mode === "style_only" && referenceIds.length) {
-    throw createHttpError(400, "style_only generation does not accept image references");
+    throw createInvalidRequestError("style_only generation does not accept image references");
   }
 
   if (mode === "with_references" && !referenceIds.length) {
-    throw createHttpError(400, "Choose at least one illustration reference");
+    throw createInvalidRequestError("Choose at least one illustration reference");
   }
 
   if (mode === "iteration" && !userInstructions) {
-    throw createHttpError(400, "Describe the illustration change for iteration mode");
+    throw createInvalidRequestError("Describe the illustration change for iteration mode");
   }
 
   const referencesById = new Map(
@@ -342,7 +331,7 @@ function getGenerationOptions(body, styleProfile) {
   const selectedReferences = referenceIds.map((referenceId) => referencesById.get(referenceId));
 
   if (selectedReferences.some((reference) => !reference)) {
-    throw createHttpError(400, "An illustration reference is not available");
+    throw createInvalidRequestError("An illustration reference is not available");
   }
 
   return { mode, userInstructions, selectedReferences };
@@ -374,7 +363,7 @@ function getOwnedObjectPath(imageReference, userId, storyId) {
     parts.length !== 3 ||
     parts[0] !== userId ||
     parts[1] !== storyId ||
-    !/^page-[1-5](?:-\d+)?\.webp$/.test(parts[2] || "")
+    !/^page-[1-5](?:-\d+|-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})?\.webp$/i.test(parts[2] || "")
   ) {
     throw createHttpError(409, "There is no saved illustration available for iteration");
   }
@@ -389,7 +378,7 @@ async function readIterationImage(page, userId, storyId) {
     .map((part) => encodeURIComponent(part))
     .join("/");
   const response = await fetch(
-    SUPABASE_URL.replace(/\/$/, "") + "/storage/v1/object/authenticated/" + IMAGE_BUCKET + "/" + encodedPath,
+    assertPreviewSupabaseUrl().replace(/\/$/, "") + "/storage/v1/object/authenticated/" + IMAGE_BUCKET + "/" + encodedPath,
     {
       method: "GET",
       headers: {
@@ -500,31 +489,12 @@ async function createImage(prompt, generationOptions, page, userId, storyId) {
   };
 }
 
-function getObjectPath(userId, storyId, pageNumber, force) {
-  const versionSuffix = force ? "-" + Date.now() : "";
-  return userId + "/" + storyId + "/page-" + pageNumber + versionSuffix + ".webp";
+function getObjectPath(userId, storyId, pageNumber) {
+  return userId + "/" + storyId + "/page-" + pageNumber + "-" + crypto.randomUUID() + ".webp";
 }
 
 function getStorageReference(objectPath) {
   return STORAGE_REFERENCE_PREFIX + objectPath;
-}
-
-function enforceIllustrationRateLimit(userId) {
-  const now = Date.now();
-  const requestTimes = (illustrationRequestTimes.get(userId) || []).filter(
-    (time) => now - time < ILLUSTRATION_RATE_LIMIT_WINDOW_MS
-  );
-
-  if (requestTimes.length >= ILLUSTRATION_RATE_LIMIT_MAX_REQUESTS) {
-    const retryAfterSeconds = Math.max(
-      1,
-      Math.ceil((ILLUSTRATION_RATE_LIMIT_WINDOW_MS - (now - requestTimes[0])) / 1000)
-    );
-    throw createHttpError(429, `Слишком много запросов на иллюстрации. Повторите через ${retryAfterSeconds} сек.`);
-  }
-
-  requestTimes.push(now);
-  illustrationRequestTimes.set(userId, requestTimes);
 }
 
 function hasCurrentPageIllustration(imageUrl, pageNumber) {
@@ -543,7 +513,7 @@ async function uploadImage(objectPath, imageBytes) {
     .map((part) => encodeURIComponent(part))
     .join("/");
   const response = await fetch(
-    SUPABASE_URL.replace(/\/$/, "") + "/storage/v1/object/" + IMAGE_BUCKET + "/" + encodedPath,
+    assertPreviewSupabaseUrl().replace(/\/$/, "") + "/storage/v1/object/" + IMAGE_BUCKET + "/" + encodedPath,
     {
       method: "POST",
       headers: {
@@ -559,26 +529,29 @@ async function uploadImage(objectPath, imageBytes) {
   await parseJsonResponse(response, "Illustration upload failed");
 }
 
-async function saveImageReference(pageId, storageReference) {
+async function deleteImage(objectPath) {
   const response = await fetch(
-    SUPABASE_URL.replace(/\/$/, "") + "/rest/v1/story_pages?id=eq." + encodeURIComponent(pageId),
+    assertPreviewSupabaseUrl().replace(/\/$/, "") + "/storage/v1/object/" + IMAGE_BUCKET,
     {
-      method: "PATCH",
+      method: "DELETE",
       headers: {
         apikey: SUPABASE_SECRET_KEY,
         Authorization: "Bearer " + SUPABASE_SECRET_KEY,
-        "Content-Type": "application/json",
-        Prefer: "return=minimal"
+        "Content-Type": "application/json"
       },
-      body: JSON.stringify({ image_url: storageReference })
+      body: JSON.stringify({ prefixes: [objectPath] })
     }
   );
 
-  await parseJsonResponse(response, "Could not save illustration reference");
+  await parseJsonResponse(response, "Illustration cleanup failed");
 }
 
 async function handler(req, res) {
   const startedAt = Date.now();
+  let reservationId = null;
+  let reservationCompleted = false;
+  let uploadedObjectPath = null;
+  let finalizationState = "not_started";
   setCorsHeaders(req, res);
 
   if (req.method === "OPTIONS") {
@@ -596,11 +569,15 @@ async function handler(req, res) {
   }
 
   try {
+    assertPreviewSupabaseUrl();
+    if (isPreview()) throw createFeatureDisabledError();
+
     const body = await getRequestBody(req);
     const storyId = validateStoryId(body.storyId);
     const pageNumber = validatePageNumber(body.pageNumber);
     const force = body.force === true;
-    const { user, accessToken } = await getAuthenticatedUser(req);
+    const accessToken = getBearerToken(req);
+    const user = await authenticateRequest(req);
     const { story, page } = await fetchStoryAndPage(storyId, pageNumber, accessToken);
     const styleProfile = await loadStyleProfile();
     const generationOptions = getGenerationOptions(body, styleProfile);
@@ -629,7 +606,13 @@ async function handler(req, res) {
       return;
     }
 
-    enforceIllustrationRateLimit(user.id);
+    const idempotencyKey = readIdempotencyKey(req);
+    const reservation = await reserveAiUsage({
+      userId: user.id,
+      resourceKind: "image",
+      idempotencyKey
+    });
+    reservationId = reservation.reservation.id;
 
     const prompt = buildIllustrationPrompt(
       story,
@@ -638,55 +621,93 @@ async function handler(req, res) {
       generationOptions.userInstructions,
       generationOptions.mode
     );
-    const imageResult = await createImage(prompt, generationOptions, page, user.id, story.id);
+    let imageResult;
+    try {
+      imageResult = await createImage(prompt, generationOptions, page, user.id, story.id);
+    } catch (error) {
+      if (!error.code && error.statusCode === 502) error.code = "provider_unavailable";
+      throw error;
+    }
     const objectPath = getObjectPath(
       user.id,
       story.id,
-      pageNumber,
-      force || generationOptions.mode === "iteration"
+      pageNumber
     );
     const storageReference = getStorageReference(objectPath);
 
     await uploadImage(objectPath, imageResult.imageBytes);
-    await saveImageReference(page.id, storageReference);
+    uploadedObjectPath = objectPath;
+    finalizationState = "started";
+    let completion;
+    try {
+      completion = await finalizeImageUsage({
+        reservationId,
+        pageId: page.id,
+        expectedImageUrl: page.image_url,
+        newImageUrl: storageReference
+      });
+      if (completion.completed !== true && completion.completed !== false) throw createHttpError(500, "Image finalization response is invalid");
+    } catch {
+      try {
+        completion = await finalizeImageUsage({
+          reservationId,
+          pageId: page.id,
+          expectedImageUrl: page.image_url,
+          newImageUrl: storageReference
+        });
+        if (completion.completed !== true && completion.completed !== false) throw createHttpError(500, "Image finalization response is invalid");
+      } catch {
+        finalizationState = "unknown";
+        throw createHttpError(500, "Image finalization failed");
+      }
+    }
+    if (completion.completed === false) {
+      finalizationState = "rejected";
+      throw createHttpError(500, "Image finalization rejected");
+    }
+    finalizationState = "completed";
+    reservationCompleted = true;
 
     logIllustrationEvent("illustration_succeeded", {
-      model: IMAGE_MODEL,
-      generationMode: generationOptions.mode,
-      styleProfileId: styleProfile.id,
-      styleProfileVersion: styleProfile.version,
-      styleProfileSourceCount: Object.keys(styleProfile.source_hashes || {}).length,
-      referenceCount: imageResult.referenceIds.length,
-      referenceIds: imageResult.referenceIds,
-      referenceHashes: imageResult.referenceHashes,
-      size: IMAGE_SIZE,
-      quality: IMAGE_QUALITY,
-      pageNumber,
-      force,
-      objectPath,
-      promptSha256: crypto.createHash("sha256").update(prompt).digest("hex"),
-      pageTextLength: cleanPromptText(page.text, 1400).length,
-      visualBriefLength: cleanPromptText(page.image_prompt, 360).length,
+      resourceKind: "image",
+      reservationIdPrefix: String(reservationId).slice(0, 8),
+      httpStatus: 200,
+      durationMs: Date.now() - startedAt,
       providerRequestId: imageResult.requestId,
-      usage: imageResult.usage,
-      estimatedCostUsd: null,
-      durationMs: Date.now() - startedAt
     });
     sendJson(req, res, 200, {
       illustrated: true,
       alreadyExists: false,
       regenerated: force,
-      pageNumber
+      pageNumber,
+      usage: completion?.usage || null
     });
   } catch (error) {
+    if (!reservationCompleted && uploadedObjectPath && (finalizationState === "not_started" || finalizationState === "rejected")) {
+      try {
+        await deleteImage(uploadedObjectPath);
+      } catch (deleteError) {
+        logIllustrationEvent("illustration_artifact_cleanup_failed", {
+          finalizationState
+        });
+      }
+    }
+    if (reservationId && !reservationCompleted && finalizationState === "not_started") {
+      try {
+        await releaseAiUsage(reservationId);
+      } catch (releaseError) {
+        logIllustrationEvent("illustration_reservation_release_failed", {
+          finalizationState
+        });
+      }
+    }
+    const publicError = toPublicError(error);
     logIllustrationEvent("illustration_failed", {
-      error: getSafeLogError(error),
-      durationMs: Date.now() - startedAt
+      finalizationState
     });
-    sendJson(req, res, error.statusCode || 500, {
-      error: "Illustration endpoint failed",
-      message: error.message || "Unknown error"
-    });
+    const payload = { error: publicError.code, message: publicError.publicMessage };
+    if (publicError.retryAfterSeconds) payload.retryAfterSeconds = publicError.retryAfterSeconds;
+    sendJson(req, res, publicError.statusCode, payload);
   }
 }
 

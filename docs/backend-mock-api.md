@@ -71,7 +71,7 @@ When AI generation is enabled:
 ```json
 {
   "topic": "потерянная ракушка",
-  "ageGroup": "5-7",
+  "ageGroup": "5-6",
   "mood": "bedtime",
   "lesson": "друзья помогают друг другу",
   "pageCount": 3
@@ -80,9 +80,9 @@ When AI generation is enabled:
 
 Supported values:
 
-- `ageGroup`: `5-7` or `8-10`;
+- `ageGroup`: `5-6`, `7-8`, `9-10`, `5-7`, or `8-10`;
 - `mood`: `bedtime`, `adventure`, `friendship`, `bravery`;
-- `pageCount`: 1-5.
+- `pageCount`: 1-7. The new UI offers 3, 5, and 7 pages.
 
 ## Response body
 
@@ -91,7 +91,7 @@ Supported values:
   "story": {
     "id": "backend-mock-123",
     "title": "Ежонок, Лисёнок и Потерянная ракушка",
-    "ageGroup": "5-7",
+    "ageGroup": "5-6",
     "mood": "перед сном",
     "lesson": "друзья помогают друг другу",
     "pages": [

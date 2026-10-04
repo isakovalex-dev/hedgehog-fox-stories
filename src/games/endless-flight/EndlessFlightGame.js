@@ -24,7 +24,7 @@ async function loadAssets() {
     const image = new Image();
     image.onload = () => { loaded[name] = image; complete += 1; loadingBar.style.width = `${complete / entries.length * 100}%`; resolve(); };
     image.onerror = () => {
-      // Replace the matching file in /public/assets/endless-flight/ with a final transparent PNG or WebP.
+      // Replace the matching file in /assets/endless-flight/ with a final transparent PNG or WebP.
       loaded[name] = fallbackImage(name);
       complete += 1;
       loadingBar.style.width = `${complete / entries.length * 100}%`;
@@ -35,8 +35,15 @@ async function loadAssets() {
   return loaded;
 }
 
+function createFallbackAssets() {
+  return Object.fromEntries(
+    Object.keys(CONFIG.assets).map((name) => [name, fallbackImage(name)])
+  );
+}
+
+const game = new Game(canvas, createFallbackAssets());
+document.getElementById("loadingScreen").classList.add("hidden");
+
 loadAssets().then((assets) => {
-  const loadingScreen = document.getElementById("loadingScreen");
-  setTimeout(() => loadingScreen.classList.add("hidden"), 320);
-  new Game(canvas, assets);
+  game.setAssets(assets);
 });
