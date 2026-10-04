@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#40553d" />
+    <title>Лабиринт добрых тропинок — Ежонок и Лисёнок</title>
+    <meta name="description" content="Помоги Ежику или Лисёнку пройти добрый лабиринт." />
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+    <link rel="preload" as="image" href="assets/labyrinth/storybook/forest-start-background-v3.png" />
+    <link rel="stylesheet" href="labyrinth.css?v=20261002-endless-2" />
+  </head>
+  <body class="labyrinth-page">
+    <a class="labyrinth-skip" href="#labyrinthApp">Перейти к игре</a>
+    <header class="labyrinth-header">
+      <a class="labyrinth-brand" href="/" aria-label="На главную страницу Ежонка и Лисёнка">
+        <span class="labyrinth-brand__mark" aria-hidden="true">❧</span>
+        <span>Ёжик и Лисёнок</span>
+      </a>
+      <a class="labyrinth-back" href="/">← К историям</a>
+    </header>
+    <main id="labyrinthApp" class="labyrinth-app" tabindex="-1"></main>
+    <script defer src="js/labyrinth-engine.js?v=20261003-ticket-1"></script>
+    <script defer src="js/labyrinth-game.js?v=20261003-ticket-1"></script>
+  </body>
+</html>
