@@ -60,17 +60,34 @@ test("journey map and games use the illustrated reference presentation", async (
     "src",
     "assets/journey/reference/games-clearing-fox-plane.png"
   );
-  await expect(games.locator(".game-pass")).toHaveCount(2);
+  await expect(games.locator(".game-pass")).toHaveCount(3);
   await expect(games.getByRole("link", { name: /Мемори/ })).toHaveAttribute("href", "/games/memory");
   await expect(games.getByRole("link", { name: /Бесконечный полёт/ })).toHaveAttribute("href", "/endless-flight.html");
+  const labyrinthGame = games.getByRole("link", { name: /Лабиринт добрых тропинок/ });
+  await expect(labyrinthGame).toHaveAttribute("href", "/labyrinth.html");
+
+  const thirdGameFitsInsideTheClearing = await games.locator(".game-pass").nth(2).evaluate((card) => {
+    const clearing = card.closest("#memoryPromo");
+    if (!clearing) {
+      throw new Error("Games clearing was not found");
+    }
+
+    const cardBounds = card.getBoundingClientRect();
+    const clearingBounds = clearing.getBoundingClientRect();
+    return cardBounds.top >= clearingBounds.top && cardBounds.bottom <= clearingBounds.bottom;
+  });
+  expect(thirdGameFitsInsideTheClearing).toBe(true);
 
   const gamesPresentation = await games.evaluate((section) => {
     const bounds = section.getBoundingClientRect();
     return { boxShadow: getComputedStyle(section).boxShadow, height: bounds.height, width: bounds.width };
   });
   expect(gamesPresentation.width).toBeLessThanOrEqual(1500);
-  expect(gamesPresentation.height).toBeCloseTo(545, 0);
+  expect(gamesPresentation.height).toBeGreaterThanOrEqual(545);
   expect(gamesPresentation.boxShadow).toBe("none");
+
+  await labyrinthGame.click();
+  await expect(page).toHaveURL(/\/labyrinth\.html$/);
 });
 
 test("featured stories start 50 pixels below the hero", async ({ page }) => {
