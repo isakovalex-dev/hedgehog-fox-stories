@@ -72,12 +72,12 @@
   gap: 0;
   align-items: center;
   width: min(100% - 2rem, 1500px);
-  height: 545px;
-  min-height: 0;
+  height: auto;
+  min-height: 545px;
   aspect-ratio: auto;
   margin: clamp(4rem, 7vw, 7rem) auto;
   padding: clamp(1rem, 2vw, 2rem);
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid rgba(103, 85, 55, 0.08);
   border-radius: 0;
   background: #fffdf8;
@@ -145,9 +145,15 @@
 
 .home-route .games-clearing__grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: clamp(0.75rem, 1.6vw, 1.25rem);
   margin-top: 1.5rem;
+}
+
+@media (max-width: 1500px) {
+  .home-route .games-clearing__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .home-route .game-pass {
